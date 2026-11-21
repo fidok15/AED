@@ -981,7 +981,8 @@ def db_file(db_path=None):
     return db_path or os.environ.get("AED_DB", DEFAULT_DB)
 
 
-def create_app(db_path=None, with_registry=True, demo=False):
+def open_db(db_path=None, with_registry=True, demo=False):
+    """Open, migrate and seed the database. The caller owns the connection and closes it."""
     conn = sqlite3.connect(db_file(db_path), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA_SQL)
@@ -989,7 +990,14 @@ def create_app(db_path=None, with_registry=True, demo=False):
     seed(conn, with_registry)
     if demo:
         demo_seed(conn)
+    return conn
 
+
+def create_app(db_path=None, with_registry=True, demo=False):
+    return build_app(open_db(db_path, with_registry, demo))
+
+
+def build_app(conn):
     app = falcon.App(middleware=[Db(conn), falcon.CORSMiddleware(allow_origins=CORS_ORIGINS)])
     parse = app.req_options.media_handlers[falcon.MEDIA_MULTIPART].parse_options
     parse.max_body_part_buffer_size = MAX_UPLOAD + 1
