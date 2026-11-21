@@ -15,6 +15,7 @@ from .registry import REGISTRY_PATH, load_registry
 from .validate import LAT, LON
 
 OSM = "openstreetmap"
+ODBL = "ODbL 1.0"
 WARSAW = "um.warszawa.pl"
 # Sources are compared on the coordinates, so only these keys need "_" meta fields:
 # "_ref_warszawa" = Warsaw defibrillator_id that an OSM node points to (tag ref:api-um-warszawa-pl).
@@ -146,6 +147,16 @@ def _needed_columns(source):
     return cols
 
 
+def _number(value):
+    """Coordinate from a source cell: accepts a decimal comma; None when empty or not a number."""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    try:
+        return float(_clean(value).replace(",", "."))
+    except ValueError:
+        return None
+
+
 def map_source(raw_dir, entry, source, licence):
     """Generic mapper of a registry entry with "format" (csv | geojson) -> (records, notes)."""
     path = os.path.join(raw_dir, source["file"])
@@ -172,15 +183,20 @@ def map_source(raw_dir, entry, source, licence):
         if source.get("address_text"):
             values.update(parse_address(row.get(source["address_text"])))
         rec = _record(source["zrodlo"], zrodlo_id, licence, entry.get("data_date"), **values)
-        if coords == "geometry":
-            lon, lat = geometry["coordinates"]
-            rec[LAT], rec[LON] = _coord(lat), _coord(lon)
-        elif coords:
-            lat, lon = float(row[coords["lat"]]), float(row[coords["lon"]])
-            if swap and not _in_pl(lat, lon) and _in_pl(lon, lat):
-                lat, lon = lon, lat
-                swapped.append(_clean(zrodlo_id))
-            rec[LAT], rec[LON] = _coord(lat), _coord(lon)
+        if coords:
+            if coords == "geometry":
+                pair = geometry.get("coordinates") if isinstance(geometry, dict) and geometry.get("type") == "Point" else None
+                lon, lat = (_number(pair[0]), _number(pair[1])) if isinstance(pair, list) and len(pair) >= 2 else (None, None)
+            else:
+                lat, lon = _number(row.get(coords["lat"])), _number(row.get(coords["lon"]))
+            if lat is None or lon is None:
+                notes.append("%s, rekord %s: brak albo niepoprawne współrzędne – pole zostawiono puste."
+                             % (source["label"], _clean(zrodlo_id)))
+            else:
+                if swap and not _in_pl(lat, lon) and _in_pl(lon, lat):
+                    lat, lon = lon, lat
+                    swapped.append(_clean(zrodlo_id))
+                rec[LAT], rec[LON] = _coord(lat), _coord(lon)
         out.append(rec)
     if swapped:
         notes.append("%s, rekordy %s: szerokość i długość geograficzna były zamienione – poprawiono."
@@ -300,8 +316,9 @@ CODE_MAPPERS = {"warszawa": warszawa, "osm": osm}
 def load_all(raw_dir, registry_path=None):
     """-> (records, notes, errors, skipped) for all sources in the registry.
 
-    errors: Polish messages (broken registry entries, sources that could not be mapped); skipped: zrodlo values
-    of registry entries that produced no records this run. Each record carries "_priority" and "_copy_values"
+    errors: Polish messages (broken registry entries, sources that could not be mapped or gave no records);
+    skipped: zrodlo values of valid registry entries that produced no records this run (an entry rejected by
+    validation has no trusted zrodlo, so consumers must rely on the zrodlo values present in the records). Each record carries "_priority" and "_copy_values"
     from its registry entry (meta fields, dropped by deduplication)."""
     sources, licences, errors = load_registry(registry_path or REGISTRY_PATH)
     manifest = _manifest(raw_dir)
@@ -318,16 +335,22 @@ def load_all(raw_dir, registry_path=None):
             problem = None
         if problem is None:
             mapper = CODE_MAPPERS[source["mapper"]] if "mapper" in source else map_source
+            licence = licences[entry["license"]]
             try:
-                recs, n = mapper(raw_dir, entry, source, licences[entry["license"]])
+                recs, n = mapper(raw_dir, entry, source, licence)
             except Exception as ex:  # a broken or changed source file must not stop the other sources
                 problem = "nie udało się odczytać pliku %s (%s: %s)" % (source["file"], type(ex).__name__, ex)
+            else:
+                if not recs:  # an emptied file must not look like "all devices of the source are gone"
+                    problem = "plik %s nie zawiera żadnych urządzeń" % source["file"]
         if problem is not None:
             errors.append("Źródło %s (%s) pominięte: %s." % (source["label"], source["zrodlo"], problem))
             skipped.append(source["zrodlo"])
             continue
+        # CLAUDE.md rule 3: values under ODbL are never copied into another source's record, whatever the flag says.
+        copy_values = source["copy_values_on_merge"] and licence != ODBL
         for r in recs:
-            r["_priority"], r["_copy_values"] = source["priority"], source["copy_values_on_merge"]
+            r["_priority"], r["_copy_values"] = source["priority"], copy_values
         records.extend(recs)
         notes.extend(n)
     return records, notes, errors, skipped

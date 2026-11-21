@@ -94,11 +94,20 @@ Licencja źródła pochodzi z manifestu pobrania (dla dane.gov.pl z API portalu)
 
 ## Gdy coś pójdzie nie tak
 
-Błędny wpis, nieobsługiwana licencja, brak pliku albo plik, w którym zmieniły się nazwy kolumn, nie zatrzymują budowy. Źródło jest pomijane, a komunikat po polsku trafia:
+Błędny wpis (także literówka w nazwie klucza), nieobsługiwana licencja, brak pliku, pusty plik albo plik, w którym zmieniły się nazwy kolumn, nie zatrzymują budowy. Źródło jest pomijane, a komunikat po polsku trafia:
 
 - do `datasets/out/raport.json` (`bledy_zrodel`, `pominiete_zrodla`) i na ekran przy `python3 -m aed_standard build` (linie zaczynające się od `!`);
 - do historii zadań w panelu ministerstwa.
 
 Urządzenia z pominiętego źródła **nie są wycofywane** z rejestru. Zostają z danymi z poprzedniego udanego przebiegu i wracają do aktualizacji po naprawie wpisu.
+
+Usługa wycofuje tylko te urządzenia, które zniknęły ze źródła, które w danym przebiegu faktycznie dostarczyło dane. Skutki uboczne, o których warto wiedzieć:
+
+- Usunięcie wpisu z `sources.json` nie wycofuje urządzeń tego źródła. Wycofanie źródła to decyzja ministerstwa, nie efekt edycji pliku.
+- Gdy pominięte jest źródło, z którym rekordy OpenStreetMap były wcześniej scalone (np. Warszawa), te rekordy OSM na czas przerwy pojawiają się w rejestrze osobno, jako `niepotwierdzony`. Po naprawie źródła są znowu scalane, a ich osobne wpisy wycofywane. Dlatego błąd źródła w historii zadań trzeba naprawić od razu.
+
+Pojedynczy wiersz z pustymi albo niepoprawnymi współrzędnymi nie pomija całego źródła. Rekord dostaje puste współrzędne (więc nie trafi do eksportu na dane.gov.pl), a w `naprawy_danych` pojawia się wpis. Przecinek dziesiętny (`52,1`) jest akceptowany.
+
+Źródło na licencji ODbL nigdy nie przekazuje swoich wartości do rekordów innych źródeł, nawet jeśli we wpisie brakuje `"copy_values_on_merge": false`.
 
 Test `tests/test_aed_standard.py` (`NewSourceTest`) pokazuje cały przypadek 2 na fikcyjnej gminie oraz pomijanie źródła z błędem.

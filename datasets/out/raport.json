@@ -324,5 +324,13 @@
     "Marki, rekordy 5, 6: różne adresy mają identyczne współrzędne 52.322235, 21.105177 – do sprawdzenia u dostawcy (bez zmian)."
   ],
   "bledy_zrodel": [],
-  "pominiete_zrodla": []
+  "pominiete_zrodla": [],
+  "zrodla_przetworzone": [
+    "dane.gov.pl/3624",
+    "dane.gov.pl/40593",
+    "dane.gov.pl/4581",
+    "dane.gov.pl/4955",
+    "openstreetmap",
+    "um.warszawa.pl"
+  ]
 }

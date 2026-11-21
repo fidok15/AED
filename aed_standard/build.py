@@ -30,7 +30,9 @@ def build_registry(raw_dir, registry_path=None):
     """-> (records, review_pairs, report). Pure: reads raw_dir (and the source registry), writes nothing.
 
     report["bledy_zrodel"]: Polish messages about registry entries and sources that were skipped;
-    report["pominiete_zrodla"]: zrodlo values of the skipped sources (their records are absent this run)."""
+    report["pominiete_zrodla"]: zrodlo values of the skipped sources (their records are absent this run);
+    report["zrodla_przetworzone"]: zrodlo values that produced records this run - only their records may be
+    treated as gone when missing from the output."""
     mapped, notes, source_errors, skipped = load_all(raw_dir, registry_path)
     for r in mapped:
         r["id_aed"] = r["id_aed"] or make_id(r["zrodlo"], r["zrodlo_id"])
@@ -76,6 +78,7 @@ def build_registry(raw_dir, registry_path=None):
         "naprawy_danych": notes,
         "bledy_zrodel": source_errors,
         "pominiete_zrodla": skipped,
+        "zrodla_przetworzone": sorted(per_source),
     }
     return records, pairs, report
 

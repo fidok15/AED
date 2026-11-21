@@ -253,10 +253,12 @@ def import_registry(db, result=None):
         out["bledy_zrodel"] = list(report["bledy_zrodel"])
     # Retire imported records that are gone from the mapper output (merged elsewhere or removed at the source).
     # Never touches submissions, manager-confirmed or ministry-decided records (origin != import).
-    # A source skipped this run (broken registry entry, unsupported licence, unreadable file) keeps its records.
+    # Only sources that produced records this run can have lost records. A source skipped this run (broken or
+    # mistyped registry entry, unsupported licence, unreadable or empty file) keeps its records untouched.
+    processed = report.get("zrodla_przetworzone")
     skipped = set(report.get("pominiete_zrodla", []))
     live = {r[0] for r in db.execute("SELECT id_aed, zrodlo FROM devices WHERE origin='import' AND status!='wycofany'")
-            if r[1] not in skipped}
+            if (r[1] in processed if processed is not None else r[1] not in skipped)}
     gone = live - {r["id_aed"] for r in records}
     if gone and (not records or len(records) < RETIRE_MIN_SHARE * len(live)):
         out["ostrzezenie"] = ("Mapper zwrócił podejrzanie mało rekordów (%d, a w rejestrze jest %d z importu); "

@@ -473,6 +473,40 @@ class JobsAndDemoTest(unittest.TestCase):
         with mock.patch.object(aed_standard, "build_registry", return_value=(recs, list(pairs), report)):
             return c.simulate_post("/api/aed/mapper/uruchom", headers=self.ministry(c))
 
+    def test_typo_in_registry_entry_retires_nothing_end_to_end(self):
+        """Real build_registry: a registry entry broken by a typo must not retire the devices of its source."""
+        real = aed_standard.build_registry
+        with open(os.path.join(ROOT, "aed_standard", "sources.json"), encoding="utf-8") as f:
+            registry = json.load(f)
+        registry["sources"] = [s for s in registry["sources"] if s["id"] in ("krosno", "legionowo")]
+        good = os.path.join(self.tmp.name, "good.json")
+        typo = os.path.join(self.tmp.name, "typo.json")
+        with open(good, "w", encoding="utf-8") as f:
+            json.dump(registry, f, ensure_ascii=False)
+        registry["sources"][0]["feilds"] = registry["sources"][0].pop("fields")
+        with open(typo, "w", encoding="utf-8") as f:
+            json.dump(registry, f, ensure_ascii=False)
+        c = self.client()
+        m = self.ministry(c)
+
+        def run(reg):
+            with mock.patch.object(aed_standard, "build_registry", side_effect=lambda raw: real(raw, registry_path=reg)):
+                r = c.simulate_post("/api/aed/mapper/uruchom", headers=m)
+            self.assertEqual(r.status_code, 200)
+            return r.json
+
+        first = run(good)
+        self.assertEqual(first["dodano"], 45)  # Krosno 21 + Legionowo 24
+        broken = run(typo)
+        self.assertEqual(broken["wycofano"], 0)
+        jobs = c.simulate_get("/api/aed/zadania", headers=m).json["dane"]
+        self.assertIn("feilds", " ".join(jobs[0]["bledy"]))
+        krosno = c.simulate_get("/api/aed/urzadzenia", params={"zrodlo": "dane.gov.pl/3624", "na_stronie": 100}).json
+        self.assertEqual(krosno["razem"], 21)
+        self.assertEqual({d["status"] for d in krosno["dane"]}, {"niepotwierdzony"})
+        fixed = run(good)
+        self.assertEqual((fixed["dodano"], fixed["wycofano"]), (0, 0))
+
     def test_skipped_source_is_not_retired_and_error_is_in_job_history(self):
         c = self.client()
         recs = [self.imported(i) for i in range(1, 5)] + [self.imported(i, zrodlo="inne") for i in range(5, 9)]

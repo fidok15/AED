@@ -78,7 +78,8 @@ NEW_ENTRY = {"id": "testowo", "label": "Testowo", "zrodlo": "dane.gov.pl/999999"
 class NewSourceTest(unittest.TestCase):
     """A municipality added with a registry entry only: a copy of the real raw snapshot plus one fictitious file."""
 
-    def fixture(self, licence="CC0 1.0", header="Id,Nazwa,Miasto,Lat,Lon", in_manifest=True):
+    def fixture(self, licence="CC0 1.0", header="Id,Nazwa,Miasto,Lat,Lon", in_manifest=True, rows=None, entry=None,
+                build=True):
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp)
         raw = os.path.join(tmp, "raw")
@@ -89,7 +90,8 @@ class NewSourceTest(unittest.TestCase):
         for name in os.listdir(DGP):
             os.symlink(os.path.join(DGP, name), os.path.join(raw, "dane_gov_pl", name))
         with open(os.path.join(raw, NEW_ENTRY["file"]), "w", encoding="utf-8") as f:
-            f.write(header + "\n1,Urząd Gminy Testowo,Testowo,52.1,19.1\n2,Szkoła Testowo,Testowo,52.2,19.2\n")
+            body = rows if rows is not None else "1,Urząd Gminy Testowo,Testowo,52.1,19.1\n2,Szkoła Testowo,Testowo,52.2,19.2\n"
+            f.write(header + "\n" + body)
         with open(os.path.join(RAW, "manifest.json"), encoding="utf-8") as f:
             manifest = json.load(f)
         if in_manifest:
@@ -99,11 +101,11 @@ class NewSourceTest(unittest.TestCase):
             json.dump(manifest, f, ensure_ascii=False)
         with open(os.path.join(ROOT, "aed_standard", "sources.json"), encoding="utf-8") as f:
             registry = json.load(f)
-        registry["sources"].append(NEW_ENTRY)
+        registry["sources"].append(entry or NEW_ENTRY)
         reg = os.path.join(tmp, "sources.json")
         with open(reg, "w", encoding="utf-8") as f:
             json.dump(registry, f, ensure_ascii=False)
-        return A.build_registry(raw, registry_path=reg)
+        return A.build_registry(raw, registry_path=reg) if build else M.load_all(raw, reg)
 
     def test_new_municipality_by_configuration_only(self):
         records, _, report = self.fixture()
@@ -128,6 +130,35 @@ class NewSourceTest(unittest.TestCase):
         self.assertIn("Testowo", report["bledy_zrodel"][0])
         self.assertIn("Nazwa", report["bledy_zrodel"][0])
         self.assertEqual(report["rejestr_rekordy"], 18814)
+
+    def test_invalid_entry_is_not_listed_as_processed(self):
+        # a typo in a key drops the entry at validation: its zrodlo must not be among the processed sources,
+        # so the service never treats its devices as gone
+        _, _, report = self.fixture(entry=dict(NEW_ENTRY, feilds={}))
+        self.assertIn("feilds", report["bledy_zrodel"][0])
+        self.assertNotIn("dane.gov.pl/999999", report["zrodla_przetworzone"])
+        self.assertIn("dane.gov.pl/3624", report["zrodla_przetworzone"])
+
+    def test_header_only_file_skips_source(self):
+        _, _, report = self.fixture(rows="")
+        self.assertEqual(report["pominiete_zrodla"], ["dane.gov.pl/999999"])
+        self.assertNotIn("dane.gov.pl/999999", report["zrodla_przetworzone"])
+
+    def test_odbl_source_never_copies_values_whatever_the_flag(self):
+        records, _, _, _ = self.fixture(licence="ODbL 1.0 (© OpenStreetMap contributors)", build=False)
+        mine = [r for r in records if r["zrodlo"] == "dane.gov.pl/999999"]
+        self.assertEqual(len(mine), 2)
+        self.assertEqual({r["_copy_values"] for r in mine}, {False})
+
+    def test_bad_coordinates_blank_only_that_row(self):
+        rows = '1,Urząd,Testowo,"52,1","19,1"\n2,Szkoła,Testowo,,19.2\n3,Przedszkole,Testowo,52.3,19.3\n'
+        records, notes, errors, _ = self.fixture(rows=rows, build=False)
+        mine = {r["zrodlo_id"]: r for r in records if r["zrodlo"] == "dane.gov.pl/999999"}
+        self.assertEqual(errors, [])
+        self.assertEqual((mine["1"]["szerokosc_geograficzna"], mine["1"]["dlugosc_geograficzna"]), ("52.1", "19.1"))
+        self.assertEqual((mine["2"]["szerokosc_geograficzna"], mine["2"]["dlugosc_geograficzna"]), ("", ""))
+        self.assertEqual(mine["3"]["szerokosc_geograficzna"], "52.3")
+        self.assertTrue(any("Testowo, rekord 2" in n for n in notes), notes)
 
     def test_missing_file_skips_source(self):
         _, _, report = self.fixture(in_manifest=False)
