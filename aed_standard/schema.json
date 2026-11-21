@@ -1,0 +1,269 @@
+{
+  "name": "aed-standard",
+  "title": "Wzorcowy zakres danych o defibrylatorach AED",
+  "version": "0.1.0",
+  "description": "Jeden wiersz to jedno urządzenie AED. Format zgodny z Frictionless Table Schema; klucze grupa, waga, przyklad i zrodla są rozszerzeniami tego standardu. CSV: UTF-8, separator przecinek, jeden wiersz nagłówka, kropka dziesiętna, daty RRRR-MM-DD, współrzędne WGS84.",
+  "missingValues": [""],
+  "primaryKey": "id_aed",
+  "wartosci_logiczne": {"prawda": "tak", "falsz": "nie"},
+  "profile_wymagalnosci": {
+    "sprzedaz": {
+      "opis": "Zgłoszenie urządzenia przez producenta lub sprzedawcę przy sprzedaży. Miejsce montażu nie jest jeszcze znane.",
+      "wymagane": ["producent", "model", "numer_seryjny", "data_produkcji", "data_waznosci_elektrod", "data_waznosci_baterii", "dysponent_nazwa", "dysponent_email"]
+    },
+    "publikacja": {
+      "opis": "Rekord w zbiorze krajowym publikowanym na dane.gov.pl.",
+      "wymagane": ["id_aed", "nazwa", "szerokosc_geograficzna", "dlugosc_geograficzna", "miejscowosc", "status", "zrodlo", "licencja"]
+    }
+  },
+  "reguly": [
+    "Rekord o statusie aktywny musi mieć wypełnione pola dostep, godziny_dostepu i data_weryfikacji.",
+    "Współrzędne muszą leżeć w granicach Polski; zamienione szerokość i długość są zgłaszane jako błąd z podpowiedzią.",
+    "Daty nie mogą być z przyszłości, z wyjątkiem dat ważności elektrod i baterii.",
+    "Minięta data ważności elektrod lub baterii jest ostrzeżeniem, nie błędem.",
+    "Para producent i numer_seryjny jest unikalna."
+  ],
+  "fields": [
+    {
+      "name": "id_aed", "title": "Identyfikator AED", "type": "string", "grupa": "identyfikacja", "waga": 0,
+      "description": "Stały identyfikator urządzenia w rejestrze krajowym, nadawany przez system przy przyjęciu zgłoszenia. Nigdy nie jest używany ponownie. Zakodowany w naklejce QR.",
+      "constraints": {"pattern": "^[A-Z0-9-]{1,36}$"},
+      "przyklad": "AED-7F3K9Q2M4XTB",
+      "zrodla": {"krosno_marki": "Numer Id", "przemysl": "id", "warszawa": "defibrillator_id", "osm": "@osm_type/@osm_id"}
+    },
+    {
+      "name": "nazwa", "title": "Nazwa miejsca", "type": "string", "grupa": "polozenie", "waga": 2,
+      "description": "Nazwa obiektu lub miejsca, w którym znajduje się urządzenie. Służy jako etykieta punktu na mapie.",
+      "przyklad": "Urząd Miasta Legionowo",
+      "zrodla": {"legionowo": "nazwa", "krosno_marki": "Lokalizacja", "przemysl": "name", "warszawa": "location_object_name", "osm": "name | operator | description"}
+    },
+    {
+      "name": "szerokosc_geograficzna", "title": "Szerokość geograficzna", "type": "number", "grupa": "polozenie", "waga": 3,
+      "description": "Szerokość geograficzna w układzie WGS84, stopnie dziesiętne z kropką.",
+      "constraints": {"minimum": 49.0, "maximum": 54.9},
+      "przyklad": "52.395198",
+      "zrodla": {"legionowo": "szerokosc_geograficzna", "krosno_marki": "Szerokość geograficzna", "przemysl": "geometry.coordinates[1]", "warszawa": "geometry.coordinates[0][1]", "osm": "geometry.coordinates[1]"}
+    },
+    {
+      "name": "dlugosc_geograficzna", "title": "Długość geograficzna", "type": "number", "grupa": "polozenie", "waga": 3,
+      "description": "Długość geograficzna w układzie WGS84, stopnie dziesiętne z kropką.",
+      "constraints": {"minimum": 14.1, "maximum": 24.2},
+      "przyklad": "20.931382",
+      "zrodla": {"legionowo": "dlugosc_geograficzna", "krosno_marki": "Długość geograficzna", "przemysl": "geometry.coordinates[0]", "warszawa": "geometry.coordinates[0][0]", "osm": "geometry.coordinates[0]"}
+    },
+    {
+      "name": "miejscowosc", "title": "Miejscowość", "type": "string", "grupa": "polozenie", "waga": 2,
+      "description": "Nazwa miejscowości.",
+      "przyklad": "Legionowo",
+      "zrodla": {"legionowo": "miejscowosc", "krosno_marki": "Adres (część)", "przemysl": "city", "warszawa": "location_city", "osm": "addr:city"}
+    },
+    {
+      "name": "cecha_ulicy", "title": "Cecha ulicy", "type": "string", "grupa": "polozenie", "waga": 0,
+      "description": "Rodzaj ulicy: ulica, aleja, plac, osiedle, rondo i podobne.",
+      "przyklad": "ulica",
+      "zrodla": {"legionowo": "cecha_ulicy"}
+    },
+    {
+      "name": "nazwa_ulicy", "title": "Nazwa ulicy", "type": "string", "grupa": "polozenie", "waga": 1,
+      "description": "Nazwa ulicy bez cechy i numeru.",
+      "przyklad": "Piłsudskiego",
+      "zrodla": {"legionowo": "nazwa_ulicy", "krosno_marki": "Adres (część)", "przemysl": "street", "warszawa": "location_street", "osm": "addr:street"}
+    },
+    {
+      "name": "nr_budynku", "title": "Numer budynku", "type": "string", "grupa": "polozenie", "waga": 1,
+      "description": "Numer budynku.",
+      "przyklad": "41",
+      "zrodla": {"legionowo": "nr_budynku", "krosno_marki": "Adres (część)", "przemysl": "home_number", "warszawa": "location_building", "osm": "addr:housenumber"}
+    },
+    {
+      "name": "nr_lokalu", "title": "Numer lokalu", "type": "string", "grupa": "polozenie", "waga": 0,
+      "description": "Numer lokalu, jeśli dotyczy.",
+      "przyklad": "",
+      "zrodla": {"legionowo": "nr_lokalu"}
+    },
+    {
+      "name": "kod_pocztowy", "title": "Kod pocztowy", "type": "string", "grupa": "polozenie", "waga": 1,
+      "description": "Kod pocztowy w formacie NN-NNN.",
+      "constraints": {"pattern": "^[0-9]{2}-[0-9]{3}$"},
+      "przyklad": "05-120",
+      "zrodla": {"legionowo": "kod_pocztowy", "krosno_marki": "Adres (część)", "przemysl": "postcode", "warszawa": "location_postcode", "osm": "addr:postcode"}
+    },
+    {
+      "name": "kod_terc", "title": "Kod TERC gminy", "type": "string", "grupa": "polozenie", "waga": 1,
+      "description": "Identyfikator gminy z rejestru TERYT: 7 cyfr z rodzajem gminy; dopuszczalne 6 cyfr bez rodzaju.",
+      "constraints": {"pattern": "^[0-9]{6,7}$"},
+      "przyklad": "1408011",
+      "zrodla": {"legionowo": "kod_terc"}
+    },
+    {
+      "name": "kod_simc", "title": "Kod SIMC miejscowości", "type": "string", "grupa": "polozenie", "waga": 0,
+      "description": "Identyfikator miejscowości z rejestru TERYT, 7 cyfr.",
+      "constraints": {"pattern": "^[0-9]{7}$"},
+      "przyklad": "0920806",
+      "zrodla": {"legionowo": "kod_simc"}
+    },
+    {
+      "name": "opis_lokalizacji", "title": "Opis miejsca w obiekcie", "type": "string", "grupa": "polozenie", "waga": 2,
+      "description": "Gdzie dokładnie znajduje się urządzenie, opisane słowami dla osoby, która nie zna obiektu.",
+      "przyklad": "Hol główny, przy portierni, na lewo od wejścia",
+      "zrodla": {"warszawa": "location_description", "osm": "defibrillator:location:pl | defibrillator:location"}
+    },
+    {
+      "name": "wewnatrz_budynku", "title": "Wewnątrz budynku", "type": "boolean", "trueValues": ["tak"], "falseValues": ["nie"], "grupa": "polozenie", "waga": 1,
+      "description": "Czy urządzenie znajduje się wewnątrz budynku: tak albo nie.",
+      "przyklad": "tak",
+      "zrodla": {"warszawa": "device_location", "osm": "indoor"}
+    },
+    {
+      "name": "dostep", "title": "Dostęp", "type": "string", "grupa": "dostep", "waga": 3,
+      "description": "Kto może sięgnąć po urządzenie: publiczny (każdy), ograniczony (np. tylko klienci lub w asyście personelu), prywatny (tylko uprawnieni; rekord nie jest publikowany).",
+      "constraints": {"enum": ["publiczny", "ograniczony", "prywatny"]},
+      "przyklad": "publiczny",
+      "zrodla": {"warszawa": "device_public_access", "osm": "access"}
+    },
+    {
+      "name": "godziny_dostepu", "title": "Godziny dostępu", "type": "string", "grupa": "dostep", "waga": 3,
+      "description": "Godziny, w których urządzenie jest dostępne, w składni opening_hours z OpenStreetMap. Całodobowo: 24/7.",
+      "przyklad": "Mo-Fr 08:00-16:00",
+      "zrodla": {"warszawa": "device_availability (Tak = 24/7)", "osm": "opening_hours"}
+    },
+    {
+      "name": "godziny_dostepu_opis", "title": "Godziny dostępu – opis", "type": "string", "grupa": "dostep", "waga": 0,
+      "description": "Opis słowny godzin lub warunków dostępu, gdy nie da się ich zapisać w polu godziny_dostepu.",
+      "przyklad": "W godzinach pracy urzędu; w święta nieczynne",
+      "zrodla": {"warszawa": "device_access_description"}
+    },
+    {
+      "name": "producent", "title": "Producent", "type": "string", "grupa": "urzadzenie", "waga": 1,
+      "description": "Nazwa producenta urządzenia.",
+      "przyklad": "Philips",
+      "zrodla": {"warszawa": "device_manufacturer", "osm": "manufacturer"}
+    },
+    {
+      "name": "model", "title": "Model", "type": "string", "grupa": "urzadzenie", "waga": 1,
+      "description": "Model urządzenia.",
+      "przyklad": "HeartStart FRx",
+      "zrodla": {"warszawa": "device_manufacturer (część)", "osm": "model"}
+    },
+    {
+      "name": "numer_seryjny", "title": "Numer seryjny", "type": "string", "grupa": "urzadzenie", "waga": 2,
+      "description": "Numer seryjny nadany przez producenta. Razem z producentem jednoznacznie wskazuje urządzenie.",
+      "przyklad": "B21K-04127",
+      "zrodla": {}
+    },
+    {
+      "name": "data_produkcji", "title": "Data produkcji", "type": "date", "grupa": "urzadzenie", "waga": 1,
+      "description": "Data produkcji urządzenia.",
+      "przyklad": "2024-03-01",
+      "zrodla": {}
+    },
+    {
+      "name": "data_waznosci_elektrod", "title": "Data ważności elektrod", "type": "date", "grupa": "urzadzenie", "waga": 2,
+      "description": "Data, do której elektrody są zdatne do użycia.",
+      "przyklad": "2028-03-31",
+      "zrodla": {}
+    },
+    {
+      "name": "data_waznosci_baterii", "title": "Data ważności baterii", "type": "date", "grupa": "urzadzenie", "waga": 2,
+      "description": "Data, do której bateria jest zdatna do użycia.",
+      "przyklad": "2030-01-31",
+      "zrodla": {}
+    },
+    {
+      "name": "dysponent_nazwa", "title": "Dysponent", "type": "string", "grupa": "odpowiedzialnosc", "waga": 2,
+      "description": "Instytucja lub firma, która odpowiada za urządzenie i jego dane (właściciel albo zarządca). Nie osoba fizyczna.",
+      "przyklad": "Urząd Miasta Legionowo",
+      "zrodla": {"osm": "operator"}
+    },
+    {
+      "name": "dysponent_regon", "title": "REGON dysponenta", "type": "string", "grupa": "odpowiedzialnosc", "waga": 0,
+      "description": "REGON dysponenta: 9 albo 14 cyfr.",
+      "constraints": {"pattern": "^[0-9]{9}([0-9]{5})?$"},
+      "przyklad": "013269344",
+      "zrodla": {}
+    },
+    {
+      "name": "dysponent_email", "title": "E-mail dysponenta", "type": "string", "format": "email", "grupa": "odpowiedzialnosc", "waga": 1,
+      "description": "Adres instytucjonalny, na który trafiają prośby o potwierdzenie danych i przypomnienia o terminach. Nie adres prywatny.",
+      "przyklad": "aed@um.legionowo.pl",
+      "zrodla": {"przemysl": "email", "osm": "email"}
+    },
+    {
+      "name": "dysponent_telefon", "title": "Telefon dysponenta", "type": "string", "grupa": "odpowiedzialnosc", "waga": 1,
+      "description": "Telefon instytucji czynny w godzinach dostępu. Nie numer prywatny.",
+      "przyklad": "+48 22 766 40 00",
+      "zrodla": {"przemysl": "phone", "osm": "phone"}
+    },
+    {
+      "name": "wprowadzajacy_typ", "title": "Kto wprowadził", "type": "string", "grupa": "odpowiedzialnosc", "waga": 0,
+      "description": "Rodzaj podmiotu, który wprowadził rekord: producent, sprzedawca, dysponent albo import z istniejącego źródła.",
+      "constraints": {"enum": ["producent", "sprzedawca", "dysponent", "import"]},
+      "przyklad": "sprzedawca",
+      "zrodla": {}
+    },
+    {
+      "name": "wprowadzajacy_nazwa", "title": "Nazwa wprowadzającego", "type": "string", "grupa": "odpowiedzialnosc", "waga": 0,
+      "description": "Nazwa firmy lub instytucji, która wprowadziła rekord.",
+      "przyklad": "MedSprzęt Sp. z o.o.",
+      "zrodla": {}
+    },
+    {
+      "name": "status", "title": "Status", "type": "string", "grupa": "weryfikacja", "waga": 0,
+      "description": "Stan rekordu: zgloszony (znane urządzenie, miejsce niepotwierdzone), aktywny (potwierdzony przez dysponenta), niepotwierdzony (z importu, nikt odpowiedzialny nie potwierdził), nieaktualny (brak potwierdzenia w terminie), wycofany.",
+      "constraints": {"enum": ["zgloszony", "aktywny", "niepotwierdzony", "nieaktualny", "wycofany"]},
+      "przyklad": "aktywny",
+      "zrodla": {}
+    },
+    {
+      "name": "data_weryfikacji", "title": "Data weryfikacji", "type": "date", "grupa": "weryfikacja", "waga": 3,
+      "description": "Data, w której dysponent ostatnio potwierdził obecność i gotowość urządzenia.",
+      "przyklad": "2026-11-15",
+      "zrodla": {"osm": "check_date"}
+    },
+    {
+      "name": "sposob_weryfikacji", "title": "Sposób weryfikacji", "type": "string", "grupa": "weryfikacja", "waga": 0,
+      "description": "Jak potwierdzono dane: qr (skan naklejki przy urządzeniu), formularz, email (link z prośby o potwierdzenie), import (data przejęta ze źródła).",
+      "constraints": {"enum": ["qr", "formularz", "email", "import"]},
+      "przyklad": "qr",
+      "zrodla": {}
+    },
+    {
+      "name": "data_aktualizacji", "title": "Data aktualizacji", "type": "date", "grupa": "weryfikacja", "waga": 0,
+      "description": "Data ostatniej zmiany rekordu albo data danych w źródle.",
+      "przyklad": "2026-11-20",
+      "zrodla": {"dane.gov.pl": "data_date zasobu"}
+    },
+    {
+      "name": "zrodlo", "title": "Źródło", "type": "string", "grupa": "pochodzenie", "waga": 0,
+      "description": "Skąd pochodzi rekord: zgloszenie (konto firmy lub dysponenta), dane.gov.pl/<id zbioru>, um.warszawa.pl, openstreetmap.",
+      "przyklad": "dane.gov.pl/40593",
+      "zrodla": {}
+    },
+    {
+      "name": "zrodlo_id", "title": "Identyfikator w źródle", "type": "string", "grupa": "pochodzenie", "waga": 0,
+      "description": "Identyfikator rekordu w źródle, jeśli źródło go nadaje.",
+      "przyklad": "622",
+      "zrodla": {}
+    },
+    {
+      "name": "licencja", "title": "Licencja", "type": "string", "grupa": "pochodzenie", "waga": 0,
+      "description": "Licencja, na której rekord został udostępniony w źródle.",
+      "constraints": {"enum": ["CC0 1.0", "CC BY 4.0", "ODbL 1.0"]},
+      "przyklad": "CC0 1.0",
+      "zrodla": {}
+    },
+    {
+      "name": "powiazane_zrodla", "title": "Powiązane źródła", "type": "string", "grupa": "pochodzenie", "waga": 0,
+      "description": "Inne źródła, w których znaleziono to samo urządzenie, w postaci zrodlo:zrodlo_id rozdzielonych średnikiem. Wypełnia deduplikacja.",
+      "przyklad": "openstreetmap:node/477958354",
+      "zrodla": {}
+    },
+    {
+      "name": "kompletnosc", "title": "Kompletność", "type": "integer", "grupa": "pochodzenie", "waga": 0,
+      "description": "Wskaźnik kompletności rekordu od 0 do 100, liczony z wag pól. Wypełnia system.",
+      "constraints": {"minimum": 0, "maximum": 100},
+      "przyklad": "86",
+      "zrodla": {}
+    }
+  ]
+}
