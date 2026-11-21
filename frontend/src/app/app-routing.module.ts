@@ -15,6 +15,7 @@ import { PrivacyPolicyComponent } from './pages/privacy-policy/privacy-policy.co
 import { SitemapComponent } from './pages/sitemap/sitemap.component';
 
 import { APP_CONFIG } from '@app/app.config';
+import { aedPortalAccountsOff } from '@app/pages/aed/aed-prototype';
 import { MainLayoutComponent } from '@app/layout/main-layout/main-layout.component';
 import { PageNotFoundComponent } from '@app/page-not-found/page-not-found.component';
 import { ContactFormComponent } from '@app/shared/forms/form-pages/contact-form/contact-form.component';
@@ -96,6 +97,7 @@ const routes: Routes = [
       },
       {
         path: '!user',
+        canActivate: [aedPortalAccountsOff], // AED prototype: no portal sign-in or sign-up
         loadChildren: () => import('./user/user.module').then((m) => m.UserModule),
       },
       { path: '!refresh', component: SitemapComponent },

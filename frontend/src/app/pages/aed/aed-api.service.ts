@@ -1,4 +1,4 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpBackend, HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable, signal } from '@angular/core';
 import { Router, UrlTree } from '@angular/router';
 import { LocalizeRouterService } from '@gilsdav/ngx-translate-router';
@@ -84,6 +84,53 @@ export interface AedSubmission {
   sucha_proba?: boolean;
 }
 
+export interface AedDuplicate {
+  id: number;
+  rekord_a: AedRecord;
+  rekord_b: AedRecord;
+  odleglosc_m: number;
+  podobienstwo: number;
+}
+
+/** A message queued for a device owner; the prototype shows the outbox instead of sending e-mail. */
+export interface AedMessage {
+  id: number;
+  rodzaj: string;
+  id_aed: string;
+  odbiorca: string;
+  temat: string;
+  tresc: string;
+  link: string;
+  data: string;
+}
+
+export interface AedRemindersRun {
+  nieaktualne: number;
+  prosby_o_potwierdzenie: number;
+  przypomnienia_terminow: number;
+}
+
+export interface AedMapperRun {
+  dodano: number;
+  zmieniono: number;
+  polaczono: number;
+  do_przegladu: number;
+}
+
+/** Point of /urzadzenia.geojson. */
+export interface AedMapFeature {
+  geometry: { coordinates: [number, number] };
+  properties: {
+    id_aed: string;
+    nazwa: string;
+    status: AedStatus;
+    dostep: string;
+    godziny_dostepu: string;
+    kompletnosc: number;
+    zrodlo: string;
+  };
+}
+
 export type AedCondition = 'sprawny' | 'problem';
 export type AedSignalType = 'jest' | 'brak' | 'uszkodzony' | 'zamkniety';
 
@@ -122,7 +169,9 @@ export function aedLinkFactory(): (link: string) => UrlTree {
 
 @Injectable()
 export class AedApiService {
-  private readonly http = inject(HttpClient);
+  // Own client without the portal interceptors: an AED 401 must not end the portal session,
+  // and AED answers must not come from the portal's GET cache.
+  private readonly http = new HttpClient(inject(HttpBackend));
   private session: AedSession | null = JSON.parse(sessionStorage.getItem(SESSION_KEY) ?? 'null');
 
   /** Logged-in company or ministry account; null for anonymous visitors. */
@@ -183,6 +232,43 @@ export class AedApiService {
   // POST /urzadzenia/{id_aed}/sygnal
   signal(id: string, body: AedSignal): Observable<unknown> {
     return this.http.post(`${API}/urzadzenia/${encodeURIComponent(id)}/sygnal`, body);
+  }
+
+  // GET /urzadzenia.geojson?bbox=minLon,minLat,maxLon,maxLat
+  mapPoints(bbox: string): Observable<AedMapFeature[]> {
+    return this.http
+      .get<{ features: AedMapFeature[] }>(`${API}/urzadzenia.geojson`, { params: { bbox } })
+      .pipe(map((collection) => collection.features));
+  }
+
+  // ---- ministry panel
+
+  /** GET /eksport/dane-gov-pl.csv: public, so a plain link is enough. */
+  readonly exportUrl = `${API}/eksport/dane-gov-pl.csv`;
+
+  // GET /duplikaty
+  duplicates(): Observable<{ dane: AedDuplicate[]; razem: number }> {
+    return this.http.get<{ dane: AedDuplicate[]; razem: number }>(`${API}/duplikaty`, this.auth());
+  }
+
+  // POST /duplikaty/{id}: `polacz` keeps record A and withdraws record B
+  decideDuplicate(id: number, decyzja: 'polacz' | 'rozdziel'): Observable<unknown> {
+    return this.http.post(`${API}/duplikaty/${id}`, { decyzja }, this.auth());
+  }
+
+  // GET /wiadomosci
+  messages(): Observable<{ dane: AedMessage[]; razem: number }> {
+    return this.http.get<{ dane: AedMessage[]; razem: number }>(`${API}/wiadomosci`, this.auth());
+  }
+
+  // POST /przypomnienia/uruchom
+  runReminders(): Observable<AedRemindersRun> {
+    return this.http.post<AedRemindersRun>(`${API}/przypomnienia/uruchom`, {}, this.auth());
+  }
+
+  // POST /mapper/uruchom
+  runMapper(): Observable<AedMapperRun> {
+    return this.http.post<AedMapperRun>(`${API}/mapper/uruchom`, {}, this.auth());
   }
 
   protected remember(session: AedSession | null): void {

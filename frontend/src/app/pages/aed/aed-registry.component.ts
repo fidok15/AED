@@ -4,6 +4,8 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { SeoService } from '@app/services/seo.service';
 import { PaginationComponent } from '@app/shared/pagination/pagination.component';
 import { AedApiService, aedErrorMessage, AedRecord, AedStatus } from './aed-api.service';
+import { AED_OPEN_LABELS, aedOpenNow } from './aed-hours';
+import { AedMapComponent } from './aed-map.component';
 import { aedField, aedOptions } from './aed-schema';
 import { AED_STATUS_LABELS, AedStatusComponent } from './aed-status.component';
 
@@ -11,7 +13,7 @@ import { AED_STATUS_LABELS, AedStatusComponent } from './aed-status.component';
 @Component({
   selector: 'app-aed-registry',
   standalone: true,
-  imports: [AedStatusComponent, PaginationComponent],
+  imports: [AedStatusComponent, AedMapComponent, PaginationComponent],
   templateUrl: './aed-registry.component.html',
 })
 export class AedRegistryComponent implements OnInit {
@@ -63,6 +65,10 @@ export class AedRegistryComponent implements OnInit {
         },
         error: (error) => this.error.set(aedErrorMessage(error)),
       });
+  }
+
+  protected openNow(record: AedRecord): string {
+    return AED_OPEN_LABELS[aedOpenNow(record['godziny_dostepu'] as string)];
   }
 
   protected address(record: AedRecord): string {

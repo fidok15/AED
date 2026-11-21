@@ -12,6 +12,7 @@ import { LanguageBootstrapService } from '@app/services/language-bootstrap.servi
 import { SchemaService } from '@app/services/schema.service';
 import { FavouriteToastComponent } from '@app/shared/favourite-toast/favourite-toast.component';
 import { FavouritePostLoginService } from '@app/services/favourite-intent/favourite-post-login.service';
+import { AedPrototypeBannerComponent } from '@app/pages/aed/aed-prototype';
 
 /**
  * Application Root Component
@@ -19,7 +20,7 @@ import { FavouritePostLoginService } from '@app/services/favourite-intent/favour
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
-  imports: [RouterOutlet, FavouriteToastComponent],
+  imports: [RouterOutlet, FavouriteToastComponent, AedPrototypeBannerComponent],
   standalone: true,
 })
 export class AppComponent implements OnInit {

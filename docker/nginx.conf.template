@@ -12,14 +12,17 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Everything else the portal frontend needs comes read-only from the public portal,
-    # mirroring frontend/proxy.aed.conf.json.
+    # Everything else the portal frontend needs comes from the public portal, mirroring
+    # frontend/proxy.aed.conf.json - but read-only: the prototype must never write to production
+    # (contact form, newsletter, data suggestions, login).
     location /api/ {
+        limit_except GET HEAD OPTIONS { deny all; }
         proxy_pass https://api.dane.gov.pl/1.4/;
         proxy_set_header Host api.dane.gov.pl;
         proxy_ssl_server_name on;
     }
     location /cms/ {
+        limit_except GET HEAD OPTIONS { deny all; }
         proxy_pass https://cms.dane.gov.pl/;
         proxy_set_header Host cms.dane.gov.pl;
         proxy_ssl_server_name on;

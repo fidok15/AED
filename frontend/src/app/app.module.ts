@@ -35,6 +35,7 @@ export function flagsFactory(featureFlagService: FeatureFlagService) {
 Sentry.init({
   dsn: 'https://23ce4d6805ae4ba0ae5954f33aaf9246@apm.dane.gov.pl//12',
   environment: environment.name,
+  enabled: environment.name !== 'aed', // AED prototype: the public demo must not report to the portal's Sentry
   tracesSampleRate: 1.0,
 });
 
@@ -133,7 +134,7 @@ export function matomoConfigFactory(platformId: object) {
   }
 
   return {
-    disabled: !isPlatformBrowser(platformId),
+    disabled: !isPlatformBrowser(platformId) || environment.name === 'aed', // AED prototype: no portal analytics
     siteId: matomoSiteId,
     trackerUrl: APP_CONFIG.matomoTrackerUrl,
   };

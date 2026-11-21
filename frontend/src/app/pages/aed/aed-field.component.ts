@@ -1,7 +1,7 @@
 import { Component, computed, input } from '@angular/core';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 
-import { AedField, aedOptions, AedValue } from './aed-schema';
+import { AedField, aedLabel, aedOptions, AedValue } from './aed-schema';
 
 /**
  * One form field generated from aed_standard/schema.json: label from `title`, help from `description`,
@@ -25,6 +25,8 @@ export class AedFieldComponent {
     if (type === 'number' || type === 'integer') return 'number';
     return format === 'email' ? 'email' : 'text';
   });
+
+  protected readonly label = (option: string) => aedLabel(this.field(), option);
 
   protected get required(): boolean {
     return this.control().hasValidator(Validators.required);
