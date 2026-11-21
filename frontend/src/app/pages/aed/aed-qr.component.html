@@ -17,7 +17,30 @@
       <app-aed-status [status]="record.status" />
     </section>
 
-    @if (done()) {
+    @if (done() === 'problem') {
+      <!-- A problem report is not a success: neutral mark, and the device is not shown as active. -->
+      <section class="aed-card aed-result">
+        <svg
+          class="aed-result__mark aed-result__mark--problem"
+          viewBox="0 0 48 48"
+          aria-hidden="true"
+          focusable="false">
+          <circle cx="24" cy="24" r="22" />
+          <path d="M24 12v15M24 34v.5" />
+        </svg>
+        <h1 class="aed-qr__title" id="aed-done" tabindex="-1">Zgłoszenie problemu zapisane</h1>
+        <p>
+          Zapisaliśmy dane urządzenia i opis problemu. Urządzenie nie jest teraz pokazywane jako aktywne – ma status „{{
+            statusLabels[record.status]
+          }}”.
+        </p>
+        <p>
+          Gdy problem zostanie usunięty, otwórz ten link jeszcze raz i potwierdź, że urządzenie jest na miejscu i gotowe
+          do użycia.
+        </p>
+        <p>Możesz zamknąć tę stronę.</p>
+      </section>
+    } @else if (done()) {
       <section class="aed-card aed-result">
         <svg class="aed-result__mark" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
           <circle cx="24" cy="24" r="22" />
@@ -41,6 +64,30 @@
       <p class="aed-qr__lede">Trzy kroki, około minuty. Najlepiej zrób to, stojąc przy urządzeniu.</p>
 
       <form [formGroup]="form" appScrollToFirstError novalidate (ngSubmit)="confirm()">
+        <!-- Battery and electrodes: at the top when a date is close or past (the manager came from a reminder). -->
+        <ng-template #expiryStep>
+          <section class="aed-card" aria-labelledby="aed-step-expiry">
+            <p class="aed-step">Nieobowiązkowe</p>
+            <h2 class="aed-card__title" id="aed-step-expiry">Bateria i elektrody</h2>
+            @for (field of expiring(); track field.name) {
+              <p class="aed-message aed-message--warn">
+                {{ field.title }}: {{ record[field.name] }}. Termin minął albo mija w ciągu 60 dni.
+              </p>
+            }
+            <p>
+              Po wymianie baterii lub elektrod wpisz tutaj nową datę ważności. Przypomnienia o starym terminie przestaną
+              wtedy przychodzić.
+            </p>
+            @for (field of expiry; track field.name) {
+              <app-aed-field [field]="field" [control]="values.controls[field.name]" />
+            }
+          </section>
+        </ng-template>
+
+        @if (expiring().length) {
+          <ng-container [ngTemplateOutlet]="expiryStep" />
+        }
+
         <section class="aed-card" aria-labelledby="aed-step-1">
           <p class="aed-step">Krok 1 z 3</p>
           <h2 class="aed-card__title" id="aed-step-1">Gdzie znajduje się urządzenie</h2>
@@ -138,6 +185,10 @@
             </div>
           }
         </section>
+
+        @if (!expiring().length) {
+          <ng-container [ngTemplateOutlet]="expiryStep" />
+        }
 
         @if (sendError()) {
           <p class="aed-message aed-message--error" role="alert">{{ sendError() }}</p>

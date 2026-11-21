@@ -21,6 +21,7 @@ import { AED_STATUS_LABELS, AedStatusComponent } from './aed-status.component';
 const MESSAGE_KINDS: Record<string, string> = {
   aktywacja: 'Aktywacja urządzenia',
   prosba: 'Prośba o potwierdzenie danych',
+  sygnal: 'Zgłoszenie osoby postronnej',
 };
 
 /** Ministry panel: numbers, duplicate review, the outbox of messages to device owners, cyclic jobs. */

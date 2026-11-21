@@ -7,7 +7,6 @@ import { map, Observable, tap } from 'rxjs';
 import { AedValue } from './aed-schema';
 
 // Client of the AED service. Paths, field names and JSON shapes follow docs/api-aed.md one to one.
-// The mock (aed-mock.service.ts) extends this class; aed.routes.ts picks one of the two.
 
 const API = '/api/aed';
 const SESSION_KEY = 'aed_sesja';
@@ -102,7 +101,8 @@ export interface AedMessage {
   odbiorca: string;
   temat: string;
   tresc: string;
-  link: string;
+  /** Manager link; null for a message made from a bystander's signal. */
+  link: string | null;
   data: string;
 }
 
@@ -333,7 +333,7 @@ export class AedApiService {
     return this.http.post<AedMapperRun>(`${API}/mapper/uruchom`, {}, this.auth());
   }
 
-  protected remember(session: AedSession | null): void {
+  private remember(session: AedSession | null): void {
     this.session = session;
     this.account.set(session?.konto ?? null);
     // Prototype: the bearer token lives in sessionStorage; move to an HttpOnly cookie with the portal login.

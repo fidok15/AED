@@ -1,4 +1,5 @@
-import { Component, inject, input, OnInit, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import { Component, computed, inject, input, OnInit, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { SeoService } from '@app/services/seo.service';
@@ -14,7 +15,10 @@ import {
 import { AedFieldComponent } from './aed-field.component';
 import { AedHoursPickerComponent } from './aed-hours-picker.component';
 import { aedControl, aedField, aedRequired, aedRequiredForStatus } from './aed-schema';
-import { AedStatusComponent } from './aed-status.component';
+import { AED_STATUS_LABELS, AedStatusComponent } from './aed-status.component';
+
+/** As in the service: a reminder goes out this many days before the battery or the electrodes expire. */
+const EXPIRY_NOTICE_DAYS = 60;
 
 /**
  * Phone screen opened from the QR sticker: /aed/qr/{id_aed}.
@@ -25,6 +29,7 @@ import { AedStatusComponent } from './aed-status.component';
   selector: 'app-aed-qr',
   standalone: true,
   imports: [
+    NgTemplateOutlet,
     ReactiveFormsModule,
     AedFieldComponent,
     AedHoursPickerComponent,
@@ -45,8 +50,10 @@ export class AedQrComponent implements OnInit {
   protected readonly record = signal<AedRecord | null>(null);
   protected readonly loadError = signal('');
   protected readonly sendError = signal('');
-  protected readonly done = signal<'potwierdzenie' | 'sygnal' | null>(null);
+  /** Result screen: readiness confirmed, a problem reported by the manager, or a bystander's signal sent. */
+  protected readonly done = signal<'potwierdzenie' | 'problem' | 'sygnal' | null>(null);
 
+  protected readonly statusLabels = AED_STATUS_LABELS;
   protected readonly locating = signal(false);
   protected readonly located = signal('');
   protected readonly locationError = signal('');
@@ -60,12 +67,21 @@ export class AedQrComponent implements OnInit {
   protected readonly access = aedField('dostep');
   protected readonly hours = aedField('godziny_dostepu');
   protected readonly hoursNote = aedField('godziny_dostepu_opis');
+  /** Optional step: after replacing the battery or the electrodes the manager enters the new expiry date. */
+  protected readonly expiry = ['data_waznosci_baterii', 'data_waznosci_elektrod'].map(aedField);
+  /** Expiry dates that have passed or pass within the reminder window; then the step moves to the top. */
+  protected readonly expiring = computed(() => {
+    const limit = new Date(Date.now() + EXPIRY_NOTICE_DAYS * 86_400_000).toISOString().slice(0, 10);
+    return this.expiry.filter((field) => {
+      const date = String(this.record()?.[field.name] ?? '');
+      return date !== '' && date <= limit;
+    });
+  });
   protected readonly values = new FormGroup(
     Object.fromEntries(
-      [...this.coordinates, ...this.place, ...this.spot, this.access, this.hours, this.hoursNote].map((field) => [
-        field.name,
-        aedControl(field, this.required.includes(field.name)),
-      ]),
+      [...this.coordinates, ...this.place, ...this.spot, this.access, this.hours, this.hoursNote, ...this.expiry].map(
+        (field) => [field.name, aedControl(field, this.required.includes(field.name))],
+      ),
     ),
   );
   protected readonly stan = new FormControl<AedCondition | null>(null, Validators.required);
@@ -143,9 +159,13 @@ export class AedQrComponent implements OnInit {
 
   protected confirm(): void {
     if (this.form.invalid) return; // appScrollToFirstError marks the fields and moves focus to the first one
-    const filled = Object.entries(this.values.getRawValue()).filter(([, value]) => value !== null && value !== '');
+    // The service changes only the fields it receives. A field the manager emptied is therefore sent as '',
+    // otherwise the old text would stay in the record; untouched empty fields are left out.
+    const sent = Object.entries(this.values.controls)
+      .filter(([, control]) => control.dirty || (control.value !== null && control.value !== ''))
+      .map(([name, control]) => [name, control.value ?? '']);
     const body = {
-      ...Object.fromEntries(filled),
+      ...Object.fromEntries(sent),
       t: this.t(),
       stan: this.stan.value,
       uwagi: this.uwagi.value || undefined,
@@ -153,7 +173,8 @@ export class AedQrComponent implements OnInit {
     this.api.confirm(this.id(), body).subscribe({
       next: (record) => {
         this.record.set(record);
-        this.finish('potwierdzenie');
+        // The service decides: only a device reported as ready becomes `aktywny`.
+        this.finish(record.status === 'aktywny' ? 'potwierdzenie' : 'problem');
       },
       error: (error) => this.sendError.set(aedErrorMessage(error)),
     });
@@ -169,7 +190,7 @@ export class AedQrComponent implements OnInit {
   }
 
   /** Show the result screen and move focus to its heading, so screen readers announce it. */
-  private finish(done: 'potwierdzenie' | 'sygnal'): void {
+  private finish(done: 'potwierdzenie' | 'problem' | 'sygnal'): void {
     this.sendError.set('');
     this.done.set(done);
     this.focus('#aed-done');

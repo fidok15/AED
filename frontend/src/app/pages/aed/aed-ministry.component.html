@@ -263,9 +263,13 @@
           <h3 class="aed-outbox__subject">{{ message.temat }}</h3>
           <p class="aed-outbox__to">Do: {{ message.odbiorca }}</p>
           <p>{{ message.tresc }}</p>
-          <p>
-            <a [routerLink]="link(message.link)">Otwórz link dysponenta dla urządzenia {{ message.id_aed }}</a>
-          </p>
+          @if (message.link) {
+            <p>
+              <a [routerLink]="link(message.link)">Otwórz link dysponenta dla urządzenia {{ message.id_aed }}</a>
+            </p>
+          } @else {
+            <p>Dotyczy urządzenia {{ message.id_aed }}. Ta wiadomość nie zawiera linku dysponenta.</p>
+          }
         </li>
       } @empty {
         <li class="aed-outbox__item">Nie ma jeszcze żadnych wiadomości.</li>
