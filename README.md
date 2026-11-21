@@ -50,7 +50,7 @@ cd backend && docker compose -f docker-compose.local.yml -f docker-compose.aed-p
 cd frontend && npm run start:aed-local
 
 # testy
-uv run --python 3.13 --with-requirements aed_service/requirements.txt python -m unittest
+uv run --python 3.13 --with-requirements aed_service/requirements.txt --with xmlschema python -m unittest
 ```
 
 Plan pracy, zasady i podział zadań: `CLAUDE.md`.
