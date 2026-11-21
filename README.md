@@ -44,6 +44,9 @@ uv run --python 3.13 --with-requirements aed_service/requirements.txt python -m 
 # frontend na porcie 4200
 cd frontend && npm ci && npm run start:aed
 
+# frontend z lokalnym backendem portalu (mcod: API :8000, CMS :8002, nginx :443) zamiast publicznego API
+cd frontend && npm run start:aed-local
+
 # testy
 uv run --python 3.13 --with-requirements aed_service/requirements.txt python -m unittest
 ```
