@@ -62,6 +62,59 @@
     "Minięta data ważności elektrod lub baterii jest ostrzeżeniem, nie błędem.",
     "Para producent i numer_seryjny jest unikalna."
   ],
+  "zbior_dane_gov_pl": {
+    "uwagi": "Metadane zbioru krajowego w zasilaniu XML harwestera dane.gov.pl (XSD 1.13, sekcja DATA SOURCES w panelu portalu). Identyfikatory ext_ident są stałe: zbiór lub zasób, którego zabraknie w pliku, portal usuwa. Flagi są podane jawnie, bo w formularzu portalu są obowiązkowe.",
+    "ext_ident": "aed-polska",
+    "tytul": {
+      "polish": "Defibrylatory AED w Polsce",
+      "english": "AED defibrillators in Poland"
+    },
+    "opis": {
+      "polish": "Ogólnopolski rejestr automatycznych defibrylatorów zewnętrznych (AED). Jeden wiersz to jedno urządzenie: położenie (WGS84), adres, dostępność i godziny dostępu, status weryfikacji, źródło i licencja rekordu. Dane zgłaszają producenci, sprzedawcy i zarządcy urządzeń, a uzupełniają je otwarte zbiory samorządów. Struktura: wzorcowy zakres danych o defibrylatorach AED.",
+      "english": "National register of automated external defibrillators (AED). One row is one device: location (WGS84), address, access and opening hours, verification status, record source and licence. Data are reported by manufacturers, sellers and device managers and supplemented with open datasets of local governments."
+    },
+    "czestotliwosc": "daily",
+    "kategorie": [
+      "HEAL"
+    ],
+    "tagi": {
+      "pl": [
+        "AED",
+        "defibrylator",
+        "pierwsza pomoc",
+        "ratownictwo"
+      ],
+      "en": [
+        "AED",
+        "defibrillator",
+        "first aid"
+      ]
+    },
+    "flagi": {
+      "hasDynamicData": false,
+      "hasHighValueData": false,
+      "hasHighValueDataFromEuropeanCommissionList": false,
+      "hasResearchData": false
+    },
+    "zasob": {
+      "ext_ident": "aed-polska-csv",
+      "tytul": {
+        "polish": "Defibrylatory AED w Polsce – plik CSV",
+        "english": "AED defibrillators in Poland – CSV file"
+      },
+      "opis": {
+        "polish": "Zbiór krajowy w formacie CSV: UTF-8, separator przecinek, daty RRRR-MM-DD, współrzędne WGS84 w kolumnach szerokosc_geograficzna i dlugosc_geograficzna. Plik jest odświeżany codziennie; każda wersja ma własną nazwę.",
+        "english": "National dataset as CSV: UTF-8, comma separator, YYYY-MM-DD dates, WGS84 coordinates in the szerokosc_geograficzna and dlugosc_geograficzna columns. Refreshed daily; every version has its own file name."
+      },
+      "flagi": {
+        "hasDynamicData": false,
+        "hasHighValueData": false,
+        "hasHighValueDataFromEuropeanCommissionList": false,
+        "hasResearchData": false,
+        "containsProtectedData": false
+      }
+    }
+  },
   "fields": [
     {
       "name": "id_aed",
