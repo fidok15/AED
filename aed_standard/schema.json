@@ -29,13 +29,13 @@
       "description": "Stały identyfikator urządzenia w rejestrze krajowym, nadawany przez system przy przyjęciu zgłoszenia. Nigdy nie jest używany ponownie. Zakodowany w naklejce QR.",
       "constraints": {"pattern": "^[A-Z0-9-]{1,36}$"},
       "przyklad": "AED-7F3K9Q2M4XTB",
-      "zrodla": {"krosno_marki": "Numer Id", "przemysl": "id", "warszawa": "defibrillator_id", "osm": "@osm_type/@osm_id"}
+      "zrodla": {}
     },
     {
       "name": "nazwa", "title": "Nazwa miejsca", "type": "string", "grupa": "polozenie", "waga": 2,
       "description": "Nazwa obiektu lub miejsca, w którym znajduje się urządzenie. Służy jako etykieta punktu na mapie.",
       "przyklad": "Urząd Miasta Legionowo",
-      "zrodla": {"legionowo": "nazwa", "krosno_marki": "Lokalizacja", "przemysl": "name", "warszawa": "location_object_name", "osm": "name | operator | description"}
+      "zrodla": {"legionowo": "nazwa", "krosno_marki": "Lokalizacja", "przemysl": "name", "warszawa": "location_object_name", "osm": "name | operator"}
     },
     {
       "name": "szerokosc_geograficzna", "title": "Szerokość geograficzna", "type": "number", "grupa": "polozenie", "waga": 3,
@@ -119,7 +119,7 @@
       "description": "Kto może sięgnąć po urządzenie: publiczny (każdy), ograniczony (np. tylko klienci lub w asyście personelu), prywatny (tylko uprawnieni; rekord nie jest publikowany).",
       "constraints": {"enum": ["publiczny", "ograniczony", "prywatny"]},
       "przyklad": "publiczny",
-      "zrodla": {"warszawa": "device_public_access", "osm": "access"}
+      "zrodla": {"warszawa": "device_public_access (Prywatny = ograniczony)", "osm": "access"}
     },
     {
       "name": "godziny_dostepu", "title": "Godziny dostępu", "type": "string", "grupa": "dostep", "waga": 3,
@@ -243,7 +243,7 @@
       "name": "zrodlo_id", "title": "Identyfikator w źródle", "type": "string", "grupa": "pochodzenie", "waga": 0,
       "description": "Identyfikator rekordu w źródle, jeśli źródło go nadaje.",
       "przyklad": "622",
-      "zrodla": {}
+      "zrodla": {"krosno_marki": "Numer Id", "przemysl": "id", "warszawa": "defibrillator_id", "osm": "@osm_type/@osm_id", "legionowo": "numer wiersza (źródło nie nadaje identyfikatorów)"}
     },
     {
       "name": "licencja", "title": "Licencja", "type": "string", "grupa": "pochodzenie", "waga": 0,
@@ -256,7 +256,7 @@
       "name": "powiazane_zrodla", "title": "Powiązane źródła", "type": "string", "grupa": "pochodzenie", "waga": 0,
       "description": "Inne źródła, w których znaleziono to samo urządzenie, w postaci zrodlo:zrodlo_id rozdzielonych średnikiem. Wypełnia deduplikacja.",
       "przyklad": "openstreetmap:node/477958354",
-      "zrodla": {}
+      "zrodla": {"osm": "ref:api-um-warszawa-pl (jawne powiązanie z rekordem API Warszawy)"}
     },
     {
       "name": "kompletnosc", "title": "Kompletność", "type": "integer", "grupa": "pochodzenie", "waga": 0,

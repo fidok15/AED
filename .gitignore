@@ -1,1 +1,5 @@
 **/.env
+__pycache__/
+*.pyc
+datasets/out/aed_rejestr.csv
+datasets/out/aed_rejestr.geojson
