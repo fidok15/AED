@@ -25,6 +25,8 @@ import aed_standard
 from aed_standard.dedup import CANDIDATE_M, similarity
 from aed_standard.sources import haversine_m
 
+from .feed import FEED_DIR, FEED_URL, write_feed
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 SCRIPT_RAW_DIR = os.path.join(ROOT, "datasets", "raw")  # where scripts/download_aed_data.py writes
@@ -716,17 +718,22 @@ def sellers(req, resp):
                                          "udzial_aktywnych": BADGE_MIN_ACTIVE_SHARE}}
 
 
-def export_csv(req, resp):
+def publication_csv(db):
+    """The dane.gov.pl export as CSV bytes (also the resource of the harvester feed)."""
     # Private and fictional demo devices are dropped here; ODbL, validation and the rest are aed_standard's job.
-    rows = req.context.db.execute("SELECT data FROM devices WHERE dostep != 'prywatny' AND demo=0 AND status != 'wycofany'")
+    rows = db.execute("SELECT data FROM devices WHERE dostep != 'prywatny' AND demo=0 AND status != 'wycofany'")
     exported = aed_standard.publication_export([json.loads(r[0]) for r in rows])
     out = io.StringIO()
     w = csv.DictWriter(out, fieldnames=aed_standard.field_names(), extrasaction="ignore", lineterminator="\r\n")
     w.writeheader()
     w.writerows(dict(r, **{k: "" for k in HIDDEN_PUBLIC}) for r in exported if r.get("dostep") != "prywatny")
+    return out.getvalue().encode("utf-8")
+
+
+def export_csv(req, resp):
     resp.content_type = "text/csv; charset=utf-8"
     resp.set_header("Content-Disposition", 'attachment; filename="aed_dane_gov_pl.csv"')
-    resp.data = out.getvalue().encode("utf-8")
+    resp.data = publication_csv(req.context.db)
 
 
 # ---------- ministry panel ----------
@@ -962,6 +969,8 @@ def start_scheduler(db_path, hours):
             threading.Event().wait(hours * 3600)
             try:
                 run_job(db, "harmonogram", "cykl")
+                if FEED_DIR and FEED_URL:
+                    write_feed(publication_csv(db), FEED_DIR, FEED_URL)
             except Exception as ex:  # keep the thread alive whatever happens
                 traceback.print_exception(ex, file=sys.stderr)
 

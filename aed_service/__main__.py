@@ -2,6 +2,8 @@
 
 AED_CYCLE_HOURS: hours between scheduled runs of download + mapper + reminders (default 24, 0 = off).
 AED_DEMO_SEED: 0/false/no disables the fictional demo devices (default on).
+AED_FEED_DIR, AED_FEED_URL: directory and its public HTTPS address; when both are set, every scheduled cycle rewrites
+the dane.gov.pl harvester feed there (see aed_service/feed.py).
 """
 import os
 from wsgiref.simple_server import WSGIRequestHandler, make_server
