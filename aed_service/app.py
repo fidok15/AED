@@ -199,9 +199,16 @@ def import_registry(db, result=None):
     records, pairs, report = result or aed_standard.build_registry(RAW_DIR)
     origins = {r[0]: r[1] for r in db.execute("SELECT id_aed, origin FROM devices")}
     old = {r[0]: r[1] for r in db.execute("SELECT id_aed, data FROM devices WHERE origin='import'")}
+    # Ministry decisions "polacz": the kept record (A) stays an import record so its source fields keep refreshing,
+    # but the link to the withdrawn record (B) is re-applied on every run.
+    linked = {}
+    for a_id, b_id in db.execute("SELECT id_a, id_b FROM duplicates WHERE decyzja='polacz'"):
+        linked.setdefault(a_id, []).append(b_id)
     added, changed, inserts, updates = 0, 0, [], []
     for rec in records:
         rec = clean(rec)
+        have = [x for x in rec["powiazane_zrodla"].split(";") if x]
+        rec["powiazane_zrodla"] = ";".join(have + [x for x in linked.get(rec["id_aed"], []) if x not in have])
         if rec["id_aed"] not in origins:
             inserts.append(device_row(rec, "import"))
             added += 1
@@ -213,9 +220,12 @@ def import_registry(db, result=None):
     db.executemany(IMPORT_UPDATE_SQL, updates)
     known = set(origins) | {r[0] for r in inserts}
     for p in pairs:
-        if p["id_aed_a"] in known and p["id_aed_b"] in known:
-            db.execute("INSERT OR IGNORE INTO duplicates(id_a,id_b,odleglosc_m,podobienstwo) VALUES(?,?,?,?)",
-                       (p["id_aed_a"], p["id_aed_b"], p.get("odleglosc_m"), p.get("podobienstwo")))
+        a_id, b_id = p["id_aed_a"], p["id_aed_b"]
+        # a decided pair never returns to the queue, whichever order the mapper lists it in
+        if a_id in known and b_id in known and not db.execute(
+                "SELECT 1 FROM duplicates WHERE (id_a=? AND id_b=?) OR (id_a=? AND id_b=?)", (a_id, b_id, b_id, a_id)).fetchone():
+            db.execute("INSERT INTO duplicates(id_a,id_b,odleglosc_m,podobienstwo) VALUES(?,?,?,?)",
+                       (a_id, b_id, p.get("odleglosc_m"), p.get("podobienstwo")))
     merged = int(report["polaczenia"]["razem"])
     return {"dodano": added, "zmieniono": changed, "polaczono": merged, "do_przegladu": len(pairs)}
 

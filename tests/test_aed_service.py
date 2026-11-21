@@ -266,6 +266,49 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual(self.client.simulate_get("/api/aed/urzadzenia/" + b["id_aed"]).json["nazwa"], "Punkt 2")
         self.assertEqual(self.client.simulate_get("/api/aed/duplikaty", headers=m).json["razem"], 0)
 
+    def test_duplicate_decisions_survive_mapper_runs(self):
+        def rec(i, **kw):
+            base = {n: "" for n in aed_standard.field_names()}
+            base.update(id_aed="AED-DECTEST%04d" % i, nazwa="Punkt %d" % i, szerokosc_geograficzna="50.5",
+                       dlugosc_geograficzna="19.5", miejscowosc="Warszawa", status="niepotwierdzony", zrodlo="test",
+                       zrodlo_id=str(i), licencja="CC BY 4.0", dostep="publiczny", kompletnosc="40")
+            base.update(kw)
+            return base
+        m = self.ministry()
+        a, b, c, d = rec(1), rec(2), rec(3), rec(4)
+        merge = {"id_aed_a": a["id_aed"], "id_aed_b": b["id_aed"], "odleglosc_m": 3.0, "podobienstwo": 0.9}
+        split = {"id_aed_a": c["id_aed"], "id_aed_b": d["id_aed"], "odleglosc_m": 4.0, "podobienstwo": 0.8}
+        report = {"polaczenia": {"razem": 0}}
+
+        def mapper(recs, pairs):
+            with mock.patch.object(aed_standard, "build_registry", return_value=(recs, pairs, report)):
+                self.assertEqual(self.client.simulate_post("/api/aed/mapper/uruchom", headers=m).status_code, 200)
+
+        def queue():
+            ids = {a["id_aed"], b["id_aed"], c["id_aed"], d["id_aed"]}
+            return [x for x in self.client.simulate_get("/api/aed/duplikaty", headers=m).json["dane"]
+                    if x["rekord_a"]["id_aed"] in ids]
+
+        def get(r):
+            return self.client.simulate_get("/api/aed/urzadzenia/" + r["id_aed"]).json
+
+        mapper([a, b, c, d], [merge, split])
+        by_a = {x["rekord_a"]["id_aed"]: x["id"] for x in queue()}
+        self.assertEqual(len(by_a), 2)
+        for pair_id, decision in ((by_a[a["id_aed"]], "polacz"), (by_a[c["id_aed"]], "rozdziel")):
+            r = self.client.simulate_post("/api/aed/duplikaty/%d" % pair_id, json={"decyzja": decision}, headers=m)
+            self.assertEqual(r.status_code, 200)
+        swapped = dict(split, id_aed_a=d["id_aed"], id_aed_b=c["id_aed"])
+        for run in range(2):  # twice, second time with the split pair listed in the other order and source data changed
+            mapper([dict(a, nazwa="Źródło %d" % run), b, c, d], [merge, swapped if run else split])
+            self.assertEqual(queue(), [], run)  # nothing back in the review queue
+            ga = get(a)
+            self.assertIn(b["id_aed"], ga["powiazane_zrodla"].split(";"), run)  # link on the kept record survives
+            self.assertEqual(ga["powiazane_zrodla"].split(";").count(b["id_aed"]), 1)
+            self.assertEqual(ga["nazwa"], "Źródło %d" % run)  # imported fields still refresh
+            self.assertEqual(get(b)["status"], "wycofany", run)  # withdrawn record is not resurrected
+            self.assertEqual((get(c)["status"], get(d)["status"]), ("niepotwierdzony", "niepotwierdzony"))
+
 
 class JobsAndDemoTest(unittest.TestCase):
     def setUp(self):
