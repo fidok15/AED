@@ -1,0 +1,38 @@
+{
+  "/api/aed": {
+    "target": "http://localhost:8085",
+    "secure": false,
+    "logLevel": "warn",
+    "changeOrigin": true
+  },
+  "/api/**": {
+    "target": "https://api.dane.gov.pl/1.4/",
+    "secure": true,
+    "pathRewrite": {
+      "^/api": ""
+    },
+    "logLevel": "warn",
+    "changeOrigin": true
+  },
+  "/media": {
+    "target": "https://dane.gov.pl/",
+    "secure": true,
+    "logLevel": "warn",
+    "changeOrigin": true
+  },
+  "/flags": {
+    "target": "https://dane.gov.pl/",
+    "secure": true,
+    "logLevel": "warn",
+    "changeOrigin": true
+  },
+  "/cms": {
+    "target": "https://cms.dane.gov.pl/",
+    "secure": true,
+    "logLevel": "warn",
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/cms": ""
+    }
+  }
+}

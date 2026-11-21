@@ -1,0 +1,13 @@
+.git
+backend
+frontend
+research_notes
+reports
+docs
+kampania
+datasets/out
+**/__pycache__
+**/*.pyc
+**/*.db
+**/.env
+.playwright-mcp

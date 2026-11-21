@@ -374,6 +374,19 @@
               </a>
             </li>
 
+            <!-- AED registry -->
+            <li class="nav-item" role="presentation">
+              <a
+                class="nav-link"
+                role="menuitem"
+                [routerLink]="['/!aed' | localize]"
+                routerLinkActive="active"
+                #menuLinkAed="routerLinkActive"
+                [attr.aria-current]="menuLinkAed.isActive ? true : null">
+                {{ 'Menu.Aed' | translate }}
+              </a>
+            </li>
+
             <!-- PoCoTo -->
             <li class="nav-item" role="presentation">
               <a

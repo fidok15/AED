@@ -1,0 +1,184 @@
+<h1 class="heading heading--md">Panel firmy</h1>
+<p class="aed-lede">
+  Zgłoś sprzedane defibrylatory. Każde urządzenie dostaje identyfikator i naklejkę z kodem QR, a jego dysponent
+  potwierdza miejsce montażu.
+</p>
+
+@if (error()) {
+  <p class="aed-message aed-message--error" role="alert">{{ error() }}</p>
+}
+
+@if (!api.account()) {
+  <form class="aed-panel aed-login" #form="ngForm" (ngSubmit)="form.valid && login(email.value, haslo.value)">
+    <h2 class="aed-h2">Zaloguj się na konto firmy</h2>
+    <div class="aed-field">
+      <label class="aed-field__label" for="aed-email">Adres e-mail konta</label>
+      <input
+        class="form-control"
+        id="aed-email"
+        name="email"
+        type="email"
+        autocomplete="username"
+        required
+        ngModel
+        #email />
+    </div>
+    <div class="aed-field">
+      <label class="aed-field__label" for="aed-haslo">Hasło</label>
+      <input
+        class="form-control"
+        id="aed-haslo"
+        name="haslo"
+        type="password"
+        autocomplete="current-password"
+        required
+        ngModel
+        #haslo />
+    </div>
+    @if (form.submitted && form.invalid) {
+      <p class="aed-field__error" role="alert">Podaj adres e-mail i hasło.</p>
+    }
+    <button class="btn btn-primary" type="submit">Zaloguj się</button>
+  </form>
+} @else {
+  <p class="aed-account">
+    Zalogowano: <strong>{{ api.account().nazwa }}</strong>
+    <button class="btn btn-link aed-account__out" type="button" (click)="api.logout()">Wyloguj się</button>
+  </p>
+
+  <div class="aed-columns">
+    <section class="aed-panel" aria-labelledby="aed-csv-heading">
+      <h2 class="aed-h2" id="aed-csv-heading">Zgłoś wiele urządzeń plikiem CSV</h2>
+      <p>
+        Plik w kodowaniu UTF-8, z przecinkiem jako separatorem i jednym wierszem nagłówka. Daty w formacie RRRR-MM-DD.
+      </p>
+      <p>
+        <a [href]="templateHref" download="wzorzec-aed.csv">Pobierz pusty plik z nagłówkiem standardu (CSV)</a>
+      </p>
+
+      <details class="aed-details">
+        <summary>Kolumny wymagane przy zgłoszeniu sprzedaży ({{ required.length }})</summary>
+        <ul>
+          @for (field of required; track field.name) {
+            <li>
+              <code>{{ field.name }}</code> – {{ field.description }}
+            </li>
+          }
+        </ul>
+      </details>
+
+      <div class="aed-field">
+        <label class="aed-field__label" for="aed-plik">Plik CSV z urządzeniami</label>
+        <p class="aed-field__hint" id="aed-plik-hint">
+          Po wybraniu pliku zobaczysz raport. Do rejestru nic nie trafi, dopóki nie wyślesz zgłoszenia.
+        </p>
+        <input
+          class="form-control"
+          id="aed-plik"
+          type="file"
+          accept=".csv,text/csv"
+          aria-describedby="aed-plik-hint"
+          #plik
+          (change)="choose(plik)" />
+      </div>
+
+      <div aria-live="polite">
+        @if (report(); as report) {
+          <h3 class="aed-h3">{{ saved() ? 'Zgłoszenie wysłane' : 'Raport sprawdzenia pliku' }}</h3>
+          <dl class="aed-facts aed-facts--compact">
+            <div>
+              <dt>Wiersze w pliku</dt>
+              <dd>{{ report.podsumowanie.wiersze }}</dd>
+            </div>
+            <div>
+              <dt>{{ saved() ? 'Przyjęte' : 'Poprawne' }}</dt>
+              <dd>{{ report.podsumowanie.przyjete }}</dd>
+            </div>
+            <div>
+              <dt>Do poprawy</dt>
+              <dd>{{ report.podsumowanie.odrzucone }}</dd>
+            </div>
+            <div>
+              <dt>Już w rejestrze</dt>
+              <dd>{{ report.podsumowanie.duplikaty }}</dd>
+            </div>
+          </dl>
+
+          @if (report.problemy.length) {
+            <div class="aed-scroll" tabindex="0" role="region" aria-labelledby="aed-problems-caption">
+              <table class="aed-table">
+                <caption id="aed-problems-caption">
+                  Co poprawić w pliku
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Wiersz</th>
+                    <th scope="col">Kolumna</th>
+                    <th scope="col">Rodzaj</th>
+                    <th scope="col">Co poprawić</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (problem of report.problemy; track $index) {
+                    <tr>
+                      <td>{{ problem.wiersz }}</td>
+                      <td>
+                        {{ title(problem.pole) }} <code>{{ problem.pole }}</code>
+                      </td>
+                      <td>{{ problem.poziom === 'blad' ? 'Błąd' : 'Ostrzeżenie' }}</td>
+                      <td>{{ problem.komunikat }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+
+          @if (!saved() && report.podsumowanie.przyjete > 0) {
+            <p>
+              <button class="btn btn-primary" type="button" [disabled]="busy()" (click)="send(true)">
+                Wyślij zgłoszenie – poprawne wiersze: {{ report.podsumowanie.przyjete }}
+              </button>
+            </p>
+          }
+          @if (!saved() && report.podsumowanie.przyjete === 0) {
+            <p class="aed-message">W pliku nie ma wierszy, które można przyjąć. Popraw plik i wybierz go ponownie.</p>
+          }
+
+          @if (saved() && report.przyjete.length) {
+            <h3 class="aed-h3">Naklejki i linki dla dysponentów</h3>
+            <p>
+              Naklejkę przyklej na urządzeniu lub szafce. Link z potwierdzeniem wysyłamy na adres e-mail dysponenta; w
+              prototypie widać go także tutaj.
+            </p>
+            <ul class="aed-accepted">
+              @for (device of report.przyjete; track device.id_aed) {
+                <li>
+                  <strong>{{ device.id_aed }}</strong>
+                  <span>{{ device.producent }} {{ device.model }}, nr seryjny {{ device.numer_seryjny }}</span>
+                  @if (device.naklejka_url) {
+                    <a [href]="device.naklejka_url">Naklejka z kodem QR (SVG)</a>
+                  }
+                  <a [routerLink]="qrLink(device.link_aktywacyjny)">Strona potwierdzenia dla dysponenta</a>
+                </li>
+              }
+            </ul>
+          }
+        }
+      </div>
+    </section>
+
+    <aside class="aed-aside" aria-labelledby="aed-next-heading">
+      <h2 class="aed-h2" id="aed-next-heading">Co dzieje się po zgłoszeniu</h2>
+      <ol class="aed-steps">
+        <li>Rejestr nadaje urządzeniu stały identyfikator i przygotowuje naklejkę z kodem QR.</li>
+        <li>Naklejka trafia do dysponenta razem z urządzeniem.</li>
+        <li>Dysponent skanuje kod i potwierdza miejsce, godziny dostępu oraz stan urządzenia.</li>
+        <li>Potwierdzone urządzenie trafia do zbioru na dane.gov.pl.</li>
+      </ol>
+      <p>
+        <a [routerLink]="['/!aed', '!company', '!device'] | localize">Zgłoś jedno urządzenie formularzem</a>
+      </p>
+    </aside>
+  </div>
+}

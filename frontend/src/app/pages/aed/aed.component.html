@@ -1,0 +1,40 @@
+<!-- AED texts are Polish only for now, so the area declares its language (WCAG 3.1.2) also in the English portal. -->
+<div class="aed" [class.aed--app]="app" lang="pl">
+  @if (app) {
+    <header class="aed-appbar">
+      <span class="aed-appbar__name">Rejestr AED</span>
+      <span class="aed-tag">prototyp</span>
+      <a class="aed-appbar__portal" [routerLink]="['/'] | localize">dane.gov.pl</a>
+    </header>
+    <main id="main-content" tabindex="-1">
+      <router-outlet />
+    </main>
+  } @else {
+    <div class="container aed-page">
+      <nav class="aed-nav" aria-label="Rejestr AED">
+        <ul class="aed-nav__list">
+          <li>
+            <a
+              class="aed-nav__link"
+              [routerLink]="['/!aed', '!registry'] | localize"
+              routerLinkActive="aed-nav__link--active"
+              ariaCurrentWhenActive="page">
+              Rejestr urządzeń
+            </a>
+          </li>
+          <li>
+            <a
+              class="aed-nav__link"
+              [routerLink]="['/!aed', '!company'] | localize"
+              routerLinkActive="aed-nav__link--active"
+              ariaCurrentWhenActive="page">
+              Panel firmy
+            </a>
+          </li>
+        </ul>
+        <span class="aed-tag">prototyp</span>
+      </nav>
+      <router-outlet />
+    </div>
+  }
+</div>

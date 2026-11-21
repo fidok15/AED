@@ -1,0 +1,36 @@
+# Whole prototype with one command:  docker compose up --build
+# Then open http://localhost:8080  (AED area: http://localhost:8080/aed)
+services:
+  aed-service:
+    build:
+      context: .
+      dockerfile: aed_service/Dockerfile
+    environment:
+      # Public address of the frontend; it is encoded in the QR stickers.
+      AED_BASE_URL: ${AED_BASE_URL:-http://localhost:8080}
+      AED_CORS_ORIGINS: ${AED_BASE_URL:-http://localhost:8080}
+    volumes:
+      - aed-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8085/api/aed/statystyki', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  web:
+    build:
+      context: frontend
+      dockerfile: ../docker/web.Dockerfile
+      additional_contexts:
+        docker: ./docker
+        standard: ./aed_standard
+    environment:
+      AED_SERVICE_URL: http://aed-service:8085
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      aed-service:
+        condition: service_healthy
+
+volumes:
+  aed-data:
