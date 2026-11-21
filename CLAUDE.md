@@ -101,7 +101,7 @@ docs/           zadanie, research, api-aed.md (kontrakt API), integracja-portal-
 
 Kontrakt między frontendem a usługą: `docs/api-aed.md`. Ustalenia z kodu portalu i plan wdrożenia w forku: `docs/integracja-portal-backend.md`.
 
-Stan źródeł na 21.11: pięć zbiorów z dane.gov.pl (Krosno, Marki, Przemyśl, Legionowo, Warszawa), API Warszawy (708 urządzeń), OpenAEDMap (18 297 obiektów). Innych maszynowo czytelnych zbiorów miejskich nie znaleziono; Kraków („Impuls Życia”) i Koszalin („Punkty Życia”) publikują tylko listy na stronach WWW.
+Stan źródeł na 21.11: cztery zbiory z dane.gov.pl z plikami (Krosno, Marki, Przemyśl, Legionowo – razem 74 rekordy), API Warszawy (708 urządzeń; zbiór Warszawy na dane.gov.pl to tylko odnośnik do tego API), OpenAEDMap (18 298 obiektów). Po mapowaniu i deduplikacji: rejestr 18 814 rekordów, eksport publikacyjny 781 (liczby w `datasets/out/raport.json`). Usługa pokazuje publicznie mniej rekordów niż rejestr, bo pomija rekordy z dostępem `prywatny`. Innych maszynowo czytelnych zbiorów miejskich nie znaleziono; Kraków („Impuls Życia”) i Koszalin („Punkty Życia”) publikują tylko listy na stronach WWW.
 
 Fakty o portalu ustalone w kodzie:
 
