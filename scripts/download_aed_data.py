@@ -1,7 +1,7 @@
 """Download raw data about Polish AED defibrillators from all known public sources.
 
 Sources:
-- dane.gov.pl: every resource of the known AED datasets (via API 1.4),
+- dane.gov.pl: every resource of the AED datasets listed in aed_standard/sources.json (via API 1.4),
 - OpenAEDMap (OpenStreetMap data, ODbL): country export for Poland,
 - Warsaw open data API (requires a free token in WARSAW_API_TOKEN, read from the environment or the .env file
   in the repository root; without it only the API docs are saved).
@@ -24,13 +24,15 @@ USER_AGENT = "AED-open-data-research/1.0"
 TIMEOUT = 120
 
 DANE_GOV_API = "https://api.dane.gov.pl/1.4"
-DANE_GOV_DATASETS = {
-    3624: ("krosno", None),
-    4955: ("marki", None),
-    4581: ("przemysl", None),
-    39512: ("warszawa", None),
-    40593: ("legionowo", {2625221}),
-}
+REGISTRY_PATH = ROOT / "aed_standard" / "sources.json"  # which dane.gov.pl datasets to fetch: entries with "dane_gov_pl"
+
+
+def dane_gov_datasets(path):
+    """-> {dataset_id: (directory slug = registry id, set of resource ids or None = all resources)}."""
+    with open(path, encoding="utf-8") as f:
+        sources = json.load(f)["sources"]
+    return {s["dane_gov_pl"]["dataset_id"]: (s["id"], set(s["dane_gov_pl"]["resources"]) if "resources" in s["dane_gov_pl"] else None)
+            for s in sources if "dane_gov_pl" in s}
 
 OPENAEDMAP_URL = "https://openaedmap.org/api/v1/countries/PL.geojson"
 
@@ -75,7 +77,7 @@ def save(path, content, entry, manifest):
 
 
 def download_dane_gov(manifest, errors):
-    for dataset_id, (slug, aed_resource_ids) in DANE_GOV_DATASETS.items():
+    for dataset_id, (slug, aed_resource_ids) in dane_gov_datasets(REGISTRY_PATH).items():
         print(f"dane.gov.pl dataset {dataset_id} ({slug})")
         try:
             dataset = fetch_json(f"{DANE_GOV_API}/datasets/{dataset_id}")["data"]
