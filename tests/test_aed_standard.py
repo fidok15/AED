@@ -11,7 +11,7 @@ sys.path.insert(0, ROOT)
 import aed_standard as A  # noqa: E402
 from aed_standard import schema as S, sources as M  # noqa: E402
 from aed_standard.build import publication_export, to_csv  # noqa: E402
-from aed_standard.dedup import deduplicate  # noqa: E402
+from aed_standard.dedup import copies_values, deduplicate, priority  # noqa: E402
 from aed_standard.validate import check_record  # noqa: E402
 
 RAW = os.path.join(ROOT, "datasets", "raw")
@@ -45,6 +45,27 @@ class RegistryBuildTest(unittest.TestCase):
             self.assertEqual(report.pop(key, []), [])
             committed.pop(key, None)
         self.assertEqual(report, committed)
+
+
+class PriorityTest(unittest.TestCase):
+    def test_unknown_source_in_dedup_is_loud(self):
+        with self.assertRaisesRegex(ValueError, "nieznane-zrodlo"):
+            priority(rec("nieznane-zrodlo", "1", 52.2, 21.0))
+
+    def test_priority_from_registry_without_meta(self):
+        # records built outside load_all (service, tests) fall back to the registry by zrodlo
+        self.assertEqual(priority(rec("zgloszenie", "1", 52.2, 21.0))[0], 0)
+        self.assertEqual(priority(rec("dane.gov.pl/3624", "1", 52.2, 21.0))[0], 1)
+        self.assertEqual(priority(rec(M.WARSAW, "1", 52.2, 21.0))[0], 2)
+        self.assertEqual(priority(rec(M.OSM, "n/1", 52.2, 21.0))[0], 3)
+        self.assertFalse(copies_values(rec(M.OSM, "n/1", 52.2, 21.0)))
+        self.assertTrue(copies_values(rec("zgloszenie", "1", 52.2, 21.0)))
+
+    def test_meta_fields_win_over_registry(self):
+        r = rec(M.OSM, "n/1", 52.2, 21.0)
+        r.update(_priority=7, _copy_values=True)
+        self.assertEqual(priority(r)[0], 7)
+        self.assertTrue(copies_values(r))
 
 
 class BuildTest(unittest.TestCase):
@@ -101,12 +122,12 @@ class BuildTest(unittest.TestCase):
 
     def test_serial_number_merge(self):
         a = rec("zgloszenie", "s1", 52.1, 21.0, producent="Philips", numer_seryjny="B21K-04127")
-        b = rec("dane.gov.pl/1", "x", 50.0, 19.0, producent="PHILIPS", numer_seryjny="b21k 04127", nazwa="Szkoła")
+        b = rec("dane.gov.pl/3624", "x", 50.0, 19.0, producent="PHILIPS", numer_seryjny="b21k 04127", nazwa="Szkoła")
         merged, _, _ = deduplicate([a, b])
         self.assertEqual(len(merged), 1)
         self.assertEqual(merged[0]["zrodlo"], "zgloszenie")
         self.assertEqual(merged[0]["nazwa"], "Szkoła")  # gap filled from non-OSM member
-        self.assertEqual(merged[0]["powiazane_zrodla"], "dane.gov.pl/1:x")
+        self.assertEqual(merged[0]["powiazane_zrodla"], "dane.gov.pl/3624:x")
 
     def test_same_source_never_merges(self):
         a = rec(M.WARSAW, "1", 52.2, 21.0, nazwa="Urząd")
@@ -191,13 +212,13 @@ class BuildTest(unittest.TestCase):
 
     def test_different_serials_never_merge_spatially(self):
         a = rec("zgloszenie", "s1", 52.2, 21.0, producent="Philips", numer_seryjny="A-1", nazwa="Urząd")
-        b = rec("dane.gov.pl/1", "x", 52.2, 21.00001, producent="Philips", numer_seryjny="A-2", nazwa="Urząd")
+        b = rec("dane.gov.pl/3624", "x", 52.2, 21.00001, producent="Philips", numer_seryjny="A-2", nazwa="Urząd")
         o = rec(M.OSM, "node/1", 52.2, 21.000005, nazwa="Urząd")
         merged, pairs, _ = deduplicate([a, b, o])
         self.assertEqual(len(merged), 2)
         self.assertEqual(sorted(m["numer_seryjny"] for m in merged), ["A-1", "A-2"])
         self.assertEqual(sum(1 for m in merged if "openstreetmap:node/1" in m["powiazane_zrodla"]), 1)
-        serial_pair = {A.make_id("zgloszenie", "s1"), A.make_id("dane.gov.pl/1", "x")}
+        serial_pair = {A.make_id("zgloszenie", "s1"), A.make_id("dane.gov.pl/3624", "x")}
         self.assertFalse([p for p in pairs if {p["id_aed_a"], p["id_aed_b"]} == serial_pair])
         self.assertEqual(A.find_candidates(a, [b]), [])
 

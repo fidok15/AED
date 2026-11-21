@@ -8,7 +8,8 @@ import unicodedata
 from collections import defaultdict
 
 from . import schema as S
-from .sources import OSM, WARSAW, haversine_m
+from .registry import SUBMISSION, load_registry
+from .sources import WARSAW, haversine_m
 from .validate import LAT, LON, serial_key
 
 CANDIDATE_M = 50.0
@@ -19,7 +20,7 @@ AUTO_SIMILARITY = 0.7
 # Cell sizes in degrees: 0.0005 deg lat ~ 55 m; 0.0008 deg lon >= 51 m up to lat 54.9.
 CELL_LAT, CELL_LON = 0.0005, 0.0008
 
-LICENCE_ORDER = ["CC0 1.0", "CC BY 4.0", "ODbL 1.0"]  # least to most restrictive
+LICENCE_ORDER = S.enum("licencja")  # schema.json lists them from least to most restrictive
 NOT_FILLED = {"id_aed", "status", "data_aktualizacji", "wprowadzajacy_typ", "wprowadzajacy_nazwa"} | {
     f["name"] for f in S.FIELDS if f.get("grupa") == "pochodzenie"}
 STOPWORDS = {"defibrylator", "defibrylatory", "aed", "ul", "al", "pl", "im", "w", "nr", "i", "the", "ulica", "aleja"}
@@ -30,11 +31,35 @@ def make_id(zrodlo, zrodlo_id):
     return "AED-" + base64.b32encode(digest).decode("ascii")[:12]
 
 
+_BY_ZRODLO = None
+
+
+def _registered(rec):
+    """Registry entry of the record's source, for records built outside sources.load_all (no meta fields)."""
+    global _BY_ZRODLO
+    if _BY_ZRODLO is None:
+        _BY_ZRODLO = {s["zrodlo"]: s for s in load_registry()[0]}
+    source = _BY_ZRODLO.get(rec["zrodlo"])
+    if source is None:
+        raise ValueError("Rekord ze źródła „%s” nie ma priorytetu: dodaj źródło do aed_standard/sources.json."
+                         % rec["zrodlo"])
+    return source
+
+
 def priority(rec):
-    """Lower is better: submission (seller/owner) > dane.gov.pl > Warsaw API > OSM."""
-    z = rec["zrodlo"]
-    rank = 3 if z == OSM else 2 if z == WARSAW else 1 if z.startswith("dane.gov.pl") else 0
-    return (rank, z, rec["zrodlo_id"])
+    """Lower is better: submission (seller/owner) 0, then the source's priority from sources.json."""
+    if "_priority" in rec:
+        rank = rec["_priority"]
+    else:
+        rank = 0 if rec["zrodlo"] == SUBMISSION else _registered(rec)["priority"]
+    return (rank, rec["zrodlo"], rec["zrodlo_id"])
+
+
+def copies_values(rec):
+    """False for sources whose values must never be copied into another source's record (ODbL: OSM)."""
+    if "_copy_values" in rec:
+        return rec["_copy_values"]
+    return rec["zrodlo"] == SUBMISSION or _registered(rec)["copy_values_on_merge"]
 
 
 def normalize(text):
@@ -132,7 +157,7 @@ def merge_cluster(members):
     rec = {k: v for k, v in primary.items() if not k.startswith("_")}
     used = [primary]
     for other in members[1:]:
-        if other["zrodlo"] == OSM:  # ODbL: never copy OSM values into another source's record
+        if not copies_values(other):  # ODbL: never copy OSM values into another source's record
             continue
         filled = False
         for name in S.FIELD_NAMES:

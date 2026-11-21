@@ -628,7 +628,7 @@
       "type": "string",
       "grupa": "pochodzenie",
       "waga": 0,
-      "description": "Licencja, na której rekord został udostępniony w źródle.",
+      "description": "Licencja, na której rekord został udostępniony w źródle. Słownik jest uporządkowany od licencji najmniej do najbardziej restrykcyjnej; rekord scalony z kilku źródeł dostaje najbardziej restrykcyjną z wykorzystanych.",
       "constraints": {
         "enum": [
           "CC0 1.0",
