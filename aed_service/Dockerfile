@@ -1,5 +1,7 @@
 # Build context: repository root (docker compose sets it).
-FROM python:3.13-slim
+# Official image pulled through the AWS public mirror: Docker Hub rate-limits anonymous pulls (HTTP 429).
+ARG PYTHON_IMAGE=public.ecr.aws/docker/library/python:3.13-slim
+FROM ${PYTHON_IMAGE}
 
 WORKDIR /app
 COPY aed_service/requirements.txt aed_service/requirements.txt
