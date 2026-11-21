@@ -1,0 +1,63 @@
+@let hintId = id() + '-hint';
+@let errorId = id() + '-error';
+
+@if (options().length) {
+  <fieldset
+    class="aed-field form-field"
+    [class.is-invalid]="invalid"
+    [attr.aria-describedby]="invalid ? hintId + ' ' + errorId : hintId">
+    <legend class="aed-field__label">
+      {{ field().title }}
+      @if (required) {
+        <span class="aed-field__required">(wymagane)</span>
+      }
+    </legend>
+    <p class="aed-field__hint" [id]="hintId">{{ field().description }}</p>
+    <div class="aed-choices">
+      @for (option of options(); track option) {
+        <label class="aed-choice">
+          <!-- [name] groups the radios for Angular forms, [attr.name] for the browser (arrow keys) -->
+          <input
+            type="radio"
+            [name]="id()"
+            [attr.name]="id()"
+            [attr.value]="option"
+            [value]="option"
+            [formControl]="control()" />
+          <span>{{ option }}</span>
+        </label>
+      }
+    </div>
+    @if (invalid) {
+      <p class="aed-field__error" [id]="errorId"><span class="visually-hidden">Błąd: </span>Wybierz jedną z opcji.</p>
+    }
+  </fieldset>
+} @else {
+  <div class="aed-field form-field">
+    <label class="aed-field__label" [for]="id()">
+      {{ field().title }}
+      @if (required) {
+        <span class="aed-field__required">(wymagane)</span>
+      }
+    </label>
+    <p class="aed-field__hint" [id]="hintId">
+      {{ field().description }}
+      @if (field().przyklad) {
+        Przykład: {{ field().przyklad }}.
+      }
+    </p>
+    <input
+      class="form-control"
+      [id]="id()"
+      [type]="inputType()"
+      [attr.step]="inputType() === 'number' ? 'any' : null"
+      [formControl]="control()"
+      [class.is-invalid]="invalid"
+      [attr.aria-required]="required ? true : null"
+      [attr.aria-invalid]="invalid ? true : null"
+      [attr.aria-describedby]="invalid ? hintId + ' ' + errorId : hintId" />
+    @if (invalid) {
+      <p class="aed-field__error" [id]="errorId"><span class="visually-hidden">Błąd: </span>{{ error }}</p>
+    }
+  </div>
+}

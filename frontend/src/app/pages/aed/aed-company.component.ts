@@ -1,0 +1,69 @@
+import { Component, inject, OnInit, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
+import { LocalizeRouterPipe } from '@gilsdav/ngx-translate-router';
+
+import { SeoService } from '@app/services/seo.service';
+import { AedApiService, aedErrorMessage, aedLinkFactory, AedSubmission } from './aed-api.service';
+import { AED_FIELDS, aedField, aedRequired } from './aed-schema';
+
+/** Company panel: sign in, check a CSV file, send it, get the QR links for the accepted devices. */
+@Component({
+  selector: 'app-aed-company',
+  standalone: true,
+  imports: [FormsModule, RouterLink, LocalizeRouterPipe],
+  templateUrl: './aed-company.component.html',
+})
+export class AedCompanyComponent implements OnInit {
+  protected readonly api = inject(AedApiService);
+  private readonly seo = inject(SeoService);
+
+  protected readonly required = aedRequired('sprzedaz').map(aedField);
+  /** Header row of the standard, built from the schema, offered as a starting file. */
+  protected readonly templateHref =
+    'data:text/csv;charset=utf-8,' + encodeURIComponent(AED_FIELDS.map((field) => field.name).join(',') + '\n');
+  protected readonly title = (column: string) => aedField(column)?.title ?? column;
+
+  protected readonly qrLink = aedLinkFactory();
+
+  protected readonly file = signal<File | null>(null);
+  protected readonly report = signal<AedSubmission | null>(null);
+  protected readonly saved = signal(false);
+  protected readonly busy = signal(false);
+  protected readonly error = signal('');
+
+  ngOnInit(): void {
+    this.seo.setPageTitle(['Panel firmy', 'Rejestr AED']);
+  }
+
+  protected login(email: string, haslo: string): void {
+    this.api.login(email, haslo).subscribe({
+      next: () => this.error.set(''),
+      error: (error) => this.error.set(aedErrorMessage(error)),
+    });
+  }
+
+  protected choose(input: HTMLInputElement): void {
+    this.file.set(input.files?.[0] ?? null);
+    this.report.set(null);
+    this.saved.set(false);
+    if (this.file()) this.send(false);
+  }
+
+  /** `save = false` asks only for the report; `save = true` adds the correct rows to the registry. */
+  protected send(save: boolean): void {
+    this.busy.set(true);
+    this.api.submitCsv(this.file(), save).subscribe({
+      next: (report) => {
+        this.report.set(report);
+        this.saved.set(save);
+        this.error.set('');
+        this.busy.set(false);
+      },
+      error: (error) => {
+        this.error.set(aedErrorMessage(error));
+        this.busy.set(false);
+      },
+    });
+  }
+}

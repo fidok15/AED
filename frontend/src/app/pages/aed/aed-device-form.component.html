@@ -1,0 +1,68 @@
+<p class="aed-back"><a [routerLink]="['/!aed', '!company'] | localize">Wróć do panelu firmy</a></p>
+
+@if (accepted(); as device) {
+  <section class="aed-panel aed-done" aria-labelledby="aed-done-heading" role="status">
+    <h1 class="heading heading--md" id="aed-done-heading">Urządzenie zgłoszone</h1>
+    <p>
+      {{ device.producent }} {{ device.model }}, nr seryjny {{ device.numer_seryjny }}. Identyfikator w rejestrze:
+      <strong>{{ device.id_aed }}</strong>
+    </p>
+    <p>
+      Naklejkę przyklej na urządzeniu lub szafce. Link z potwierdzeniem wysyłamy na adres e-mail dysponenta; w
+      prototypie widać go także tutaj.
+    </p>
+    <ul class="aed-accepted">
+      <li>
+        @if (device.naklejka_url) {
+          <a [href]="device.naklejka_url">Naklejka z kodem QR (SVG)</a>
+        }
+        <a [routerLink]="qrLink(device.link_aktywacyjny)">Strona potwierdzenia dla dysponenta</a>
+      </li>
+    </ul>
+    <button class="btn btn-primary" type="button" (click)="another()">Zgłoś kolejne urządzenie</button>
+  </section>
+} @else {
+  <h1 class="heading heading--md">Zgłoś jedno urządzenie</h1>
+  <p class="aed-lede">
+    Podaj dane urządzenia i jego dysponenta. Miejsce montażu potwierdzi dysponent po zeskanowaniu naklejki z kodem QR.
+  </p>
+
+  @if (error()) {
+    <p class="aed-message aed-message--error" role="alert">{{ error() }}</p>
+  }
+  @if (problems().length) {
+    <div class="aed-message aed-message--error" role="alert">
+      <p>Rejestr nie przyjął zgłoszenia. Popraw:</p>
+      <ul>
+        @for (problem of problems(); track $index) {
+          <li>{{ problem.pole }}: {{ problem.komunikat }}</li>
+        }
+      </ul>
+    </div>
+  }
+
+  <form class="aed-form" [formGroup]="form" appScrollToFirstError novalidate (ngSubmit)="submit()">
+    @for (group of sale; track group.title) {
+      <fieldset class="aed-group">
+        <legend class="aed-h2">{{ group.title }}</legend>
+        @for (field of group.fields; track field.name) {
+          <app-aed-field [field]="field" [control]="form.controls[field.name]" />
+        }
+      </fieldset>
+    }
+
+    <details class="aed-details">
+      <summary>Miejsce montażu jest już znane – dodaj je teraz (nieobowiązkowe)</summary>
+      @for (group of place; track group.title) {
+        <fieldset class="aed-group">
+          <legend class="aed-h2">{{ group.title }}</legend>
+          @for (field of group.fields; track field.name) {
+            <app-aed-field [field]="field" [control]="form.controls[field.name]" />
+          }
+        </fieldset>
+      }
+    </details>
+
+    <button class="btn btn-primary" type="submit">Zgłoś urządzenie</button>
+  </form>
+}

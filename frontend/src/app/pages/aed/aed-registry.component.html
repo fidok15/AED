@@ -1,0 +1,113 @@
+<h1 class="heading heading--md">Rejestr defibrylatorów AED</h1>
+<p class="aed-lede">
+  Jeden zbiór dla całej Polski. Urządzenie jest aktywne, gdy jego dysponent potwierdził miejsce, dostęp i stan.
+</p>
+
+@if (stats(); as stats) {
+  <dl class="aed-facts">
+    <div>
+      <dt>Urządzenia w rejestrze</dt>
+      <dd>{{ number(stats.razem) }}</dd>
+    </div>
+    <div>
+      <dt>Potwierdzone przez dysponenta</dt>
+      <dd>{{ number(stats.wg_statusu.aktywny ?? 0) }}</dd>
+    </div>
+    <div>
+      <dt>Średnia kompletność danych</dt>
+      <dd>{{ number(stats.srednia_kompletnosc) }}%</dd>
+    </div>
+  </dl>
+
+  <!-- The strip repeats the counts given in the filter below, so it is hidden from assistive technology. -->
+  <div class="aed-strip" aria-hidden="true">
+    @for (item of statuses; track item) {
+      @if (stats.wg_statusu[item]) {
+        <span
+          class="aed-strip__part aed-strip__part--{{ item }}"
+          [style.flex-grow]="stats.wg_statusu[item] ?? 0"></span>
+      }
+    }
+  </div>
+
+  <fieldset class="aed-filter">
+    <legend class="aed-filter__legend">Pokaż urządzenia o statusie</legend>
+    <label class="aed-filter__option">
+      <input type="radio" name="aed-status" value="" [checked]="status() === ''" (change)="filter({ status: '' })" />
+      <span>Wszystkie</span>
+      <span class="aed-filter__count">{{ stats.razem }}</span>
+    </label>
+    @for (item of statuses; track item) {
+      <label class="aed-filter__option">
+        <input
+          type="radio"
+          name="aed-status"
+          [value]="item"
+          [checked]="status() === item"
+          (change)="filter({ status: item })" />
+        <app-aed-status [status]="item" />
+        <span class="aed-filter__count">{{ stats.wg_statusu[item] ?? 0 }}</span>
+      </label>
+    }
+  </fieldset>
+}
+
+<form class="aed-search" role="search" (submit)="$event.preventDefault(); filter({ query: search.value })">
+  <label class="aed-field__label" for="aed-search">Szukaj po nazwie miejsca lub miejscowości</label>
+  <div class="aed-search__row">
+    <input class="form-control" id="aed-search" type="search" #search />
+    <button class="btn btn-primary" type="submit">Szukaj</button>
+  </div>
+</form>
+
+@if (error()) {
+  <p class="aed-message aed-message--error" role="alert">{{ error() }}</p>
+}
+
+<h2 class="aed-h2" id="aed-list-heading">Lista urządzeń</h2>
+<p class="aed-count" role="status">{{ shown() }}</p>
+
+<ul class="aed-list" aria-labelledby="aed-list-heading">
+  @for (record of records(); track record.id_aed) {
+    <li class="aed-row">
+      <div class="aed-row__main">
+        <h3 class="aed-row__name">{{ record['nazwa'] || 'Miejsce bez nazwy' }}</h3>
+        <p class="aed-row__address">
+          {{ address(record) || record['opis_lokalizacji'] || record['dysponent_nazwa'] }}
+        </p>
+        <p class="aed-row__id">{{ record.id_aed }}</p>
+      </div>
+      <div class="aed-row__status">
+        <app-aed-status [status]="record.status" />
+        @if (record['data_weryfikacji']) {
+          <p class="aed-row__note">{{ title('data_weryfikacji') }}: {{ record['data_weryfikacji'] }}</p>
+        }
+      </div>
+      <dl class="aed-row__access">
+        <div>
+          <dt>{{ title('dostep') }}</dt>
+          <dd>{{ record['dostep'] || 'brak danych' }}</dd>
+        </div>
+        <div>
+          <dt>{{ title('godziny_dostepu') }}</dt>
+          <dd>{{ record['godziny_dostepu'] || 'brak danych' }}</dd>
+        </div>
+      </dl>
+      <p class="aed-row__gauge">
+        <span>{{ title('kompletnosc') }} {{ record.kompletnosc }}%</span>
+        <span class="aed-gauge" aria-hidden="true"><span [style.width.%]="record.kompletnosc"></span></span>
+      </p>
+    </li>
+  } @empty {
+    <li class="aed-row aed-row--empty">Nic nie pasuje do wybranego statusu i szukanej frazy. Zmień jedno z nich.</li>
+  }
+</ul>
+
+@if (total() > perPage) {
+  <app-pagination [itemsPerPage]="perPage" [totalItems]="total()" [page]="page()" (pageChange)="load($event)" />
+}
+
+<section class="aed-map" aria-labelledby="aed-map-heading">
+  <h2 class="aed-h2" id="aed-map-heading">Mapa</h2>
+  <p>Mapa pokaże te same urządzenia co lista powyżej. Jest w przygotowaniu.</p>
+</section>

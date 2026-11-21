@@ -1,0 +1,42 @@
+server {
+    listen 80;
+    root /usr/share/nginx/html;
+    index index.html;
+    client_max_body_size 6m;
+
+    # AED service (company submissions, QR, registry).
+    location /api/aed {
+        proxy_pass ${AED_SERVICE_URL};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Everything else the portal frontend needs comes read-only from the public portal,
+    # mirroring frontend/proxy.aed.conf.json.
+    location /api/ {
+        proxy_pass https://api.dane.gov.pl/1.4/;
+        proxy_set_header Host api.dane.gov.pl;
+        proxy_ssl_server_name on;
+    }
+    location /cms/ {
+        proxy_pass https://cms.dane.gov.pl/;
+        proxy_set_header Host cms.dane.gov.pl;
+        proxy_ssl_server_name on;
+    }
+    location /media/ {
+        proxy_pass https://dane.gov.pl/media/;
+        proxy_set_header Host dane.gov.pl;
+        proxy_ssl_server_name on;
+    }
+    location /flags/ {
+        proxy_pass https://dane.gov.pl/flags/;
+        proxy_set_header Host dane.gov.pl;
+        proxy_ssl_server_name on;
+    }
+
+    # Single-page application: unknown paths fall back to index.html.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

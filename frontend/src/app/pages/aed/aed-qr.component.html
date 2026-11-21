@@ -1,0 +1,240 @@
+<div class="aed-qr">
+  @if (loadError()) {
+    <h1 class="aed-qr__title">Nie znaleźliśmy tego urządzenia</h1>
+    <p class="aed-message aed-message--error" role="alert">{{ loadError() }}</p>
+    <p>Sprawdź, czy adres z naklejki jest wpisany w całości, albo zeskanuj kod jeszcze raz.</p>
+  }
+
+  @if (record(); as record) {
+    <section class="aed-card aed-device" aria-label="Urządzenie">
+      <p class="aed-device__id">{{ record.id_aed }}</p>
+      @if (record['producent']) {
+        <p class="aed-device__model">{{ record['producent'] }} {{ record['model'] }}</p>
+      }
+      @if (record['nazwa']) {
+        <p class="aed-device__place">{{ record['nazwa'] }}, {{ record['miejscowosc'] }}</p>
+      }
+      <app-aed-status [status]="record.status" />
+    </section>
+
+    @if (done()) {
+      <section class="aed-card aed-result">
+        <svg class="aed-result__mark" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+          <circle cx="24" cy="24" r="22" />
+          <path d="M14 24.5l7 7 13-14" />
+        </svg>
+        @if (done() === 'potwierdzenie') {
+          <h1 class="aed-qr__title" id="aed-done" tabindex="-1">Dane potwierdzone</h1>
+          <p>
+            Urządzenie ma teraz status „aktywny”. Data potwierdzenia: {{ record['data_weryfikacji'] }}. Kompletność
+            danych: {{ record.kompletnosc }}%.
+          </p>
+          <p>Gdy zbliży się termin kolejnego potwierdzenia, wyślemy wiadomość na adres e-mail dysponenta.</p>
+        } @else {
+          <h1 class="aed-qr__title" id="aed-done" tabindex="-1">Zgłoszenie wysłane</h1>
+          <p>Przekazaliśmy je dysponentowi urządzenia. Dane w rejestrze zmieni dopiero on.</p>
+        }
+        <p>Możesz zamknąć tę stronę.</p>
+      </section>
+    } @else if (t()) {
+      <h1 class="aed-qr__title">Potwierdź dane defibrylatora</h1>
+      <p class="aed-qr__lede">Trzy kroki, około minuty. Najlepiej zrób to, stojąc przy urządzeniu.</p>
+
+      <form [formGroup]="form" appScrollToFirstError novalidate (ngSubmit)="confirm()">
+        <section class="aed-card" aria-labelledby="aed-step-1">
+          <p class="aed-step">Krok 1 z 3</p>
+          <h2 class="aed-card__title" id="aed-step-1">Gdzie znajduje się urządzenie</h2>
+
+          <button class="aed-button aed-button--secondary" type="button" [disabled]="locating()" (click)="locate()">
+            {{ locating() ? 'Ustalam położenie…' : 'Użyj lokalizacji telefonu' }}
+          </button>
+          <div aria-live="polite">
+            @if (located()) {
+              <p class="aed-message aed-message--ok">{{ located() }}</p>
+            }
+          </div>
+          @if (locationError()) {
+            <p class="aed-message aed-message--error" role="alert">{{ locationError() }}</p>
+          }
+          <details class="aed-details" [open]="!!locationError() || values.controls['szerokosc_geograficzna'].touched">
+            <summary>Wpisz współrzędne ręcznie</summary>
+            @for (field of coordinates; track field.name) {
+              <app-aed-field [field]="field" [control]="values.controls[field.name]" />
+            }
+          </details>
+
+          @for (field of place; track field.name) {
+            <app-aed-field [field]="field" [control]="values.controls[field.name]" />
+          }
+          @for (field of spot; track field.name) {
+            <app-aed-field [field]="field" [control]="values.controls[field.name]" />
+          }
+          <p class="aed-note">Nie podawaj danych osób ani kodów do szafek. Te informacje będą publiczne.</p>
+        </section>
+
+        <section class="aed-card" aria-labelledby="aed-step-2">
+          <p class="aed-step">Krok 2 z 3</p>
+          <h2 class="aed-card__title" id="aed-step-2">Kto i kiedy ma dostęp</h2>
+
+          <app-aed-field [field]="access" [control]="values.controls[access.name]" />
+
+          <fieldset
+            class="aed-field form-field"
+            [class.is-invalid]="allDay.touched && allDay.invalid"
+            [attr.aria-describedby]="allDay.touched && allDay.invalid ? 'aed-allday-error' : null">
+            <legend class="aed-field__label">
+              {{ hours.title }} <span class="aed-field__required">(wymagane)</span>
+            </legend>
+            <div class="aed-choices">
+              <label class="aed-choice">
+                <input type="radio" name="aed-allday" [value]="true" [formControl]="allDay" />
+                <span>Całą dobę, we wszystkie dni</span>
+              </label>
+              <label class="aed-choice">
+                <input type="radio" name="aed-allday" [value]="false" [formControl]="allDay" />
+                <span>W wybranych godzinach</span>
+              </label>
+            </div>
+            @if (allDay.touched && allDay.invalid) {
+              <p class="aed-field__error" id="aed-allday-error">
+                <span class="visually-hidden">Błąd: </span>Wybierz jedną z opcji.
+              </p>
+            }
+          </fieldset>
+          @if (allDay.value === false) {
+            <app-aed-field [field]="hours" [control]="values.controls[hours.name]" />
+          }
+        </section>
+
+        <section class="aed-card" aria-labelledby="aed-step-3">
+          <p class="aed-step">Krok 3 z 3</p>
+          <h2 class="aed-card__title" id="aed-step-3">W jakim stanie jest urządzenie</h2>
+
+          <fieldset
+            class="aed-field form-field"
+            [class.is-invalid]="stan.touched && stan.invalid"
+            [attr.aria-describedby]="stan.touched && stan.invalid ? 'aed-stan-error' : null">
+            <legend class="visually-hidden">Stan urządzenia (wymagane)</legend>
+            <div class="aed-choices">
+              <label class="aed-choice">
+                <input type="radio" name="aed-stan" value="sprawny" [formControl]="stan" />
+                <span>Jest na miejscu i jest gotowe do użycia</span>
+              </label>
+              <label class="aed-choice">
+                <input type="radio" name="aed-stan" value="problem" [formControl]="stan" />
+                <span>Wymaga uwagi, na przykład mija termin baterii lub elektrod albo widać uszkodzenie</span>
+              </label>
+            </div>
+            @if (stan.touched && stan.invalid) {
+              <p class="aed-field__error" id="aed-stan-error">
+                <span class="visually-hidden">Błąd: </span>Wybierz jedną z opcji.
+              </p>
+            }
+          </fieldset>
+
+          @if (stan.value === 'problem') {
+            <div class="aed-field form-field">
+              <label class="aed-field__label" for="aed-uwagi">
+                Co wymaga uwagi <span class="aed-field__required">(wymagane)</span>
+              </label>
+              <textarea
+                class="form-control"
+                id="aed-uwagi"
+                rows="3"
+                [formControl]="uwagi"
+                [class.is-invalid]="uwagi.touched && uwagi.invalid"
+                [attr.aria-invalid]="uwagi.touched && uwagi.invalid ? true : null"
+                [attr.aria-describedby]="uwagi.touched && uwagi.invalid ? 'aed-uwagi-error' : null"></textarea>
+              @if (uwagi.touched && uwagi.invalid) {
+                <p class="aed-field__error" id="aed-uwagi-error">
+                  <span class="visually-hidden">Błąd: </span>Opisz krótko, co wymaga uwagi.
+                </p>
+              }
+            </div>
+          }
+        </section>
+
+        @if (sendError()) {
+          <p class="aed-message aed-message--error" role="alert">{{ sendError() }}</p>
+        }
+        <div class="aed-actionbar">
+          <button class="aed-button" type="submit">Potwierdź dane</button>
+        </div>
+      </form>
+    } @else {
+      <h1 class="aed-qr__title">Co widzisz przy tym defibrylatorze</h1>
+      <p class="aed-qr__lede">Zgłoszenie trafi do dysponenta urządzenia. Nie zmienia danych w rejestrze.</p>
+
+      <form [formGroup]="signalForm" appScrollToFirstError novalidate (ngSubmit)="sendSignal()">
+        <section class="aed-card">
+          <fieldset
+            class="aed-field form-field"
+            [class.is-invalid]="signalForm.controls.typ.touched && signalForm.controls.typ.invalid"
+            [attr.aria-describedby]="
+              signalForm.controls.typ.touched && signalForm.controls.typ.invalid ? 'aed-typ-error' : null
+            ">
+            <legend class="aed-field__label">
+              Wybierz jedną odpowiedź <span class="aed-field__required">(wymagane)</span>
+            </legend>
+            <div class="aed-choices">
+              @for (option of signalTypes; track option.typ) {
+                <label class="aed-choice">
+                  <input type="radio" name="typ" [attr.value]="option.typ" [value]="option.typ" formControlName="typ" />
+                  <span>{{ option.label }}</span>
+                </label>
+              }
+            </div>
+            @if (signalForm.controls.typ.touched && signalForm.controls.typ.invalid) {
+              <p class="aed-field__error" id="aed-typ-error">
+                <span class="visually-hidden">Błąd: </span>Wybierz jedną z odpowiedzi.
+              </p>
+            }
+          </fieldset>
+
+          <div class="aed-field">
+            <label class="aed-field__label" for="aed-signal-uwagi">Uwagi (nieobowiązkowe)</label>
+            <p class="aed-field__hint" id="aed-signal-uwagi-hint">Nie podawaj danych osób ani kodów do szafek.</p>
+            <textarea
+              class="form-control"
+              id="aed-signal-uwagi"
+              rows="3"
+              formControlName="uwagi"
+              aria-describedby="aed-signal-uwagi-hint"></textarea>
+          </div>
+
+          <p class="aed-field__hint" id="aed-signal-location-hint">
+            Lokalizacja jest nieobowiązkowa. Pomaga sprawdzić, czy urządzenie stoi tam, gdzie podaje rejestr.
+          </p>
+          <button
+            class="aed-button aed-button--secondary"
+            type="button"
+            aria-describedby="aed-signal-location-hint"
+            [disabled]="locating()"
+            (click)="locate()">
+            {{ locating() ? 'Ustalam położenie…' : 'Dołącz lokalizację telefonu' }}
+          </button>
+          <div aria-live="polite">
+            @if (located()) {
+              <p class="aed-message aed-message--ok">{{ located() }}</p>
+            }
+          </div>
+          @if (locationError()) {
+            <p class="aed-message aed-message--error" role="alert">{{ locationError() }}</p>
+          }
+        </section>
+
+        @if (sendError()) {
+          <p class="aed-message aed-message--error" role="alert">{{ sendError() }}</p>
+        }
+        <div class="aed-actionbar">
+          <button class="aed-button" type="submit">Wyślij zgłoszenie</button>
+        </div>
+      </form>
+
+      <p class="aed-note">
+        Odpowiadasz za to urządzenie? Otwórz link z wiadomości e-mail wysłanej na adres dysponenta – pozwala on
+        uzupełnić i potwierdzić dane.
+      </p>
+    }
+  }
+</div>

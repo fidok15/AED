@@ -1,0 +1,860 @@
+// The only stylesheet of the AED area. Every rule is scoped under `.aed` (see aed.component.ts).
+//
+// Visual language: government services, not a new identity.
+// - colours and type come from the portal tokens (src/scss/base/_variables.scss, Roboto) and from gov.pl
+//   (text #1b1b1b, surface #f1f1f1, primary #0052a5 – the portal's own $color-gov-primary);
+// - the phone screen opened from a QR sticker follows the public mObywatel look: light blue-grey ground,
+//   white rounded cards, full-width pill buttons, the main action within thumb reach;
+// - state is always text plus an icon shape; colour only repeats it.
+@use 'base/variables' as portal;
+
+@mixin high-contrast($ink, $paper) {
+  --aed-blue: #{$ink};
+  --aed-blue-dark: #{$ink};
+  --aed-ink: #{$ink};
+  --aed-muted: #{$ink};
+  --aed-line: #{$ink};
+  --aed-control: #{$ink};
+  --aed-ok: #{$ink};
+  --aed-warn: #{$ink};
+  --aed-error: #{$ink};
+  --aed-paper: #{$paper};
+  --aed-surface: #{$paper};
+  --aed-ground: #{$paper};
+  --aed-selected: #{$paper};
+}
+
+.aed {
+  --aed-blue: #{portal.$color-gov-primary};
+  --aed-blue-dark: #{portal.$color-hover-2};
+  --aed-ink: #1b1b1b;
+  --aed-muted: #{portal.$color-grey-dark};
+  --aed-line: #{portal.$color-grey-light-2};
+  --aed-control: #{portal.$color-form-grey-2};
+  --aed-ok: #1d7a3a;
+  --aed-warn: #c25400;
+  --aed-error: #{portal.$color-darker-red};
+  --aed-paper: #{portal.$color-white};
+  --aed-surface: #f1f1f1;
+  --aed-ground: #f4f6fb;
+  --aed-selected: #{portal.$color-highlight};
+
+  color: var(--aed-ink);
+  line-height: 1.5;
+
+  // Portal high-contrast modes (classes set on <body> by HighContrastService).
+  body.black-white & {
+    @include high-contrast(portal.$color-white, portal.$color-black);
+  }
+  body.black-yellow & {
+    @include high-contrast(portal.$color-yellow, portal.$color-black);
+  }
+  body.yellow-black & {
+    @include high-contrast(portal.$color-black, portal.$color-yellow);
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--aed-blue);
+    outline-offset: 2px;
+  }
+
+  // Headings that only receive focus from code (result screens) are not controls.
+  [tabindex='-1']:focus-visible {
+    outline: 0;
+  }
+
+  p,
+  li,
+  dd {
+    max-width: 44rem;
+  }
+
+  a {
+    color: var(--aed-blue);
+    text-decoration: underline;
+  }
+
+  code {
+    color: inherit;
+    font-size: 0.875em;
+  }
+
+  // ---------------------------------------------------------------- shared pieces
+
+  .aed-tag {
+    padding: 0 0.5rem;
+    border: 1px solid var(--aed-control);
+    color: var(--aed-muted);
+    font-size: 0.8125rem;
+    white-space: nowrap;
+  }
+
+  .aed-lede {
+    margin-bottom: 1.5rem;
+    font-size: 1.125rem;
+  }
+
+  .aed-h2 {
+    margin: 2rem 0 0.75rem;
+    color: var(--aed-ink);
+    font-size: 1.375rem;
+    font-weight: 700;
+  }
+
+  .aed-h3 {
+    margin: 1.5rem 0 0.75rem;
+    font-size: 1.125rem;
+    font-weight: 700;
+  }
+
+  .aed-note {
+    color: var(--aed-muted);
+    font-size: 0.875rem;
+  }
+
+  .aed-message {
+    display: flex;
+    gap: 0.5rem;
+    max-width: 44rem;
+    margin: 1rem 0;
+    padding: 0.75rem 1rem;
+    border-left: 4px solid var(--aed-control);
+    background: var(--aed-surface);
+
+    > * {
+      margin: 0;
+    }
+
+    &--error,
+    &--ok {
+      &::before {
+        flex: none;
+        width: 1.25rem;
+        height: 1.25rem;
+        margin-top: 0.125rem;
+        border-radius: 50%;
+        color: var(--aed-paper);
+        font-size: 0.8125rem;
+        font-weight: 700;
+        line-height: 1.25rem;
+        text-align: center;
+      }
+    }
+
+    &--error {
+      border-color: var(--aed-error);
+
+      &::before {
+        content: '!';
+        background: var(--aed-error);
+      }
+    }
+
+    &--ok {
+      border-color: var(--aed-ok);
+
+      &::before {
+        content: '\2713';
+        background: var(--aed-ok);
+      }
+    }
+  }
+
+  // Readiness indicator: a small window with a mark, as on a real device.
+  .aed-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+
+    &__window {
+      flex: none;
+      width: 1.5rem;
+      height: 1.5rem;
+      border: 2px solid currentColor;
+      border-radius: 2px;
+      color: var(--aed-muted);
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  }
+
+  .aed-status--aktywny .aed-status__window {
+    border-color: var(--aed-ok);
+    background: var(--aed-ok);
+    color: var(--aed-paper);
+  }
+
+  .aed-status--zgloszony .aed-status__window {
+    color: var(--aed-blue);
+  }
+
+  .aed-status--nieaktualny .aed-status__window {
+    color: var(--aed-warn);
+  }
+
+  .aed-status--wycofany .aed-status__window {
+    color: var(--aed-error);
+  }
+
+  details.aed-details {
+    margin: 1rem 0 1.5rem;
+
+    summary {
+      padding: 0.625rem 0;
+      color: var(--aed-blue);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    ul {
+      padding-left: 1.25rem;
+    }
+  }
+
+  // ---------------------------------------------------------------- forms (generated from the schema)
+
+  .aed-field {
+    display: block;
+    min-width: 0;
+    margin: 0 0 1.5rem;
+    padding: 0;
+    border: 0;
+
+    &__label {
+      display: block;
+      float: none;
+      width: auto;
+      margin-bottom: 0.25rem;
+      color: var(--aed-ink);
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    &__required {
+      color: var(--aed-muted);
+      font-weight: 400;
+    }
+
+    &__hint {
+      margin: 0 0 0.5rem;
+      color: var(--aed-muted);
+      font-size: 0.875rem;
+    }
+
+    &__error {
+      margin: 0.375rem 0 0;
+      color: var(--aed-error);
+      font-weight: 700;
+
+      &::before {
+        content: '!';
+        display: inline-block;
+        width: 1.125rem;
+        height: 1.125rem;
+        margin-right: 0.375rem;
+        border-radius: 50%;
+        background: var(--aed-error);
+        color: var(--aed-paper);
+        font-size: 0.75rem;
+        line-height: 1.125rem;
+        text-align: center;
+      }
+    }
+  }
+
+  .form-control {
+    max-width: 32rem;
+    min-height: 2.75rem;
+    border-color: var(--aed-control);
+    color: var(--aed-ink);
+    line-height: 1.5;
+
+    &.is-invalid {
+      border-color: var(--aed-error);
+      box-shadow: inset 0 0 0 1px var(--aed-error);
+    }
+  }
+
+  .aed-choices {
+    display: grid;
+    gap: 0.5rem;
+    max-width: 32rem;
+  }
+
+  .aed-choice {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 3rem;
+    margin: 0;
+    padding: 0.5rem 0.875rem;
+    border: 1px solid var(--aed-control);
+    background: var(--aed-paper);
+    cursor: pointer;
+
+    input {
+      flex: none;
+      width: 1.25rem;
+      height: 1.25rem;
+      accent-color: var(--aed-blue);
+    }
+
+    &:has(input:checked) {
+      border-color: var(--aed-blue);
+      background: var(--aed-selected);
+      box-shadow: inset 0 0 0 1px var(--aed-blue);
+    }
+
+    &:has(input:focus-visible) {
+      outline: 3px solid var(--aed-blue);
+      outline-offset: 2px;
+    }
+  }
+
+  .aed-group {
+    margin: 0 0 1rem;
+    padding: 0;
+    border: 0;
+
+    > legend {
+      float: none;
+      width: auto;
+    }
+  }
+
+  // ---------------------------------------------------------------- portal pages: registry and company panel
+
+  .aed-page {
+    padding-top: 1.5rem;
+    padding-bottom: 3.5rem;
+  }
+
+  .aed-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--aed-line);
+
+    &__list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0 2rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    &__link {
+      display: block;
+      padding: 0.75rem 0;
+      border-bottom: 4px solid transparent;
+      color: var(--aed-ink);
+      text-decoration: none;
+
+      &:hover {
+        color: var(--aed-blue);
+      }
+
+      &--active {
+        border-color: var(--aed-blue);
+        color: var(--aed-blue);
+        font-weight: 700;
+      }
+    }
+  }
+
+  // Process figures stated plainly, one per line item; no oversized numbers.
+  .aed-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 2.5rem;
+    margin: 0 0 1rem;
+
+    > div {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+    }
+
+    dt {
+      color: var(--aed-muted);
+      font-weight: 400;
+    }
+
+    dd {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    &--compact dd {
+      font-size: 1rem;
+    }
+  }
+
+  // Share of each status in the registry, drawn to scale; the filter below carries the same numbers as text.
+  .aed-strip {
+    display: flex;
+    gap: 2px;
+    height: 0.5rem;
+    margin-bottom: 1rem;
+
+    &__part {
+      flex-basis: 0;
+      background: var(--aed-muted);
+
+      &--aktywny {
+        background: var(--aed-ok);
+      }
+
+      &--zgloszony {
+        background: var(--aed-blue);
+      }
+
+      &--nieaktualny {
+        background: var(--aed-warn);
+      }
+
+      &--wycofany {
+        background: var(--aed-error);
+      }
+    }
+  }
+
+  .aed-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0 0 1rem;
+    padding: 0;
+    border: 0;
+
+    &__legend {
+      float: none;
+      width: 100%;
+      margin-bottom: 0.25rem;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    &__option {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-height: 2.75rem;
+      margin: 0;
+      padding: 0.375rem 0.75rem;
+      border: 1px solid var(--aed-control);
+      cursor: pointer;
+
+      input {
+        width: 1.125rem;
+        height: 1.125rem;
+        accent-color: var(--aed-blue);
+      }
+
+      &:has(input:checked) {
+        border-color: var(--aed-blue);
+        background: var(--aed-selected);
+        box-shadow: inset 0 0 0 1px var(--aed-blue);
+      }
+
+      &:has(input:focus-visible) {
+        outline: 3px solid var(--aed-blue);
+        outline-offset: 2px;
+      }
+    }
+
+    &__count {
+      color: var(--aed-muted);
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  .aed-search {
+    margin: 1.5rem 0 0;
+
+    &__row {
+      display: flex;
+      gap: 0.5rem;
+      max-width: 32rem;
+    }
+  }
+
+  .aed-count {
+    color: var(--aed-muted);
+  }
+
+  .aed-list {
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--aed-line);
+    list-style: none;
+  }
+
+  .aed-row {
+    display: grid;
+    grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.3fr) minmax(0, 1.5fr) minmax(0, 1.1fr);
+    gap: 0.75rem 1.5rem;
+    max-width: none;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--aed-line);
+
+    @media (max-width: 991.98px) {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    @media (max-width: 575.98px) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    p,
+    dl {
+      margin: 0;
+    }
+
+    &--empty {
+      display: block;
+      color: var(--aed-muted);
+    }
+
+    &__name {
+      margin: 0;
+      font-size: 1.125rem;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    &__id,
+    &__note,
+    dt {
+      color: var(--aed-muted);
+      font-size: 0.875rem;
+      font-weight: 400;
+    }
+
+    &__id {
+      font-variant-numeric: tabular-nums;
+      overflow-wrap: anywhere;
+    }
+
+    &__access > div {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0 0.5rem;
+    }
+
+    dd {
+      margin: 0;
+    }
+  }
+
+  // Completeness as a five-cell gauge, like a battery indicator.
+  .aed-gauge {
+    display: block;
+    height: 0.5rem;
+    margin-top: 0.375rem;
+    background: var(--aed-line);
+    mask: repeating-linear-gradient(90deg, #000 0 calc(20% - 2px), transparent 0 20%);
+
+    > span {
+      display: block;
+      height: 100%;
+      background: var(--aed-blue);
+    }
+  }
+
+  .aed-map {
+    margin-top: 3rem;
+    padding: 0.5rem 1.5rem 1rem;
+    background: var(--aed-surface);
+  }
+
+  .aed-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 2rem;
+    align-items: start;
+
+    @media (max-width: 991.98px) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  .aed-panel {
+    padding: 0.5rem 1.5rem 1.5rem;
+    border: 1px solid var(--aed-line);
+
+    @media (max-width: 575.98px) {
+      padding: 0.25rem 1rem 1rem;
+    }
+  }
+
+  .aed-login {
+    max-width: 32rem;
+  }
+
+  .aed-aside {
+    padding: 0.5rem 1.5rem 1rem;
+    background: var(--aed-surface);
+  }
+
+  .aed-steps {
+    padding-left: 1.25rem;
+
+    li {
+      margin-bottom: 0.75rem;
+      padding-left: 0.25rem;
+    }
+  }
+
+  .aed-account {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.5rem;
+
+    &__out {
+      padding: 0.5rem;
+    }
+  }
+
+  .aed-scroll {
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+
+  .aed-table {
+    width: 100%;
+    border-collapse: collapse;
+
+    caption {
+      caption-side: top;
+      color: var(--aed-ink);
+      font-weight: 700;
+    }
+
+    th,
+    td {
+      padding: 0.625rem 0.75rem 0.625rem 0;
+      border-bottom: 1px solid var(--aed-line);
+      text-align: left;
+      vertical-align: top;
+    }
+  }
+
+  .aed-accepted {
+    margin: 0 0 1.5rem;
+    padding: 0;
+    list-style: none;
+
+    li {
+      display: grid;
+      gap: 0.25rem;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--aed-line);
+    }
+  }
+
+  .aed-back {
+    margin-bottom: 1rem;
+  }
+
+  // ---------------------------------------------------------------- phone screen from the QR sticker
+
+  &--app {
+    min-height: 100vh;
+    background: var(--aed-ground);
+
+    main {
+      max-width: 30rem;
+      margin: 0 auto;
+      padding: 0 1rem;
+    }
+
+    .form-control {
+      max-width: none;
+      min-height: 3rem;
+      border-radius: 0.75rem;
+      font-size: 1rem; // below 16px iOS zooms the page on focus
+    }
+
+    .aed-choices {
+      max-width: none;
+    }
+
+    .aed-choice {
+      min-height: 3.5rem;
+      border-radius: 0.75rem;
+    }
+  }
+
+  .aed-appbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--aed-line);
+    background: var(--aed-paper);
+
+    &__name {
+      font-weight: 700;
+    }
+
+    &__portal {
+      margin-left: auto;
+      padding: 0.25rem 0;
+    }
+  }
+
+  .aed-qr {
+    padding-top: 1rem;
+
+    &__title {
+      margin: 1.25rem 0 0.5rem;
+      color: var(--aed-ink);
+      font-size: 1.5rem;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    &__lede {
+      margin-bottom: 1.25rem;
+    }
+
+    > .aed-note {
+      padding: 1rem 0 2rem;
+    }
+  }
+
+  .aed-card {
+    margin-bottom: 1rem;
+    padding: 1.25rem;
+    border: 1px solid var(--aed-line);
+    border-radius: 1rem;
+    background: var(--aed-paper);
+
+    &__title {
+      margin: 0 0 1rem;
+      color: var(--aed-ink);
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    > :last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  .aed-step {
+    margin: 0 0 0.125rem;
+    color: var(--aed-muted);
+    font-size: 0.875rem;
+  }
+
+  .aed-device {
+    p {
+      margin: 0 0 0.25rem;
+    }
+
+    &__id {
+      font-size: 1.375rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.03em;
+      overflow-wrap: anywhere;
+    }
+
+    .aed-status {
+      margin-top: 0.5rem;
+    }
+  }
+
+  .aed-button {
+    display: block;
+    width: 100%;
+    min-height: 3.5rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem 1.5rem;
+    border: 2px solid var(--aed-blue);
+    border-radius: 999px;
+    background: var(--aed-blue);
+    color: var(--aed-paper);
+    font-size: 1.0625rem;
+    font-weight: 700;
+
+    &:hover:not(:disabled) {
+      border-color: var(--aed-blue-dark);
+      background: var(--aed-blue-dark);
+    }
+
+    &--secondary {
+      background: var(--aed-paper);
+      color: var(--aed-blue);
+
+      &:hover:not(:disabled) {
+        background: var(--aed-selected);
+        color: var(--aed-blue-dark);
+      }
+    }
+  }
+
+  // The main action stays within thumb reach while the form scrolls.
+  .aed-actionbar {
+    position: sticky;
+    bottom: 0;
+    margin: 0 -1rem;
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--aed-line);
+    background: var(--aed-paper);
+
+    .aed-button {
+      margin: 0;
+    }
+  }
+
+  .aed-result {
+    padding: 2rem 1.25rem;
+    text-align: center;
+
+    &__mark {
+      width: 4.5rem;
+      height: 4.5rem;
+      fill: var(--aed-ok);
+
+      path {
+        fill: none;
+        stroke: var(--aed-paper);
+        stroke-width: 4;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 30;
+      }
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .aed-result__mark path {
+      animation: aed-mark 0.45s ease-out 0.1s backwards;
+    }
+  }
+}
+
+@keyframes aed-mark {
+  from {
+    stroke-dashoffset: 30;
+  }
+}
+
+// Keep the focused field clear of the sticky action bar (WCAG 2.4.11).
+html:has(.aed--app) {
+  scroll-padding-bottom: 6rem;
+}

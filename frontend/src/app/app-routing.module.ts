@@ -41,6 +41,11 @@ const routes: Routes = [
     loadChildren: () => import('./pages/embedded/embedded.module').then((m) => m.EmbeddedModule),
   },
   {
+    // AED: page opened from a QR sticker, a phone screen without the portal header
+    path: '!aed/!qr',
+    loadChildren: () => import('./pages/aed/aed.routes').then((m) => m.AED_QR_ROUTES),
+  },
+  {
     path: '',
     component: MainLayoutComponent,
     children: [
@@ -83,6 +88,11 @@ const routes: Routes = [
         path: '!brokenlinks',
         data: { breadcrumbs: { translationKey: 'BrokenLinks.Self' } },
         loadChildren: () => import('./pages/broken-links/broken-links.routes').then((mod) => mod.BROKEN_LINKS_ROUTES),
+      },
+      {
+        path: '!aed',
+        data: { breadcrumbs: { translationKey: 'Menu.Aed' } },
+        loadChildren: () => import('./pages/aed/aed.routes').then((m) => m.AED_ROUTES),
       },
       {
         path: '!user',
