@@ -322,5 +322,15 @@
     "Marki, rekordy 1, 2, 3, 4, 5, 6, 8: szerokość i długość geograficzna były zamienione – poprawiono.",
     "Marki, rekord 7 (Szkoła Podstawowa nr 5): punkt 49.7188093, 21.720344 leży 293 km od pozostałych punktów zbioru – współrzędne usunięte.",
     "Marki, rekordy 5, 6: różne adresy mają identyczne współrzędne 52.322235, 21.105177 – do sprawdzenia u dostawcy (bez zmian)."
+  ],
+  "bledy_zrodel": [],
+  "pominiete_zrodla": [],
+  "zrodla_przetworzone": [
+    "dane.gov.pl/3624",
+    "dane.gov.pl/40593",
+    "dane.gov.pl/4581",
+    "dane.gov.pl/4955",
+    "openstreetmap",
+    "um.warszawa.pl"
   ]
 }

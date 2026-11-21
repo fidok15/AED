@@ -104,6 +104,7 @@ Dostępne zrzuty (katalog `frontend/aed-zrzuty/`): `01-rejestr-lista.jpg`, `02-p
   - średnia kompletność: rejestr 39,2, zbiór do publikacji 51,4 (z 0–100);
   - do publikacji trafia **781 z 18 814** rekordów: 18 033 wykluczonych, z czego 18 032 z powodu licencji ODbL, a ponadto 3 048 z dostępem prywatnym, brak miejscowości (17 959) lub nazwy (12 131); powody mogą się nakładać;
   - w zbiorze do publikacji tylko 100 z 781 rekordów (12,8%) ma godziny dostępu (wszystkie z API Warszawy): tu widać, po co jest potwierdzenie zarządcy.
+  - **gotowość do wdrożenia:** nowa gmina to jeden wpis w `aed_standard/sources.json` - cztery z sześciu obecnych źródeł są opisane wyłącznie konfiguracją; źródło z błędem jest pomijane bez wycofywania jego urządzeń (`docs/dodawanie-zrodla.md`).
 - **Zrzut dowodowy:** `frontend/aed-zrzuty/04-panel-ministerstwa.jpg`; `frontend/aed-zrzuty/01-rejestr-lista.jpg`; `[BRAK: wykres „ile rekordów odpadło z eksportu i dlaczego”]`
 - **Notatki mówcy:** Każda liczba na tym slajdzie pochodzi z naszego raportu. Deduplikacja nigdy nie łączy automatycznie dwóch rekordów z tego samego źródła, bo w jednym budynku bywa kilka urządzeń. Rekordy bez potwierdzenia odpowiedzialnego podmiotu i z licencją ODbL nie trafiają do eksportu na dane.gov.pl.
 

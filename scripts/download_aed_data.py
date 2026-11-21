@@ -1,7 +1,7 @@
 """Download raw data about Polish AED defibrillators from all known public sources.
 
 Sources:
-- dane.gov.pl: every resource of the known AED datasets (via API 1.4),
+- dane.gov.pl: every resource of the AED datasets listed in aed_standard/sources.json (via API 1.4),
 - OpenAEDMap (OpenStreetMap data, ODbL): country export for Poland,
 - Warsaw open data API (requires a free token in WARSAW_API_TOKEN, read from the environment or the .env file
   in the repository root; without it only the API docs are saved).
@@ -24,21 +24,30 @@ USER_AGENT = "AED-open-data-research/1.0"
 TIMEOUT = 120
 
 DANE_GOV_API = "https://api.dane.gov.pl/1.4"
-DANE_GOV_DATASETS = {
-    3624: ("krosno", None),
-    4955: ("marki", None),
-    4581: ("przemysl", None),
-    39512: ("warszawa", None),
-    40593: ("legionowo", {2625221}),
-}
+REGISTRY_PATH = ROOT / "aed_standard" / "sources.json"  # which dane.gov.pl datasets to fetch: entries with "dane_gov_pl"
 
-OPENAEDMAP_URL = "https://openaedmap.org/api/v1/countries/PL.geojson"
 
-WARSAW_API_URL = "https://dane.um.warszawa.pl/api/action/get_scb_lokalizacja_defibrylatorow"
-WARSAW_DOC_URLS = {
-    "api_parametry.json": "https://dane.um.warszawa.pl/files/scb_lokalizacja_defibrylatorow_pa.json",
-    "api_przyklady.json": "https://dane.um.warszawa.pl/files/scb_lokalizacja_defibrylatorow_pw.json",
-}
+def dane_gov_datasets(path, errors=None):
+    """-> {dataset_id: (directory slug = registry id, set of resource ids or None = all resources)}.
+
+    A broken entry is skipped (message appended to `errors`), so one typo never stops the other downloads."""
+    with open(path, encoding="utf-8") as f:
+        sources = json.load(f)["sources"]
+    out = {}
+    for n, s in enumerate(sources, start=1):
+        if not isinstance(s, dict) or "dane_gov_pl" not in s:
+            continue
+        try:
+            d = s["dane_gov_pl"]
+            dataset_id, resources = d["dataset_id"], d.get("resources")
+            if not isinstance(s["id"], str) or not isinstance(dataset_id, int) or not (
+                    resources is None or (isinstance(resources, list) and all(isinstance(r, int) for r in resources))):
+                raise TypeError("id must be text, dataset_id a number, resources a list of numbers")
+            out[dataset_id] = (s["id"], set(resources) if resources is not None else None)
+        except (KeyError, TypeError) as error:
+            if errors is not None:
+                errors.append(f"sources.json entry {s.get('id', n)}: {type(error).__name__}: {error} - dataset skipped")
+    return out
 
 
 def load_dotenv(path=ROOT / ".env"):
@@ -75,7 +84,7 @@ def save(path, content, entry, manifest):
 
 
 def download_dane_gov(manifest, errors):
-    for dataset_id, (slug, aed_resource_ids) in DANE_GOV_DATASETS.items():
+    for dataset_id, (slug, aed_resource_ids) in dane_gov_datasets(REGISTRY_PATH, errors).items():
         print(f"dane.gov.pl dataset {dataset_id} ({slug})")
         try:
             dataset = fetch_json(f"{DANE_GOV_API}/datasets/{dataset_id}")["data"]

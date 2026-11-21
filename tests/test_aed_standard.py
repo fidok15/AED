@@ -1,7 +1,10 @@
 """Tests on the real raw files. Run: python3 -m unittest discover -s tests"""
 import copy
+import json
 import os
+import shutil
 import sys
+import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -9,7 +12,8 @@ sys.path.insert(0, ROOT)
 
 import aed_standard as A  # noqa: E402
 from aed_standard import schema as S, sources as M  # noqa: E402
-from aed_standard.dedup import deduplicate  # noqa: E402
+from aed_standard.build import publication_export, to_csv  # noqa: E402
+from aed_standard.dedup import copies_values, deduplicate, priority  # noqa: E402
 from aed_standard.validate import check_record  # noqa: E402
 
 RAW = os.path.join(ROOT, "datasets", "raw")
@@ -32,10 +36,140 @@ def rec(zrodlo, zrodlo_id, lat, lon, **kw):
     return r
 
 
+class RegistryBuildTest(unittest.TestCase):
+    def test_committed_outputs_match_build(self):
+        records, pairs, report = A.build_registry(RAW)
+        with open(os.path.join(ROOT, "datasets", "out", "aed_dane_gov_pl.csv"), encoding="utf-8", newline="") as f:
+            self.assertEqual(to_csv(publication_export(records)), f.read())
+        with open(os.path.join(ROOT, "datasets", "out", "raport.json"), encoding="utf-8") as f:
+            committed = json.load(f)
+        for key in ("bledy_zrodel", "pominiete_zrodla"):  # source problems: none on the real data
+            self.assertEqual(report.pop(key, []), [])
+            committed.pop(key, None)
+        self.assertEqual(report, committed)
+
+
+class PriorityTest(unittest.TestCase):
+    def test_unknown_source_in_dedup_is_loud(self):
+        with self.assertRaisesRegex(ValueError, "nieznane-zrodlo"):
+            priority(rec("nieznane-zrodlo", "1", 52.2, 21.0))
+
+    def test_priority_from_registry_without_meta(self):
+        # records built outside load_all (service, tests) fall back to the registry by zrodlo
+        self.assertEqual(priority(rec("zgloszenie", "1", 52.2, 21.0))[0], 0)
+        self.assertEqual(priority(rec("dane.gov.pl/3624", "1", 52.2, 21.0))[0], 1)
+        self.assertEqual(priority(rec(M.WARSAW, "1", 52.2, 21.0))[0], 2)
+        self.assertEqual(priority(rec(M.OSM, "n/1", 52.2, 21.0))[0], 3)
+        self.assertFalse(copies_values(rec(M.OSM, "n/1", 52.2, 21.0)))
+        self.assertTrue(copies_values(rec("zgloszenie", "1", 52.2, 21.0)))
+
+    def test_meta_fields_win_over_registry(self):
+        r = rec(M.OSM, "n/1", 52.2, 21.0)
+        r.update(_priority=7, _copy_values=True)
+        self.assertEqual(priority(r)[0], 7)
+        self.assertTrue(copies_values(r))
+
+
+NEW_ENTRY = {"id": "testowo", "label": "Testowo", "zrodlo": "dane.gov.pl/999999", "priority": 1,
+             "file": "dane_gov_pl/testowo/resource_1.csv", "format": "csv", "record_id": {"column": "Id"},
+             "coordinates": {"lat": "Lat", "lon": "Lon"}, "fields": {"nazwa": "Nazwa", "miejscowosc": "Miasto"}}
+
+
+class NewSourceTest(unittest.TestCase):
+    """A municipality added with a registry entry only: a copy of the real raw snapshot plus one fictitious file."""
+
+    def fixture(self, licence="CC0 1.0", header="Id,Nazwa,Miasto,Lat,Lon", in_manifest=True, rows=None, entry=None,
+                build=True):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        raw = os.path.join(tmp, "raw")
+        os.makedirs(os.path.join(raw, "dane_gov_pl", "testowo"))
+        for name in os.listdir(RAW):  # symlinks: the real snapshot stays untouched and the copy is instant
+            if name not in ("manifest.json", "dane_gov_pl"):
+                os.symlink(os.path.join(RAW, name), os.path.join(raw, name))
+        for name in os.listdir(DGP):
+            os.symlink(os.path.join(DGP, name), os.path.join(raw, "dane_gov_pl", name))
+        with open(os.path.join(raw, NEW_ENTRY["file"]), "w", encoding="utf-8") as f:
+            body = rows if rows is not None else "1,Urząd Gminy Testowo,Testowo,52.1,19.1\n2,Szkoła Testowo,Testowo,52.2,19.2\n"
+            f.write(header + "\n" + body)
+        with open(os.path.join(RAW, "manifest.json"), encoding="utf-8") as f:
+            manifest = json.load(f)
+        if in_manifest:
+            manifest["files"].append({"file": NEW_ENTRY["file"], "source": "dane.gov.pl", "dataset_id": 999999,
+                                      "resource_id": 1, "license": licence, "data_date": "2026-11-01"})
+        with open(os.path.join(raw, "manifest.json"), "w", encoding="utf-8") as f:
+            json.dump(manifest, f, ensure_ascii=False)
+        with open(os.path.join(ROOT, "aed_standard", "sources.json"), encoding="utf-8") as f:
+            registry = json.load(f)
+        registry["sources"].append(entry or NEW_ENTRY)
+        reg = os.path.join(tmp, "sources.json")
+        with open(reg, "w", encoding="utf-8") as f:
+            json.dump(registry, f, ensure_ascii=False)
+        return A.build_registry(raw, registry_path=reg) if build else M.load_all(raw, reg)
+
+    def test_new_municipality_by_configuration_only(self):
+        records, _, report = self.fixture()
+        mine = [r for r in records if r["zrodlo"] == "dane.gov.pl/999999"]
+        self.assertEqual(sorted(r["nazwa"] for r in mine), ["Szkoła Testowo", "Urząd Gminy Testowo"])
+        self.assertEqual({r["licencja"] for r in mine}, {"CC0 1.0"})
+        self.assertEqual({r["id_aed"] for r in mine},
+                         {A.make_id("dane.gov.pl/999999", "1"), A.make_id("dane.gov.pl/999999", "2")})
+        self.assertEqual((report["bledy_zrodel"], report["pominiete_zrodla"]), ([], []))
+        self.assertEqual(report["rekordy_na_zrodlo"]["dane.gov.pl/999999"]["przed"], 2)
+
+    def test_unknown_licence_skips_only_that_source(self):
+        records, _, report = self.fixture(licence="CC BY-SA 4.0")
+        self.assertNotIn("dane.gov.pl/999999", {r["zrodlo"] for r in records})
+        self.assertEqual(report["pominiete_zrodla"], ["dane.gov.pl/999999"])
+        self.assertIn("CC BY-SA 4.0", report["bledy_zrodel"][0])
+        self.assertEqual(report["rejestr_rekordy"], 18814)
+
+    def test_changed_header_skips_only_that_source(self):
+        records, _, report = self.fixture(header="ID,Name,Town,Lat,Lon")
+        self.assertEqual(report["pominiete_zrodla"], ["dane.gov.pl/999999"])
+        self.assertIn("Testowo", report["bledy_zrodel"][0])
+        self.assertIn("Nazwa", report["bledy_zrodel"][0])
+        self.assertEqual(report["rejestr_rekordy"], 18814)
+
+    def test_invalid_entry_is_not_listed_as_processed(self):
+        # a typo in a key drops the entry at validation: its zrodlo must not be among the processed sources,
+        # so the service never treats its devices as gone
+        _, _, report = self.fixture(entry=dict(NEW_ENTRY, feilds={}))
+        self.assertIn("feilds", report["bledy_zrodel"][0])
+        self.assertNotIn("dane.gov.pl/999999", report["zrodla_przetworzone"])
+        self.assertIn("dane.gov.pl/3624", report["zrodla_przetworzone"])
+
+    def test_header_only_file_skips_source(self):
+        _, _, report = self.fixture(rows="")
+        self.assertEqual(report["pominiete_zrodla"], ["dane.gov.pl/999999"])
+        self.assertNotIn("dane.gov.pl/999999", report["zrodla_przetworzone"])
+
+    def test_odbl_source_never_copies_values_whatever_the_flag(self):
+        records, _, _, _ = self.fixture(licence="ODbL 1.0 (© OpenStreetMap contributors)", build=False)
+        mine = [r for r in records if r["zrodlo"] == "dane.gov.pl/999999"]
+        self.assertEqual(len(mine), 2)
+        self.assertEqual({r["_copy_values"] for r in mine}, {False})
+
+    def test_bad_coordinates_blank_only_that_row(self):
+        rows = '1,Urząd,Testowo,"52,1","19,1"\n2,Szkoła,Testowo,,19.2\n3,Przedszkole,Testowo,52.3,19.3\n'
+        records, notes, errors, _ = self.fixture(rows=rows, build=False)
+        mine = {r["zrodlo_id"]: r for r in records if r["zrodlo"] == "dane.gov.pl/999999"}
+        self.assertEqual(errors, [])
+        self.assertEqual((mine["1"]["szerokosc_geograficzna"], mine["1"]["dlugosc_geograficzna"]), ("52.1", "19.1"))
+        self.assertEqual((mine["2"]["szerokosc_geograficzna"], mine["2"]["dlugosc_geograficzna"]), ("", ""))
+        self.assertEqual(mine["3"]["szerokosc_geograficzna"], "52.3")
+        self.assertTrue(any("Testowo, rekord 2" in n for n in notes), notes)
+
+    def test_missing_file_skips_source(self):
+        _, _, report = self.fixture(in_manifest=False)
+        self.assertEqual(report["pominiete_zrodla"], ["dane.gov.pl/999999"])
+        self.assertIn("manifest.json", report["bledy_zrodel"][0])
+
+
 class BuildTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.mapped, cls.notes = M.load_all(RAW)
+        cls.mapped, cls.notes, _, _ = M.load_all(RAW)
         cls.records, cls.pairs, cls.report = A.build_registry(RAW)
 
     def test_legionowo_is_subset_of_standard(self):
@@ -86,12 +220,12 @@ class BuildTest(unittest.TestCase):
 
     def test_serial_number_merge(self):
         a = rec("zgloszenie", "s1", 52.1, 21.0, producent="Philips", numer_seryjny="B21K-04127")
-        b = rec("dane.gov.pl/1", "x", 50.0, 19.0, producent="PHILIPS", numer_seryjny="b21k 04127", nazwa="Szkoła")
+        b = rec("dane.gov.pl/3624", "x", 50.0, 19.0, producent="PHILIPS", numer_seryjny="b21k 04127", nazwa="Szkoła")
         merged, _, _ = deduplicate([a, b])
         self.assertEqual(len(merged), 1)
         self.assertEqual(merged[0]["zrodlo"], "zgloszenie")
         self.assertEqual(merged[0]["nazwa"], "Szkoła")  # gap filled from non-OSM member
-        self.assertEqual(merged[0]["powiazane_zrodla"], "dane.gov.pl/1:x")
+        self.assertEqual(merged[0]["powiazane_zrodla"], "dane.gov.pl/3624:x")
 
     def test_same_source_never_merges(self):
         a = rec(M.WARSAW, "1", 52.2, 21.0, nazwa="Urząd")
@@ -176,13 +310,13 @@ class BuildTest(unittest.TestCase):
 
     def test_different_serials_never_merge_spatially(self):
         a = rec("zgloszenie", "s1", 52.2, 21.0, producent="Philips", numer_seryjny="A-1", nazwa="Urząd")
-        b = rec("dane.gov.pl/1", "x", 52.2, 21.00001, producent="Philips", numer_seryjny="A-2", nazwa="Urząd")
+        b = rec("dane.gov.pl/3624", "x", 52.2, 21.00001, producent="Philips", numer_seryjny="A-2", nazwa="Urząd")
         o = rec(M.OSM, "node/1", 52.2, 21.000005, nazwa="Urząd")
         merged, pairs, _ = deduplicate([a, b, o])
         self.assertEqual(len(merged), 2)
         self.assertEqual(sorted(m["numer_seryjny"] for m in merged), ["A-1", "A-2"])
         self.assertEqual(sum(1 for m in merged if "openstreetmap:node/1" in m["powiazane_zrodla"]), 1)
-        serial_pair = {A.make_id("zgloszenie", "s1"), A.make_id("dane.gov.pl/1", "x")}
+        serial_pair = {A.make_id("zgloszenie", "s1"), A.make_id("dane.gov.pl/3624", "x")}
         self.assertFalse([p for p in pairs if {p["id_aed_a"], p["id_aed_b"]} == serial_pair])
         self.assertEqual(A.find_candidates(a, [b]), [])
 

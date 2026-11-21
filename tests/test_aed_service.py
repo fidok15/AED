@@ -497,9 +497,60 @@ class JobsAndDemoTest(unittest.TestCase):
         base.update(kw)
         return base
 
-    def mapper(self, c, recs, pairs=()):
-        with mock.patch.object(aed_standard, "build_registry", return_value=(recs, list(pairs), {"polaczenia": {"razem": 0}})):
+    def mapper(self, c, recs, pairs=(), report=None):
+        report = report or {"polaczenia": {"razem": 0}}
+        with mock.patch.object(aed_standard, "build_registry", return_value=(recs, list(pairs), report)):
             return c.simulate_post("/api/aed/mapper/uruchom", headers=self.ministry(c))
+
+    def test_typo_in_registry_entry_retires_nothing_end_to_end(self):
+        """Real build_registry: a registry entry broken by a typo must not retire the devices of its source."""
+        real = aed_standard.build_registry
+        with open(os.path.join(ROOT, "aed_standard", "sources.json"), encoding="utf-8") as f:
+            registry = json.load(f)
+        registry["sources"] = [s for s in registry["sources"] if s["id"] in ("krosno", "legionowo")]
+        good = os.path.join(self.tmp.name, "good.json")
+        typo = os.path.join(self.tmp.name, "typo.json")
+        with open(good, "w", encoding="utf-8") as f:
+            json.dump(registry, f, ensure_ascii=False)
+        registry["sources"][0]["feilds"] = registry["sources"][0].pop("fields")
+        with open(typo, "w", encoding="utf-8") as f:
+            json.dump(registry, f, ensure_ascii=False)
+        c = self.client()
+        m = self.ministry(c)
+
+        def run(reg):
+            with mock.patch.object(aed_standard, "build_registry", side_effect=lambda raw: real(raw, registry_path=reg)):
+                r = c.simulate_post("/api/aed/mapper/uruchom", headers=m)
+            self.assertEqual(r.status_code, 200)
+            return r.json
+
+        first = run(good)
+        self.assertEqual(first["dodano"], 45)  # Krosno 21 + Legionowo 24
+        broken = run(typo)
+        self.assertEqual(broken["wycofano"], 0)
+        jobs = c.simulate_get("/api/aed/zadania", headers=m).json["dane"]
+        self.assertIn("feilds", " ".join(jobs[0]["bledy"]))
+        krosno = c.simulate_get("/api/aed/urzadzenia", params={"zrodlo": "dane.gov.pl/3624", "na_stronie": 100}).json
+        self.assertEqual(krosno["razem"], 21)
+        self.assertEqual({d["status"] for d in krosno["dane"]}, {"niepotwierdzony"})
+        fixed = run(good)
+        self.assertEqual((fixed["dodano"], fixed["wycofano"]), (0, 0))
+
+    def test_skipped_source_is_not_retired_and_error_is_in_job_history(self):
+        c = self.client()
+        recs = [self.imported(i) for i in range(1, 5)] + [self.imported(i, zrodlo="inne") for i in range(5, 9)]
+        self.mapper(c, recs)
+        report = {"polaczenia": {"razem": 0}, "pominiete_zrodla": ["test"],
+                  "bledy_zrodel": ["Źródło Test (test) pominięte: licencja „CC BY-SA 4.0” nie jest obsługiwana."]}
+        r = self.mapper(c, recs[4:], report=report).json
+        self.assertEqual(r["wycofano"], 0)
+        get = lambda x: c.simulate_get("/api/aed/urzadzenia/" + x["id_aed"]).json  # noqa: E731
+        self.assertEqual({get(x)["status"] for x in recs}, {"niepotwierdzony"})
+        jobs = c.simulate_get("/api/aed/zadania", headers=self.ministry(c)).json["dane"]
+        self.assertIn("CC BY-SA 4.0", " ".join(jobs[0]["bledy"]))
+        self.assertNotIn("bledy_zrodel", jobs[0]["mapper"])
+        # once the source is back and a record really vanished from it, retirement works again
+        self.assertEqual(self.mapper(c, recs[1:]).json["wycofano"], 1)
 
     def test_serial_never_in_public_output(self):
         c = self.client()

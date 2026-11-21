@@ -1,0 +1,88 @@
+{
+  "licences": {
+    "CC0 1.0": "CC0 1.0",
+    "CC BY 4.0": "CC BY 4.0",
+    "ODbL 1.0 (© OpenStreetMap contributors)": "ODbL 1.0"
+  },
+  "sources": [
+    {
+      "id": "krosno",
+      "label": "Krosno",
+      "zrodlo": "dane.gov.pl/3624",
+      "priority": 1,
+      "dane_gov_pl": {"dataset_id": 3624},
+      "file": "dane_gov_pl/krosno/resource_54632.csv",
+      "format": "csv",
+      "record_id": {"column": "Numer Id"},
+      "coordinates": {"lat": "Szerokość geograficzna", "lon": "Długość geograficzna"},
+      "fields": {"nazwa": "Lokalizacja"},
+      "address_text": "Adres",
+      "fixes": ["swap_lat_lon_outside_pl", "drop_outliers", "note_shared_points"]
+    },
+    {
+      "id": "marki",
+      "label": "Marki",
+      "zrodlo": "dane.gov.pl/4955",
+      "priority": 1,
+      "dane_gov_pl": {"dataset_id": 4955},
+      "file": "dane_gov_pl/marki/resource_68353.csv",
+      "format": "csv",
+      "record_id": {"column": "Numer Id"},
+      "coordinates": {"lat": "Szerokość geograficzna", "lon": "Długość geograficzna"},
+      "fields": {"nazwa": "Lokalizacja"},
+      "address_text": "Adres",
+      "fixes": ["unwrap_quoted_rows", "swap_lat_lon_outside_pl", "drop_outliers", "note_shared_points"]
+    },
+    {
+      "id": "przemysl",
+      "label": "Przemyśl",
+      "zrodlo": "dane.gov.pl/4581",
+      "priority": 1,
+      "dane_gov_pl": {"dataset_id": 4581},
+      "file": "dane_gov_pl/przemysl/resource_62093.geojson",
+      "format": "geojson",
+      "record_id": {"property": "id"},
+      "coordinates": "geometry",
+      "fields": {
+        "nazwa": "name",
+        "miejscowosc": "city",
+        "nazwa_ulicy": "street",
+        "nr_budynku": "home_number",
+        "kod_pocztowy": "postcode",
+        "dysponent_email": "email",
+        "dysponent_telefon": "phone"
+      },
+      "fixes": ["drop_outliers"]
+    },
+    {
+      "id": "legionowo",
+      "label": "Legionowo",
+      "zrodlo": "dane.gov.pl/40593",
+      "priority": 1,
+      "dane_gov_pl": {"dataset_id": 40593, "resources": [2625221]},
+      "file": "dane_gov_pl/legionowo/resource_2625221.csv",
+      "format": "csv",
+      "record_id": {"row_number": true},
+      "fields": "*",
+      "fixes": ["drop_outliers"]
+    },
+    {
+      "id": "warszawa",
+      "label": "Warszawa",
+      "zrodlo": "um.warszawa.pl",
+      "priority": 2,
+      "dane_gov_pl": {"dataset_id": 39512},
+      "file": "warszawa_api/defibrylatory.json",
+      "mapper": "warszawa"
+    },
+    {
+      "id": "openstreetmap",
+      "label": "OpenStreetMap",
+      "zrodlo": "openstreetmap",
+      "priority": 3,
+      "file": "openaedmap/PL.geojson",
+      "mapper": "osm",
+      "copy_values_on_merge": false
+    }
+  ]
+}

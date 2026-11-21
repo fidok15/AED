@@ -11,9 +11,11 @@ import os
 import re
 
 from . import schema as S
+from .registry import REGISTRY_PATH, load_registry
 from .validate import LAT, LON
 
 OSM = "openstreetmap"
+ODBL = "ODbL 1.0"
 WARSAW = "um.warszawa.pl"
 # Sources are compared on the coordinates, so only these keys need "_" meta fields:
 # "_ref_warszawa" = Warsaw defibrillator_id that an OSM node points to (tag ref:api-um-warszawa-pl).
@@ -98,88 +100,111 @@ def _in_pl(lat, lon):
     return c1["minimum"] <= lat <= c1["maximum"] and c2["minimum"] <= lon <= c2["maximum"]
 
 
-def _krosno_marki_rows(raw_dir, rel, manifest, label, notes):
-    """Krosno and Marki publish the same layout: lon, lat, 'Defibrylator', place, address, id."""
-    entry = manifest[rel]
-    dataset = entry["dataset_id"]
-    with open(os.path.join(raw_dir, rel), encoding="utf-8-sig") as f:
-        lines = f.read().splitlines()
-    out = []
-    repaired = 0
-    swapped = []
-    for line in lines[1:]:
-        if not line.strip():
-            continue
-        if line.startswith('"') and line.endswith('"') and '""' in line:
-            # Marki defect: the whole row is wrapped in one pair of quotes, inner quotes doubled.
-            line = line[1:-1].replace('""', '"')
+def _unwrap(line):
+    """Marki defect: a whole row wrapped in one pair of quotes, inner quotes doubled."""
+    return line[1:-1].replace('""', '"')
+
+
+def _read_csv(path, source, notes):
+    """-> list of (row_number, {column: value}); column names and values stripped."""
+    with open(path, encoding="utf-8-sig") as f:
+        lines = [line for line in f.read().splitlines() if line.strip()]
+    if not lines:
+        return [], []
+    unwrap = "unwrap_quoted_rows" in source["fixes"]
+    header = lines[0]
+    if unwrap and len(header) > 1 and header.startswith('"') and header.endswith('"'):
+        header = _unwrap(header)
+    columns = [c.strip() for c in next(csv.reader(io.StringIO(header)))]
+    rows, repaired = [], 0
+    for n, line in enumerate(lines[1:], start=1):
+        if unwrap and line.startswith('"') and line.endswith('"') and '""' in line:
+            line = _unwrap(line)
             repaired += 1
         vals = [v.strip() for v in next(csv.reader(io.StringIO(line)))]
-        a, b = float(vals[0]), float(vals[1])
-        lat, lon = b, a  # header order: longitude first
-        if not _in_pl(lat, lon) and _in_pl(a, b):
-            lat, lon = a, b
-            swapped.append(vals[5])
-        rec = _record("dane.gov.pl/%s" % dataset, vals[5], entry["license"], entry["data_date"],
-                      nazwa=vals[3], **parse_address(vals[4]))
-        rec[LAT], rec[LON] = _coord(lat), _coord(lon)
-        out.append(rec)
+        rows.append((n, dict(zip(columns, vals))))
     if repaired:
-        notes.append("%s: %d wierszy było ujętych w jedną parę cudzysłowów – rozpakowano." % (label, repaired))
+        notes.append("%s: %d wierszy było ujętych w jedną parę cudzysłowów – rozpakowano." % (source["label"], repaired))
+    return rows, columns
+
+
+def _read_geojson(path):
+    with open(path, encoding="utf-8") as f:
+        features = json.load(f)["features"]
+    rows = [(n, dict(feat.get("properties") or {}), feat.get("geometry")) for n, feat in enumerate(features, start=1)]
+    return rows, sorted({k for _, props, _ in rows for k in props})
+
+
+def _needed_columns(source):
+    rid = source["record_id"]
+    cols = [rid.get("column") or rid.get("property")] if not rid.get("row_number") else []
+    if isinstance(source.get("coordinates"), dict):
+        cols += [source["coordinates"]["lat"], source["coordinates"]["lon"]]
+    if source["fields"] != "*":
+        cols += list(source["fields"].values())
+    if source.get("address_text"):
+        cols.append(source["address_text"])
+    return cols
+
+
+def _number(value):
+    """Coordinate from a source cell: accepts a decimal comma; None when empty or not a number."""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    try:
+        return float(_clean(value).replace(",", "."))
+    except ValueError:
+        return None
+
+
+def map_source(raw_dir, entry, source, licence):
+    """Generic mapper of a registry entry with "format" (csv | geojson) -> (records, notes)."""
+    path = os.path.join(raw_dir, source["file"])
+    notes = []
+    if source["format"] == "csv":
+        rows, columns = _read_csv(path, source, notes)
+        rows = [(n, row, None) for n, row in rows]
+    else:
+        rows, columns = _read_geojson(path)
+    missing = [c for c in _needed_columns(source) if c not in columns]
+    if rows and missing:
+        raise ValueError("w pliku brakuje kolumn: %s (są: %s)" % (", ".join(missing), ", ".join(columns)))
+    rid, coords, swap = source["record_id"], source.get("coordinates"), "swap_lat_lon_outside_pl" in source["fixes"]
+    out, swapped = [], []
+    for n, row, geometry in rows:
+        if rid.get("row_number"):
+            zrodlo_id = "%s/%d" % (entry["resource_id"], n)
+        else:
+            zrodlo_id = row.get(rid.get("column") or rid.get("property"))
+        if source["fields"] == "*":
+            values = {k: v for k, v in row.items() if k in S.BY_NAME}
+        else:
+            values = {field: row.get(col) for field, col in source["fields"].items()}
+        if source.get("address_text"):
+            values.update(parse_address(row.get(source["address_text"])))
+        rec = _record(source["zrodlo"], zrodlo_id, licence, entry.get("data_date"), **values)
+        if coords:
+            if coords == "geometry":
+                pair = geometry.get("coordinates") if isinstance(geometry, dict) and geometry.get("type") == "Point" else None
+                lon, lat = (_number(pair[0]), _number(pair[1])) if isinstance(pair, list) and len(pair) >= 2 else (None, None)
+            else:
+                lat, lon = _number(row.get(coords["lat"])), _number(row.get(coords["lon"]))
+            if lat is None or lon is None:
+                notes.append("%s, rekord %s: brak albo niepoprawne współrzędne – pole zostawiono puste."
+                             % (source["label"], _clean(zrodlo_id)))
+            else:
+                if swap and not _in_pl(lat, lon) and _in_pl(lon, lat):
+                    lat, lon = lon, lat
+                    swapped.append(_clean(zrodlo_id))
+                rec[LAT], rec[LON] = _coord(lat), _coord(lon)
+        out.append(rec)
     if swapped:
         notes.append("%s, rekordy %s: szerokość i długość geograficzna były zamienione – poprawiono."
-                     % (label, ", ".join(swapped)))
-    drop_outliers(out, notes, label)
-    note_shared_points(out, notes, label)
-    return out
-
-
-def krosno(raw_dir, manifest):
-    notes = []
-    return _krosno_marki_rows(raw_dir, "dane_gov_pl/krosno/resource_54632.csv", manifest, "Krosno", notes), notes
-
-
-def marki(raw_dir, manifest):
-    notes = []
-    return _krosno_marki_rows(raw_dir, "dane_gov_pl/marki/resource_68353.csv", manifest, "Marki", notes), notes
-
-
-def przemysl(raw_dir, manifest):
-    # Five resources carry the same 21 points; the GeoJSON is the cleanest (typed coordinates,
-    # separate address fields). The CSV uses ';' and embeds geometry as a JSON string.
-    rel = "dane_gov_pl/przemysl/resource_62093.geojson"
-    entry = manifest[rel]
-    with open(os.path.join(raw_dir, rel), encoding="utf-8") as f:
-        features = json.load(f)["features"]
-    out = []
-    for feat in features:
-        p = feat["properties"]
-        lon, lat = feat["geometry"]["coordinates"]
-        rec = _record("dane.gov.pl/%s" % entry["dataset_id"], p["id"], entry["license"], entry["data_date"],
-                      nazwa=p.get("name"), miejscowosc=p.get("city"), nazwa_ulicy=p.get("street"),
-                      nr_budynku=p.get("home_number"), kod_pocztowy=p.get("postcode"),
-                      dysponent_email=p.get("email"), dysponent_telefon=p.get("phone"))
-        rec[LAT], rec[LON] = _coord(lat), _coord(lon)
-        out.append(rec)
-    notes = []
-    drop_outliers(out, notes, "Przemyśl")
-    return out, notes
-
-
-def legionowo(raw_dir, manifest):
-    # Column names are the standard's names (Legionowo is the reference subset).
-    rel = "dane_gov_pl/legionowo/resource_2625221.csv"
-    entry = manifest[rel]
-    with open(os.path.join(raw_dir, rel), encoding="utf-8-sig") as f:
-        rows = list(csv.DictReader(f))
-    out = []
-    for i, row in enumerate(rows, start=1):
-        # ponytail: the source has no ids; "<resource>/<row>" shifts if rows are inserted upstream.
-        rec = _record("dane.gov.pl/%s" % entry["dataset_id"], "%s/%d" % (entry["resource_id"], i),
-                      entry["license"], entry["data_date"], **row)
-        out.append(rec)
-    notes = []
-    drop_outliers(out, notes, "Legionowo")
+                     % (source["label"], ", ".join(swapped)))
+    if "drop_outliers" in source["fixes"]:
+        drop_outliers(out, notes, source["label"])
+    if "note_shared_points" in source["fixes"]:
+        note_shared_points(out, notes, source["label"])
     return out, notes
 
 
@@ -218,10 +243,8 @@ def split_manufacturer(text):
     return text, ""
 
 
-def warszawa(raw_dir, manifest):
-    rel = "warszawa_api/defibrylatory.json"
-    entry = manifest[rel]
-    with open(os.path.join(raw_dir, rel), encoding="utf-8") as f:
+def warszawa(raw_dir, entry, source, licence):
+    with open(os.path.join(raw_dir, source["file"]), encoding="utf-8") as f:
         data = json.load(f)
     snapshot = entry["downloaded_at"][:10]  # live API without per-record dates: date of the snapshot
     # device_public_access: Publiczny -> publiczny, Prywatny -> ograniczony. The 100 "Prywatny" records
@@ -241,7 +264,7 @@ def warszawa(raw_dir, manifest):
         hours_text = _clean(p.get("device_access_description"))
         if avail not in ("Tak", "Nie", "Ograniczona") and not hours_text:
             hours_text = avail
-        rec = _record(WARSAW, p["defibrillator_id"], entry["license"], snapshot,
+        rec = _record(source["zrodlo"], p["defibrillator_id"], licence, snapshot,
                       nazwa=p.get("location_object_name"), miejscowosc=p.get("location_city"),
                       nazwa_ulicy=p.get("location_street"), nr_budynku=p.get("location_building"),
                       kod_pocztowy=p.get("location_postcode"), opis_lokalizacji=p.get("location_description"),
@@ -260,10 +283,8 @@ OSM_ACCESS = {"yes": "publiczny", "permissive": "publiczny", "customers": "ogran
               "private": "prywatny", "no": "prywatny"}
 
 
-def osm(raw_dir, manifest):
-    rel = "openaedmap/PL.geojson"
-    entry = manifest[rel]
-    with open(os.path.join(raw_dir, rel), encoding="utf-8") as f:
+def osm(raw_dir, entry, source, licence):
+    with open(os.path.join(raw_dir, source["file"]), encoding="utf-8") as f:
         features = json.load(f)["features"]
     snapshot = entry["downloaded_at"][:10]
     out = []
@@ -272,7 +293,7 @@ def osm(raw_dir, manifest):
         lon, lat = feat["geometry"]["coordinates"]
         check = _clean(p.get("check_date"))
         check = check if re.match(r"^\d{4}-\d{2}-\d{2}$", check) else ""  # partial dates (2023-02) are dropped
-        rec = _record(OSM, "%s/%s" % (p["@osm_type"], p["@osm_id"]), "ODbL 1.0", snapshot,
+        rec = _record(source["zrodlo"], "%s/%s" % (p["@osm_type"], p["@osm_id"]), licence, snapshot,
                       nazwa=p.get("name") or p.get("operator"),  # description is free text, not a name
                       miejscowosc=p.get("addr:city"), nazwa_ulicy=p.get("addr:street"),
                       nr_budynku=p.get("addr:housenumber"), kod_pocztowy=p.get("addr:postcode"),
@@ -289,15 +310,47 @@ def osm(raw_dir, manifest):
     return out, []
 
 
-MAPPERS = [krosno, marki, przemysl, legionowo, warszawa, osm]
+CODE_MAPPERS = {"warszawa": warszawa, "osm": osm}
 
 
-def load_all(raw_dir):
-    """-> (records, notes) for all sources."""
+def load_all(raw_dir, registry_path=None):
+    """-> (records, notes, errors, skipped) for all sources in the registry.
+
+    errors: Polish messages (broken registry entries, sources that could not be mapped or gave no records);
+    skipped: zrodlo values of valid registry entries that produced no records this run (an entry rejected by
+    validation has no trusted zrodlo, so consumers must rely on the zrodlo values present in the records). Each record carries "_priority" and "_copy_values"
+    from its registry entry (meta fields, dropped by deduplication)."""
+    sources, licences, errors = load_registry(registry_path or REGISTRY_PATH)
     manifest = _manifest(raw_dir)
-    records, notes = [], []
-    for mapper in MAPPERS:
-        recs, n = mapper(raw_dir, manifest)
+    records, notes, skipped = [], [], []
+    allowed = S.enum("licencja")
+    for source in sources:
+        entry = manifest.get(source["file"])
+        if entry is None:
+            problem = "brak pliku %s w manifest.json (źródło nie zostało pobrane)" % source["file"]
+        elif licences.get(entry.get("license")) not in allowed:
+            problem = ("licencja „%s” nie jest obsługiwana; dopisz ją do „licences” w sources.json, jeśli wolno "
+                       "ją publikować (dozwolone: %s)" % (entry.get("license"), ", ".join(allowed)))
+        else:
+            problem = None
+        if problem is None:
+            mapper = CODE_MAPPERS[source["mapper"]] if "mapper" in source else map_source
+            licence = licences[entry["license"]]
+            try:
+                recs, n = mapper(raw_dir, entry, source, licence)
+            except Exception as ex:  # a broken or changed source file must not stop the other sources
+                problem = "nie udało się odczytać pliku %s (%s: %s)" % (source["file"], type(ex).__name__, ex)
+            else:
+                if not recs:  # an emptied file must not look like "all devices of the source are gone"
+                    problem = "plik %s nie zawiera żadnych urządzeń" % source["file"]
+        if problem is not None:
+            errors.append("Źródło %s (%s) pominięte: %s." % (source["label"], source["zrodlo"], problem))
+            skipped.append(source["zrodlo"])
+            continue
+        # CLAUDE.md rule 3: values under ODbL are never copied into another source's record, whatever the flag says.
+        copy_values = source["copy_values_on_merge"] and licence != ODBL
+        for r in recs:
+            r["_priority"], r["_copy_values"] = source["priority"], copy_values
         records.extend(recs)
         notes.extend(n)
-    return records, notes
+    return records, notes, errors, skipped

@@ -51,7 +51,7 @@ Cykl życia rekordu: `zgloszony` (sprzedawca podał dane urządzenia) → `aktyw
 
 ## Twarde zasady
 
-1. **Źródłem prawdy o strukturze danych jest `aed_standard/schema.json`.** Formularze, walidator, mapper, szablon XLSX i eksporty wynikają z tego pliku. Nie duplikuj listy pól w kodzie ani w dokumentach.
+1. **Źródłem prawdy o strukturze danych jest `aed_standard/schema.json`.** Formularze, walidator, mapper, szablon XLSX i eksporty wynikają z tego pliku. Nie duplikuj listy pól w kodzie ani w dokumentach. Tak samo źródłem prawdy o źródłach danych (pliki, mapowanie kolumn, priorytet, licencja) jest `aed_standard/sources.json` - instrukcja: `docs/dodawanie-zrodla.md`.
 2. **Na dane.gov.pl publikuje dostawca, nie zespół i nie obywatel.** Dostawcą zbioru krajowego jest ministerstwo; firmy raportują do ministerstwa przez konta firmowe. Zgłoszenie obywatela (skan QR bez uprawnień) jest sygnałem dla właściciela, nie edycją danych.
 3. **Dane OSM (ODbL) nie mieszają się z danymi otwieranymi przez ministerstwo.** Rekord, który istnieje tylko w OSM, zostaje w rejestrze jako `niepotwierdzony` z licencją ODbL i nie trafia do eksportu na dane.gov.pl. Pól z OSM nie przepisujemy do rekordów z innych źródeł; zapisujemy tylko powiązanie. Po potwierdzeniu przez właściciela dane pochodzą od właściciela. Wymaga opinii prawnika – na slajdzie jako ograniczenie.
 4. **Kod portalu (`backend/`, `frontend/`) to fork kodu Ministerstwa.** Zmiany w nim trzymaj małe i wydzielone (osobna aplikacja Django, osobny moduł Angular), żeby dało się je pokazać jako łatkę. Nie kopiuj kodu OpenAEDMap (AGPL). Prawa do rozwiązania przechodzą na Ministra Cyfryzacji.
@@ -85,7 +85,7 @@ Deduplikacja:
 ## Repozytorium
 
 ```
-aed_standard/   standard danych: schema.json, walidator, mapper źródeł, deduplikacja, eksporty
+aed_standard/   standard danych: schema.json, rejestr źródeł sources.json, walidator, mapper źródeł, deduplikacja, eksporty
                 (czysty Python, bez zależności, zgodny z Pythonem 3.8 – importowalny w backendzie portalu)
 aed_service/    samodzielna usługa API (Falcon + SQLite): konta firm, zgłoszenia CSV, QR, potwierdzenia, rejestr
 scripts/        download_aed_data.py (pobranie źródeł), build_template.py (szablon XLSX)
