@@ -12,7 +12,9 @@ import os
 import re
 import secrets
 import sqlite3
+import subprocess
 import sys
+import threading
 import traceback
 
 import falcon
@@ -67,10 +69,21 @@ CREATE TABLE IF NOT EXISTS messages(
   id INTEGER PRIMARY KEY, rodzaj TEXT NOT NULL, id_aed TEXT, odbiorca TEXT, temat TEXT, tresc TEXT, link TEXT, data TEXT);
 CREATE TABLE IF NOT EXISTS signals(
   id INTEGER PRIMARY KEY, id_aed TEXT NOT NULL, typ TEXT NOT NULL, lat REAL, lon REAL, uwagi TEXT, data TEXT);
+CREATE TABLE IF NOT EXISTS jobs(
+  id INTEGER PRIMARY KEY, start TEXT NOT NULL, koniec TEXT, wyzwalacz TEXT NOT NULL, rodzaj TEXT NOT NULL,
+  odswiezono TEXT, mapper TEXT, przypomnienia TEXT, bledy TEXT NOT NULL DEFAULT '[]');
 CREATE TABLE IF NOT EXISTS duplicates(
   id INTEGER PRIMARY KEY, id_a TEXT NOT NULL, id_b TEXT NOT NULL, odleglosc_m REAL, podobienstwo REAL,
   decyzja TEXT, UNIQUE(id_a, id_b));
 """
+
+
+def migrate(db):
+    """Bring a database created by an older version up to date (additive changes only)."""
+    cols = {r[1] for r in db.execute("PRAGMA table_info(devices)")}
+    if "demo" not in cols:  # demo = 1 marks fictional seed devices: visible in the registry, never exported
+        db.execute("ALTER TABLE devices ADD COLUMN demo INTEGER NOT NULL DEFAULT 0")
+    db.commit()
 
 
 def today():
@@ -224,6 +237,58 @@ def seed(db, with_registry=True):
                        " VALUES(?,?,?,?,?,?,?,?,?)", (email, name, rola, typ, city, lat, lon, salt, hash_password(pw, salt)))
     if with_registry and not db.execute("SELECT 1 FROM devices LIMIT 1").fetchone():
         import_registry(db)
+    db.commit()
+
+
+DEMO_CITIES = [("Gdańsk", 54.3520, 18.6466, "80-001"), ("Poznań", 52.4064, 16.9252, "61-001"),
+               ("Kraków", 50.0647, 19.9450, "30-001"), ("Wrocław", 51.1079, 17.0385, "50-001"),
+               ("Łódź", 51.7592, 19.4560, "90-001"), ("Katowice", 50.2649, 19.0238, "40-001"),
+               ("Lublin", 51.2465, 22.5684, "20-001"), ("Szczecin", 53.4285, 14.5528, "70-001"),
+               ("Białystok", 53.1325, 23.1688, "15-001"), ("Rzeszów", 50.0412, 21.9991, "35-001"),
+               ("Olsztyn", 53.7784, 20.4801, "10-001"), ("Toruń", 53.0138, 18.5984, "87-100")]
+DEMO_PLACES = ["Szkoła Podstawowa nr 7", "Urząd Dzielnicy", "Hala Sportowa", "Centrum Handlowe", "Dworzec Autobusowy",
+               "Biblioteka Miejska", "Pływalnia Miejska", "Przychodnia Rejonowa", "Dom Kultury", "Siłownia Plenerowa",
+               "Stadion Miejski", "Urząd Gminy"]
+# company email, brand, model, serial prefix, device count, confirmed count
+DEMO_PLAN = [("pulsar@aed.example", "Pulsar", "P-100 Demo", "PUL", 12, 10),
+             ("serwis@aed.example", "RytmCare", "R-2 Demo", "RYT", 6, 2)]
+
+
+def demo_seed(db):
+    """Fictional devices created through the real submission and confirmation code (see README). Runs once."""
+    if db.execute("SELECT 1 FROM devices WHERE demo=1 OR konto_id IS NOT NULL").fetchone():
+        return
+    t, ids = today(), []
+    for email, brand, model, prefix, count, confirmed in DEMO_PLAN:
+        account = db.execute("SELECT * FROM accounts WHERE email=?", (email,)).fetchone()
+        records = []
+        for i in range(count):
+            city, lat, lon, zipcode = DEMO_CITIES[(i * 5 + len(prefix)) % len(DEMO_CITIES)]
+            place = "%s (DEMO, fikcyjne)" % DEMO_PLACES[(i + len(brand)) % len(DEMO_PLACES)]
+            records.append({
+                "producent": brand, "model": model, "numer_seryjny": "DEMO-%s-%03d" % (prefix, i + 1),
+                "data_produkcji": (t - datetime.timedelta(days=500 + i)).isoformat(),
+                "data_waznosci_elektrod": (t + datetime.timedelta(days=500)).isoformat(),
+                # device 4 of the first company: battery expires within the 60-day reminder window
+                "data_waznosci_baterii": (t + datetime.timedelta(days=30 if (prefix == "PUL" and i == 4) else 900)).isoformat(),
+                "dysponent_nazwa": "Fikcyjny Dysponent nr %d (DEMO)" % (i + 1), "dysponent_telefon": "+48 000 000 %03d" % (i + 1),
+                "dysponent_email": "dysponent-%s-%d@demo.example" % (prefix.lower(), i + 1),
+                "_place": (place, city, lat + i * 0.004, lon + i * 0.004, zipcode)})
+        clean_recs = [{k: v for k, v in r.items() if k != "_place"} for r in records]
+        out = process_submission(db, account, clean_recs, aed_standard.validate_records(clean_recs, "sprzedaz"), "demo", False)
+        for i, item in enumerate(out["przyjete"]):
+            ids.append(item["id_aed"])
+            if i >= confirmed:
+                continue  # stays "zgloszony": waiting activation link in the outbox
+            place, city, lat, lon, zipcode = records[i]["_place"]
+            apply_confirmation(db, item["id_aed"], {
+                "t": item["link_aktywacyjny"].split("t=")[1], "nazwa": place, "szerokosc_geograficzna": round(lat, 6),
+                "dlugosc_geograficzna": round(lon, 6), "miejscowosc": city, "nazwa_ulicy": "Demonstracyjna",
+                "nr_budynku": str(i + 1), "kod_pocztowy": zipcode, "opis_lokalizacji": "Przy wejściu głównym (dane demo)",
+                "wewnatrz_budynku": "tak", "dostep": "publiczny", "godziny_dostepu": "Mo-Fr 08:00-18:00",
+                "godziny_dostepu_opis": "Dni robocze, 8:00-18:00", "stan": "sprawny"},
+                on=t - datetime.timedelta(days=200) if (prefix == "PUL" and i == 5) else t)  # device 5: stale verification
+    db.executemany("UPDATE devices SET demo=1 WHERE id_aed=?", [(i,) for i in ids])
     db.commit()
 
 
@@ -412,9 +477,9 @@ def sticker(req, resp, id_aed):
     resp.text = svg
 
 
-def confirm(req, resp, id_aed):
-    db = req.context.db
-    data = body(req)
+def apply_confirmation(db, id_aed, data, on=None):
+    """Manager confirmation (shared by the endpoint and the demo seed). `on` = date of the confirmation."""
+    on = (on or today()).isoformat()
     row = get_device(db, id_aed)
     if not manager_ok(row, data.get("t")):
         raise ApiError(403, "zly_token", "Link jest niepoprawny lub wygasł. Poproś o nowy na adres e-mail dysponenta.")
@@ -426,9 +491,9 @@ def confirm(req, resp, id_aed):
         raise ApiError(422, "brak_uwag", "Przy stanie „problem” opisz problem w polu „uwagi”.")
     rec = json.loads(row["data"])
     rec.update({k: v for k, v in clean(data).items() if k in CONFIRM_FIELDS and k in data})
-    rec["data_aktualizacji"] = today().isoformat()
+    rec["data_aktualizacji"] = on
     if stan == "sprawny":
-        rec.update(status="aktywny", data_weryfikacji=today().isoformat(), sposob_weryfikacji="qr")
+        rec.update(status="aktywny", data_weryfikacji=on, sposob_weryfikacji="qr")
     elif rec["status"] == "aktywny":
         rec["status"] = "niepotwierdzony"
     rec["kompletnosc"] = str(aed_standard.completeness(rec))
@@ -440,6 +505,11 @@ def confirm(req, resp, id_aed):
                            {"problemy": report["problemy"]})
     save_device(db, rec, origin="zarzadca", uwagi_zarzadcy=uwagi if stan == "problem" else None)
     db.commit()
+    return rec
+
+
+def confirm(req, resp, id_aed):
+    rec = apply_confirmation(req.context.db, id_aed, body(req))
     resp.media = {k: rec[k] for k in ("id_aed", "status", "data_weryfikacji", "sposob_weryfikacji", "kompletnosc")} | {
         "rekord": rec}
 
@@ -517,7 +587,9 @@ def stats(req, resp):
         "wg_zrodla": dict(db.execute("SELECT zrodlo, COUNT(*) FROM devices WHERE %s GROUP BY zrodlo" % pub).fetchall()),
         "dostawcy": db.execute("SELECT COUNT(DISTINCT konto_id) FROM devices WHERE konto_id IS NOT NULL").fetchone()[0],
         "potwierdzone_90_dni": db.execute(
-            "SELECT COUNT(*) FROM devices WHERE %s AND origin!='import' AND data_weryfikacji>=?" % pub, (since,)).fetchone()[0]}
+            "SELECT COUNT(*) FROM devices WHERE %s AND origin!='import' AND data_weryfikacji>=?" % pub, (since,)).fetchone()[0],
+        "ostatnie_uruchomienia": {col: (db.execute("SELECT MAX(start) FROM jobs WHERE %s IS NOT NULL" % col).fetchone()[0])
+                                  for col in ("mapper", "przypomnienia")}}
 
 
 def sellers(req, resp):
@@ -537,8 +609,8 @@ def sellers(req, resp):
 
 
 def export_csv(req, resp):
-    # Private devices are dropped here; ODbL, validation and the rest are aed_standard's job.
-    rows = req.context.db.execute("SELECT data FROM devices WHERE dostep != 'prywatny'")
+    # Private and fictional demo devices are dropped here; ODbL, validation and the rest are aed_standard's job.
+    rows = req.context.db.execute("SELECT data FROM devices WHERE dostep != 'prywatny' AND demo=0")
     exported = aed_standard.publication_export([json.loads(r[0]) for r in rows])
     out = io.StringIO()
     w = csv.DictWriter(out, fieldnames=aed_standard.field_names(), extrasaction="ignore", lineterminator="\r\n")
@@ -594,9 +666,7 @@ def list_messages(req, resp):
                   "razem": req.context.db.execute("SELECT COUNT(*) FROM messages").fetchone()[0]}
 
 
-def run_reminders(req, resp):
-    need_account(req, "ministerstwo")
-    db = req.context.db
+def reminders(db):
     t = today()
     day = lambda n: (t + datetime.timedelta(days=n)).isoformat()  # noqa: E731
     counts = {"nieaktualne": 0, "prosby_o_potwierdzenie": 0, "przypomnienia_terminow": 0}
@@ -631,13 +701,149 @@ def run_reminders(req, resp):
                               "Termin ważności %s: %s. Wymień element i potwierdź dane." % (what, rec[field]), link)
                 counts["przypomnienia_terminow"] += 1
     db.commit()
-    resp.media = counts
+    return counts
 
 
-def run_mapper(req, resp):
+# ---------- cyclic jobs ----------
+
+JOB_LOCK = threading.Lock()  # one job at a time: a manual run and a scheduled run never overlap
+DOWNLOAD_SCRIPT = os.path.join(ROOT, "scripts", "download_aed_data.py")
+DOWNLOAD_TIMEOUT = 600
+
+
+def _short_error(text):
+    """Polish one-liner for a raw error text from the download script (no exception details)."""
+    name = re.split(r"[ (:]", text.strip(), maxsplit=1)[0] or "źródło"
+    low = text.lower()
+    if any(k in low for k in ("certificate", "urlopen", "timed out", "name or service", "connection", "network")):
+        why = "brak połączenia lub błąd certyfikatu"
+    elif "token" in low:
+        why = "brak tokenu dostępu"
+    elif "html" in low:
+        why = "adres wskazuje stronę WWW, nie dane"
+    else:
+        why = "błąd pobierania"
+    return "Źródło %s: %s. Użyto zapisanej migawki." % (name, why)
+
+
+def refresh_sources():
+    """Run scripts/download_aed_data.py without ever losing the snapshot on disk.
+
+    The script rewrites manifest.json with only the files it downloaded; entries of the old manifest that are
+    missing there are kept (their data files are still on disk) and the merged manifest is written back.
+    Returns (what was refreshed or None, [Polish error texts]); never raises.
+    """
+    if not os.path.exists(DOWNLOAD_SCRIPT):
+        return None, []
+    path = os.path.join(RAW_DIR, "manifest.json")
+    try:
+        with open(path, "rb") as f:
+            old_bytes = f.read()
+        old = json.loads(old_bytes)["files"]
+    except (OSError, ValueError, KeyError):
+        old_bytes, old = None, []
+
+    def restore():
+        if old_bytes is not None:
+            with open(path, "wb") as f:
+                f.write(old_bytes)
+
+    try:
+        r = subprocess.run([sys.executable, DOWNLOAD_SCRIPT], cwd=ROOT, capture_output=True, text=True,
+                           timeout=DOWNLOAD_TIMEOUT)
+        if r.returncode != 0:
+            restore()
+            return None, ["Pobieranie źródeł zakończyło się błędem (kod %d). Użyto zapisanej migawki." % r.returncode]
+        with open(path, encoding="utf-8") as f:
+            new = json.load(f)
+        fresh = {e["file"] for e in new["files"]}
+        merged = new["files"] + [e for e in old if e["file"] not in fresh]
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(dict(new, files=merged), f, ensure_ascii=False, indent=2)
+        os.replace(tmp, path)
+    except Exception as ex:  # timeout, cannot start, unreadable manifest, ...
+        restore()
+        return None, ["Nie udało się odświeżyć źródeł (%s). Użyto zapisanej migawki." % type(ex).__name__]
+    errors = [_short_error(e) for e in new.get("errors", [])]
+    if len(fresh) == len(merged):
+        done = "Odświeżono wszystkie źródła (%d plików)" % len(merged)
+    else:
+        done = "Odświeżono %d z %d plików źródłowych; pozostałe z zapisanej migawki" % (len(fresh), len(merged))
+    return done, errors
+
+
+def run_job(db, trigger, kind, blocking=True):
+    """kind: cykl (download + mapper + reminders) | mapper | przypomnienia. Records the run in `jobs`; returns the row dict."""
+    if not JOB_LOCK.acquire(blocking):
+        raise ApiError(409, "zadanie_trwa", "Inne zadanie jest właśnie wykonywane. Spróbuj za chwilę.")
+    try:
+        start, refreshed, mapper, remind, errors = now(), None, None, None, []
+        if kind == "cykl":
+            refreshed, errors = refresh_sources()
+        for name, fn, label in (("mapper", lambda: import_registry(db), "Mapper"), ("przypomnienia", lambda: reminders(db), "Przypomnienia")):
+            if kind not in ("cykl", name):
+                continue
+            try:
+                result = fn()
+                db.commit()
+                mapper, remind = (result, remind) if name == "mapper" else (mapper, result)
+            except Exception as ex:
+                db.rollback()
+                traceback.print_exception(ex, file=sys.stderr)
+                errors.append("%s: nie udało się zakończyć zadania (%s)." % (label, type(ex).__name__))
+        j = lambda v: None if v is None else json.dumps(v)  # noqa: E731
+        job_id = db.execute("INSERT INTO jobs(start,koniec,wyzwalacz,rodzaj,odswiezono,mapper,przypomnienia,bledy)"
+                            " VALUES(?,?,?,?,?,?,?,?)", (start, now(), trigger, kind, refreshed, j(mapper), j(remind),
+                                                         json.dumps(errors, ensure_ascii=False))).lastrowid
+        db.commit()
+        return job_json(db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone())
+    finally:
+        JOB_LOCK.release()
+
+
+def job_json(r):
+    load = lambda v: None if v is None else json.loads(v)  # noqa: E731
+    return {"id": r["id"], "start": r["start"], "koniec": r["koniec"], "wyzwalacz": r["wyzwalacz"], "rodzaj": r["rodzaj"],
+            "odswiezono": r["odswiezono"], "mapper": load(r["mapper"]), "przypomnienia": load(r["przypomnienia"]),
+            "bledy": json.loads(r["bledy"])}
+
+
+def manual_job(kind):
+    def handler(req, resp):
+        need_account(req, "ministerstwo")
+        job = run_job(req.context.db, "ministerstwo", kind, blocking=False)
+        result = job[kind]
+        if result is None:
+            raise ApiError(500, "zadanie_nieudane", job["bledy"][0])
+        resp.media = result
+    return handler
+
+
+def list_jobs(req, resp):
     need_account(req, "ministerstwo")
-    resp.media = import_registry(req.context.db)
-    req.context.db.commit()
+    rows = req.context.db.execute("SELECT * FROM jobs ORDER BY id DESC LIMIT 20").fetchall()
+    resp.media = {"dane": [job_json(r) for r in rows]}
+
+
+def start_scheduler(db_path, hours):
+    """Daemon thread running the full cycle every `hours` hours (0 = disabled). Uses its own connection."""
+    if hours <= 0:
+        return None
+
+    def loop():
+        db = sqlite3.connect(db_path, timeout=30)
+        db.row_factory = sqlite3.Row
+        while True:
+            threading.Event().wait(hours * 3600)
+            try:
+                run_job(db, "harmonogram", "cykl")
+            except Exception as ex:  # keep the thread alive whatever happens
+                traceback.print_exception(ex, file=sys.stderr)
+
+    t = threading.Thread(target=loop, name="aed-scheduler", daemon=True)
+    t.start()
+    return t
 
 
 # ---------- app ----------
@@ -656,11 +862,18 @@ def route(app, path, **methods):
     app.add_route("/api/aed" + path, res)
 
 
-def create_app(db_path=None, with_registry=True):
-    conn = sqlite3.connect(db_path or os.environ.get("AED_DB", DEFAULT_DB), check_same_thread=False)
+def db_file(db_path=None):
+    return db_path or os.environ.get("AED_DB", DEFAULT_DB)
+
+
+def create_app(db_path=None, with_registry=True, demo=False):
+    conn = sqlite3.connect(db_file(db_path), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA_SQL)
+    migrate(conn)
     seed(conn, with_registry)
+    if demo:
+        demo_seed(conn)
 
     app = falcon.App(middleware=[Db(conn), falcon.CORSMiddleware(allow_origins=CORS_ORIGINS)])
     parse = app.req_options.media_handlers[falcon.MEDIA_MULTIPART].parse_options
@@ -699,6 +912,7 @@ def create_app(db_path=None, with_registry=True):
     route(app, "/duplikaty", get=list_duplicates)
     route(app, "/duplikaty/{dup_id:int}", post=decide_duplicate)
     route(app, "/wiadomosci", get=list_messages)
-    route(app, "/przypomnienia/uruchom", post=run_reminders)
-    route(app, "/mapper/uruchom", post=run_mapper)
+    route(app, "/przypomnienia/uruchom", post=manual_job("przypomnienia"))
+    route(app, "/mapper/uruchom", post=manual_job("mapper"))
+    route(app, "/zadania", get=list_jobs)
     return app

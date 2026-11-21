@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir -r aed_service/requirements.txt
 COPY aed_standard aed_standard
 COPY aed_service aed_service
 # Raw sources: the first start imports the national registry from them.
+COPY scripts scripts
 COPY datasets/raw datasets/raw
 
 # Run as a non-root user; the database lives on a volume.
