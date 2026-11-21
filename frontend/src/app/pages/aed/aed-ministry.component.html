@@ -145,13 +145,19 @@
 
   <section aria-labelledby="aed-jobs-heading">
     <h2 class="aed-h2" id="aed-jobs-heading">Zadania cykliczne</h2>
-    <p>W działającym systemie uruchamiają się same. Tutaj można uruchomić je ręcznie i zobaczyć wynik.</p>
+    <p>
+      Mapper źródeł i przypomnienia dla dysponentów uruchamiają się same, co 24 godziny. Tutaj można uruchomić je
+      ręcznie i zobaczyć historię uruchomień.
+    </p>
     <div class="aed-columns aed-columns--even">
       <div>
         <h3 class="aed-h3">Prośby o potwierdzenie i przypomnienia</h3>
         <p>
           Prosi dysponentów o potwierdzenie danych po 6 miesiącach, przypomina o końcu ważności baterii i elektrod, a
           rekordy bez potwierdzenia od 12 miesięcy oznacza jako nieaktualne.
+        </p>
+        <p class="aed-note">
+          Ostatnie uruchomienie: {{ when(stats()?.ostatnie_uruchomienia?.przypomnienia) || 'jeszcze nie było' }}.
         </p>
         <button class="btn btn-primary" type="button" [disabled]="busy()" (click)="runReminders()">
           Uruchom przypomnienia
@@ -171,6 +177,9 @@
           Pobiera rekordy ze zbiorów na dane.gov.pl, z API Warszawy i z OpenStreetMap, sprowadza je do standardu i usuwa
           duplikaty.
         </p>
+        <p class="aed-note">
+          Ostatnie uruchomienie: {{ when(stats()?.ostatnie_uruchomienia?.mapper) || 'jeszcze nie było' }}.
+        </p>
         <button class="btn btn-primary" type="button" [disabled]="busy()" (click)="runMapper()">
           Uruchom mapper źródeł
         </button>
@@ -184,6 +193,55 @@
         </div>
       </div>
     </div>
+  </section>
+
+  <section aria-labelledby="aed-jobs-history-caption">
+    @if (jobs().length) {
+      <div class="aed-scroll" tabindex="0" role="region" aria-labelledby="aed-jobs-history-caption">
+        <table class="aed-table">
+          <caption id="aed-jobs-history-caption">
+            Historia zadań cyklicznych – ostatnie uruchomienia
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Początek i koniec</th>
+              <th scope="col">Uruchomienie</th>
+              <th scope="col">Zadanie</th>
+              <th scope="col">Wynik</th>
+              <th scope="col">Problemy</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (job of jobs(); track job.id) {
+              <tr>
+                <td>{{ when(job.start) }}<br />{{ when(job.koniec) || 'w toku' }}</td>
+                <td>{{ triggers[job.wyzwalacz] }}</td>
+                <td>
+                  {{ jobKinds[job.rodzaj] }}
+                  @if (job.odswiezono) {
+                    <span class="aed-table__sub">Odświeżone źródła: {{ job.odswiezono }}</span>
+                  }
+                </td>
+                <td>
+                  @if (job.mapper; as mapper) {
+                    Mapper: dodane {{ mapper.dodano }}, zmienione {{ mapper.zmieniono }}, połączone
+                    {{ mapper.polaczono }}, do przeglądu {{ mapper.do_przegladu }}.
+                  }
+                  @if (job.przypomnienia; as reminders) {
+                    Przypomnienia: prośby o potwierdzenie {{ reminders.prosby_o_potwierdzenie }}, o terminach
+                    {{ reminders.przypomnienia_terminow }}, oznaczone jako nieaktualne {{ reminders.nieaktualne }}.
+                  }
+                </td>
+                <td>{{ job.bledy.length ? job.bledy.join(' ') : 'brak' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <h3 class="aed-h3" id="aed-jobs-history-caption">Historia zadań cyklicznych</h3>
+      <p>Nie było jeszcze żadnego uruchomienia. Pierwsze pojawi się tutaj po uruchomieniu zadania.</p>
+    }
   </section>
 
   <section aria-labelledby="aed-outbox-heading">

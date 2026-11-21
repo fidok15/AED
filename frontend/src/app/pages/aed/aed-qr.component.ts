@@ -5,10 +5,9 @@ import { SeoService } from '@app/services/seo.service';
 import { ScrollToFirstErrorDirective } from '@app/shared/forms/directives/scroll-to-first-error.directive';
 import { AedApiService, AedCondition, aedErrorMessage, AedRecord, AedSignalType } from './aed-api.service';
 import { AedFieldComponent } from './aed-field.component';
+import { AedHoursPickerComponent } from './aed-hours-picker.component';
 import { aedControl, aedField, aedRequired, aedRequiredForStatus } from './aed-schema';
 import { AedStatusComponent } from './aed-status.component';
-
-const ALWAYS = '24/7';
 
 /**
  * Phone screen opened from the QR sticker: /aed/qr/{id_aed}.
@@ -18,7 +17,13 @@ const ALWAYS = '24/7';
 @Component({
   selector: 'app-aed-qr',
   standalone: true,
-  imports: [ReactiveFormsModule, AedFieldComponent, AedStatusComponent, ScrollToFirstErrorDirective],
+  imports: [
+    ReactiveFormsModule,
+    AedFieldComponent,
+    AedHoursPickerComponent,
+    AedStatusComponent,
+    ScrollToFirstErrorDirective,
+  ],
   templateUrl: './aed-qr.component.html',
 })
 export class AedQrComponent implements OnInit {
@@ -48,23 +53,18 @@ export class AedQrComponent implements OnInit {
   protected readonly spot = ['opis_lokalizacji', 'wewnatrz_budynku'].map(aedField);
   protected readonly access = aedField('dostep');
   protected readonly hours = aedField('godziny_dostepu');
+  protected readonly hoursNote = aedField('godziny_dostepu_opis');
   protected readonly values = new FormGroup(
     Object.fromEntries(
-      [...this.coordinates, ...this.place, ...this.spot, this.access, this.hours].map((field) => [
+      [...this.coordinates, ...this.place, ...this.spot, this.access, this.hours, this.hoursNote].map((field) => [
         field.name,
         aedControl(field, this.required.includes(field.name)),
       ]),
     ),
   );
-  protected readonly allDay = new FormControl<boolean | null>(null, Validators.required);
   protected readonly stan = new FormControl<AedCondition | null>(null, Validators.required);
   protected readonly uwagi = new FormControl('');
-  protected readonly form = new FormGroup({
-    values: this.values,
-    allDay: this.allDay,
-    stan: this.stan,
-    uwagi: this.uwagi,
-  });
+  protected readonly form = new FormGroup({ values: this.values, stan: this.stan, uwagi: this.uwagi });
 
   // Anyone: the public signal.
   protected readonly signalTypes: { typ: AedSignalType; label: string }[] = [
@@ -82,9 +82,6 @@ export class AedQrComponent implements OnInit {
   ngOnInit(): void {
     this.seo.setPageTitle([this.t() ? 'Potwierdź dane defibrylatora' : 'Defibrylator AED', 'Rejestr AED']);
 
-    this.allDay.valueChanges.subscribe((allDay) =>
-      this.values.controls['godziny_dostepu'].setValue(allDay ? ALWAYS : null),
-    );
     this.stan.valueChanges.subscribe((stan) => {
       this.uwagi.setValidators(stan === 'problem' ? Validators.required : null);
       this.uwagi.updateValueAndValidity();
@@ -94,8 +91,6 @@ export class AedQrComponent implements OnInit {
       next: (record) => {
         this.record.set(record);
         this.values.patchValue(record);
-        const hours = record['godziny_dostepu'];
-        if (hours) this.allDay.setValue(hours === ALWAYS, { emitEvent: false });
       },
       error: (error) => this.loadError.set(aedErrorMessage(error)),
     });
@@ -117,9 +112,13 @@ export class AedQrComponent implements OnInit {
         };
         this.values.patchValue(position);
         this.signalPosition = position;
+        const accuracy = Math.round(coords.accuracy);
         this.located.set(
           `Zapisano położenie: ${position.szerokosc_geograficzna}, ${position.dlugosc_geograficzna} ` +
-            `(dokładność około ${Math.round(coords.accuracy)} m).`,
+            `(dokładność około ${accuracy} m).` +
+            (accuracy > 50
+              ? ' To mało dokładny odczyt. Podejdź do okna albo wyjdź na zewnątrz i spróbuj ponownie, albo popraw współrzędne ręcznie.'
+              : ''),
         );
         this.locating.set(false);
       },

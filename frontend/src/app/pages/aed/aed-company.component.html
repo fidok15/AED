@@ -11,6 +11,62 @@
 <app-aed-login rola="firma" heading="Zaloguj się na konto firmy" />
 
 @if (api.account()?.rola === 'firma') {
+  <section class="aed-score" aria-labelledby="aed-score-heading">
+    <h2 class="aed-h2" id="aed-score-heading">Wynik twojej firmy</h2>
+    @if (score(); as score) {
+      @if (score.liczba_urzadzen) {
+        <dl class="aed-facts">
+          <div>
+            <dt>Zgłoszone urządzenia</dt>
+            <dd>{{ score.liczba_urzadzen }}</dd>
+          </div>
+          <div>
+            <dt>Średnia kompletność danych</dt>
+            <dd>{{ number(score.srednia_kompletnosc) }}%</dd>
+          </div>
+          <div>
+            <dt>Potwierdzone przez dysponentów</dt>
+            <dd>{{ number(score.udzial_aktywnych * 100) }}%</dd>
+          </div>
+          <div>
+            <dt>Odznaka</dt>
+            <dd>{{ score.odznaka === 'tak' ? 'przyznana' : 'jeszcze nie' }}</dd>
+          </div>
+        </dl>
+      } @else {
+        <p>Nie masz jeszcze zgłoszonych urządzeń. Wynik pojawi się po pierwszym zgłoszeniu.</p>
+      }
+    }
+    <details class="aed-details">
+      <summary>Co uzupełnić, żeby podnieść wynik</summary>
+      <p>
+        Kompletność to wynik od 0 do 100 liczony z pól standardu – im ważniejsze pole, tym więcej punktów. Odznakę
+        @if (thresholds(); as thresholds) {
+          dostaje firma ze średnią kompletnością co najmniej {{ thresholds.srednia_kompletnosc }}% i z co najmniej
+          {{ number(thresholds.udzial_aktywnych * 100) }}% urządzeń potwierdzonych przez dysponenta.
+        } @else {
+          dostaje firma z wysoką średnią kompletnością i dużym udziałem potwierdzonych urządzeń.
+        }
+      </p>
+      <p>W zgłoszeniu podaj komplet danych o urządzeniu i dysponencie. Punkty dają:</p>
+      <ul>
+        @for (field of sellerScore; track field.name) {
+          <li>{{ field.title }} – {{ points(field.waga) }}</li>
+        }
+      </ul>
+      <p>
+        Resztę uzupełnia dysponent po zeskanowaniu naklejki, dlatego dopilnuj, żeby naklejka trafiła do niego razem z
+        urządzeniem. Najwięcej punktów dają:
+      </p>
+      <ul>
+        @for (field of managerScore; track field.name) {
+          <li>{{ field.title }} – {{ points(field.waga) }}</li>
+        }
+      </ul>
+      <p><a [routerLink]="['/!aed', '!sellers'] | localize">Zobacz ranking firm</a></p>
+    </details>
+  </section>
+
   <div class="aed-columns">
     <section class="aed-panel" aria-labelledby="aed-csv-heading">
       <h2 class="aed-h2" id="aed-csv-heading">Zgłoś wiele urządzeń plikiem CSV</h2>
@@ -116,6 +172,14 @@
               Naklejkę przyklej na urządzeniu lub szafce. Link z potwierdzeniem wysyłamy na adres e-mail dysponenta; w
               prototypie widać go także tutaj.
             </p>
+            <p>
+              <a
+                class="btn btn-primary"
+                [routerLink]="['/!aed', '!company', '!stickers'] | localize"
+                [queryParams]="{ zgloszenie: report.id }">
+                Otwórz arkusz naklejek do wydruku ({{ report.przyjete.length }})
+              </a>
+            </p>
             <ul class="aed-accepted">
               @for (device of report.przyjete; track device.id_aed) {
                 <li>
@@ -143,6 +207,9 @@
       </ol>
       <p>
         <a [routerLink]="['/!aed', '!company', '!device'] | localize">Zgłoś jedno urządzenie formularzem</a>
+      </p>
+      <p>
+        <a [routerLink]="['/!aed', '!company', '!stickers'] | localize">Naklejki wszystkich zgłoszonych urządzeń</a>
       </p>
     </aside>
   </div>

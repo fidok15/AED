@@ -36,6 +36,8 @@ export interface AedStats {
   wg_zrodla: Record<string, number>;
   dostawcy: number;
   potwierdzone_90_dni: number;
+  /** ISO time of the last run of each cyclic job; null when it has not run yet. */
+  ostatnie_uruchomienia?: { mapper: string | null; przypomnienia: string | null };
 }
 
 export interface AedAccount {
@@ -117,6 +119,19 @@ export interface AedMapperRun {
   do_przegladu: number;
 }
 
+/** One run of the cyclic jobs (GET /zadania): by the schedule or started from the ministry panel. */
+export interface AedJobRun {
+  id: number;
+  start: string;
+  koniec: string | null;
+  wyzwalacz: 'harmonogram' | 'ministerstwo';
+  rodzaj: 'cykl' | 'mapper' | 'przypomnienia';
+  odswiezono: string | null;
+  mapper: AedMapperRun | null;
+  przypomnienia: AedRemindersRun | null;
+  bledy: string[];
+}
+
 /** Point of /urzadzenia.geojson. */
 export interface AedMapFeature {
   geometry: { coordinates: [number, number] };
@@ -129,6 +144,26 @@ export interface AedMapFeature {
     kompletnosc: number;
     zrodlo: string;
   };
+}
+
+/** Row of the company ranking (GET /sprzedawcy). */
+export interface AedSeller {
+  nazwa: string;
+  typ_podmiotu: string;
+  miejscowosc: string;
+  szerokosc_geograficzna: number;
+  dlugosc_geograficzna: number;
+  liczba_urzadzen: number;
+  srednia_kompletnosc: number;
+  /** 0–1 */
+  udzial_aktywnych: number;
+  odznaka: 'tak' | 'nie';
+}
+
+export interface AedSellers {
+  dane: AedSeller[];
+  /** Badge thresholds: minimum average completeness (0–100) and minimum share of active devices (0–1). */
+  progi: { srednia_kompletnosc: number; udzial_aktywnych: number };
 }
 
 export type AedCondition = 'sprawny' | 'problem';
@@ -241,6 +276,16 @@ export class AedApiService {
       .pipe(map((collection) => collection.features));
   }
 
+  // GET /sprzedawcy
+  sellers(): Observable<AedSellers> {
+    return this.http.get<AedSellers>(`${API}/sprzedawcy`);
+  }
+
+  // GET /zgloszenia: submissions of the signed-in company, newest first
+  submissions(): Observable<AedSubmission[]> {
+    return this.http.get<{ dane: AedSubmission[] }>(`${API}/zgloszenia`, this.auth()).pipe(map((page) => page.dane));
+  }
+
   // ---- ministry panel
 
   /** GET /eksport/dane-gov-pl.csv: public, so a plain link is enough. */
@@ -259,6 +304,11 @@ export class AedApiService {
   // GET /wiadomosci
   messages(): Observable<{ dane: AedMessage[]; razem: number }> {
     return this.http.get<{ dane: AedMessage[]; razem: number }>(`${API}/wiadomosci`, this.auth());
+  }
+
+  // GET /zadania: last runs of the cyclic jobs, newest first
+  jobs(): Observable<AedJobRun[]> {
+    return this.http.get<{ dane: AedJobRun[] }>(`${API}/zadania`, this.auth()).pipe(map((page) => page.dane));
   }
 
   // POST /przypomnienia/uruchom

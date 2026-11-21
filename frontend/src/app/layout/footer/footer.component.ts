@@ -25,6 +25,7 @@ import { CmsBlock2Component } from '@app/shared/cms/cms-block2/cms-block2.compon
 import { CmsLandingPageComponent } from '@app/shared/cms/cms-landing-page/cms-landing-page.component';
 import packageJson from '../../../../package.json';
 import { LocalStorageService } from 'ngx-localstorage';
+import { aedSkipsPortalNotice } from '@app/pages/aed/aed-prototype';
 import { RodoModalComponent } from '@app/shared/rodo-modal/rodo-modal.component';
 
 @Component({
@@ -100,7 +101,8 @@ export class FooterComponent implements OnInit, AfterViewInit, OnDestroy {
     if (isPlatformBrowser(this.platformId)) {
       this.isAcquintedWithRodo = !!this.localStorage.get('isAcquintedWithRodo', { prefix: this.storagePrefix });
 
-      if (this.isAcquintedWithRodo) {
+      // AED prototype: the portal's RODO notice must not cover the AED pages
+      if (this.isAcquintedWithRodo || aedSkipsPortalNotice(this.document.location.pathname)) {
         return;
       }
 

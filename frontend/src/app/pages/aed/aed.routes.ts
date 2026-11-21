@@ -10,6 +10,8 @@ import { AedMockService } from './aed-mock.service';
 import { AedPortalAccountsOffComponent } from './aed-prototype';
 import { AedQrComponent } from './aed-qr.component';
 import { AedRegistryComponent } from './aed-registry.component';
+import { AedSellersComponent } from './aed-sellers.component';
+import { AedStickersComponent } from './aed-stickers.component';
 import { AedComponent } from './aed.component';
 
 // THE SWITCH between the real AED service (docs/api-aed.md, proxied from /api/aed to localhost:8085)
@@ -34,7 +36,9 @@ export const AED_ROUTES: Route[] = [
       { path: '!registry', component: AedRegistryComponent },
       { path: '!company', component: AedCompanyComponent },
       { path: '!company/!device', component: AedDeviceFormComponent, canActivate: [signedIn] },
+      { path: '!company/!stickers', component: AedStickersComponent, canActivate: [signedIn] },
       { path: '!ministry', component: AedMinistryComponent },
+      { path: '!sellers', component: AedSellersComponent },
       { path: '!portal-accounts', component: AedPortalAccountsOffComponent },
     ],
   },
