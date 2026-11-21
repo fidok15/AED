@@ -5,7 +5,14 @@ import { LocalizeRouterPipe } from '@gilsdav/ngx-translate-router';
 
 import { SeoService } from '@app/services/seo.service';
 import { ScrollToFirstErrorDirective } from '@app/shared/forms/directives/scroll-to-first-error.directive';
-import { AedAccepted, AedApiService, aedErrorMessage, aedLinkFactory, AedProblem } from './aed-api.service';
+import {
+  AedAccepted,
+  AedApiService,
+  aedErrorMessage,
+  aedFocusFactory,
+  aedLinkFactory,
+  AedProblem,
+} from './aed-api.service';
 import { AedFieldComponent } from './aed-field.component';
 import { aedControl, aedGroups, aedRequired } from './aed-schema';
 
@@ -33,6 +40,7 @@ export class AedDeviceFormComponent implements OnInit {
     ),
   );
 
+  private readonly focus = aedFocusFactory();
   protected readonly accepted = signal<AedAccepted | null>(null);
   protected readonly problems = signal<AedProblem[]>([]);
   protected readonly error = signal('');
@@ -49,6 +57,7 @@ export class AedDeviceFormComponent implements OnInit {
     this.api.registerDevice(Object.fromEntries(filled)).subscribe({
       next: (report) => {
         this.accepted.set(report.przyjete[0] ?? null);
+        if (report.przyjete.length) this.focus('#aed-done-heading');
         this.problems.set(report.problemy);
         this.error.set(
           report.przyjete.length || report.problemy.length

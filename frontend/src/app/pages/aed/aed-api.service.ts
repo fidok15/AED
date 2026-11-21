@@ -1,5 +1,5 @@
 import { HttpBackend, HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { inject, Injectable, signal } from '@angular/core';
+import { afterNextRender, ElementRef, inject, Injectable, Injector, signal } from '@angular/core';
 import { Router, UrlTree } from '@angular/router';
 import { LocalizeRouterService } from '@gilsdav/ngx-translate-router';
 import { map, Observable, tap } from 'rxjs';
@@ -200,6 +200,18 @@ export function aedLinkFactory(): (link: string) => UrlTree {
     const localized = localize.translateRoute(path.replace(/\//g, '/!')) as string;
     return router.parseUrl(query ? `${localized}?${query}` : localized);
   };
+}
+
+/**
+ * Moves keyboard focus to an element of the calling component once the view has changed, e.g. to the
+ * heading of a result that replaced a form (otherwise focus falls back to the top of the page).
+ * Call in an injection context (a field initialiser).
+ */
+export function aedFocusFactory(): (selector: string) => void {
+  const injector = inject(Injector);
+  const host = inject<ElementRef<HTMLElement>>(ElementRef);
+  return (selector) =>
+    afterNextRender(() => host.nativeElement.querySelector<HTMLElement>(selector)?.focus(), { injector });
 }
 
 @Injectable()

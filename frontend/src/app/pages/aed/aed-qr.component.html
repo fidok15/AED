@@ -53,7 +53,7 @@
             class="aed-button aed-button--secondary"
             type="button"
             aria-describedby="aed-location-hint"
-            [disabled]="locating()"
+            [attr.aria-disabled]="locating() || null"
             (click)="locate()">
             {{ locating() ? 'Ustalam położenie…' : 'Użyj lokalizacji telefonu' }}
           </button>
@@ -194,7 +194,7 @@
             class="aed-button aed-button--secondary"
             type="button"
             aria-describedby="aed-signal-location-hint"
-            [disabled]="locating()"
+            [attr.aria-disabled]="locating() || null"
             (click)="locate()">
             {{ locating() ? 'Ustalam położenie…' : 'Dołącz lokalizację telefonu' }}
           </button>

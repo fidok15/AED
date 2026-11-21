@@ -1,8 +1,8 @@
 <p class="aed-back"><a [routerLink]="['/!aed', '!company'] | localize">Wróć do panelu firmy</a></p>
 
 @if (accepted(); as device) {
-  <section class="aed-panel aed-done" aria-labelledby="aed-done-heading" role="status">
-    <h1 class="heading heading--md" id="aed-done-heading">Urządzenie zgłoszone</h1>
+  <section class="aed-panel aed-done" aria-labelledby="aed-done-heading">
+    <h1 class="heading heading--md" id="aed-done-heading" tabindex="-1">Urządzenie zgłoszone</h1>
     <p>
       {{ device.producent }} {{ device.model }}, nr seryjny {{ device.numer_seryjny }}. Identyfikator w rejestrze:
       <strong>{{ device.id_aed }}</strong>

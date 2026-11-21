@@ -114,12 +114,14 @@ export class AedMinistryComponent implements OnInit {
   }
 
   protected skip(): void {
+    if (this.busy()) return;
     this.decided.set('');
     this.position.set((this.position() + 1) % this.duplicates().length);
   }
 
   protected decide(decyzja: 'polacz' | 'rozdziel'): void {
     const pair = this.pair();
+    if (this.busy()) return;
     this.busy.set(true);
     this.api.decideDuplicate(pair.id, decyzja).subscribe({
       next: () => {
@@ -137,6 +139,7 @@ export class AedMinistryComponent implements OnInit {
   }
 
   protected runReminders(): void {
+    if (this.busy()) return;
     this.busy.set(true);
     this.api.runReminders().subscribe({
       next: (result) => {
@@ -149,6 +152,7 @@ export class AedMinistryComponent implements OnInit {
   }
 
   protected runMapper(): void {
+    if (this.busy()) return;
     this.busy.set(true);
     this.api.runMapper().subscribe({
       next: (result) => {

@@ -130,13 +130,19 @@
       </div>
       <p class="aed-note">Po połączeniu zostaje rekord A, a rekord B dostaje status „wycofany”.</p>
       <div class="aed-actions">
-        <button class="btn btn-primary" type="button" [disabled]="busy()" (click)="decide('polacz')">
+        <button class="btn btn-primary" type="button" [attr.aria-disabled]="busy() || null" (click)="decide('polacz')">
           To samo urządzenie – połącz
         </button>
-        <button class="btn btn-outline-primary" type="button" [disabled]="busy()" (click)="decide('rozdziel')">
+        <button
+          class="btn btn-outline-primary"
+          type="button"
+          [attr.aria-disabled]="busy() || null"
+          (click)="decide('rozdziel')">
           Różne urządzenia – zostaw oba
         </button>
-        <button class="btn btn-link" type="button" [disabled]="busy()" (click)="skip()">Pomiń tę parę</button>
+        <button class="btn btn-link" type="button" [attr.aria-disabled]="busy() || null" (click)="skip()">
+          Pomiń tę parę
+        </button>
       </div>
     } @else {
       <p>Nie ma par do przeglądu. Nowe mogą pojawić się po uruchomieniu mappera źródeł.</p>
@@ -159,7 +165,7 @@
         <p class="aed-note">
           Ostatnie uruchomienie: {{ when(stats()?.ostatnie_uruchomienia?.przypomnienia) || 'jeszcze nie było' }}.
         </p>
-        <button class="btn btn-primary" type="button" [disabled]="busy()" (click)="runReminders()">
+        <button class="btn btn-primary" type="button" [attr.aria-disabled]="busy() || null" (click)="runReminders()">
           Uruchom przypomnienia
         </button>
         <div aria-live="polite">
@@ -180,7 +186,7 @@
         <p class="aed-note">
           Ostatnie uruchomienie: {{ when(stats()?.ostatnie_uruchomienia?.mapper) || 'jeszcze nie było' }}.
         </p>
-        <button class="btn btn-primary" type="button" [disabled]="busy()" (click)="runMapper()">
+        <button class="btn btn-primary" type="button" [attr.aria-disabled]="busy() || null" (click)="runMapper()">
           Uruchom mapper źródeł
         </button>
         <div aria-live="polite">

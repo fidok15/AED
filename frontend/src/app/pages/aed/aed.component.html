@@ -16,6 +16,16 @@
           <li>
             <a
               class="aed-nav__link"
+              [routerLink]="['/!aed'] | localize"
+              routerLinkActive="aed-nav__link--active"
+              [routerLinkActiveOptions]="{ exact: true }"
+              ariaCurrentWhenActive="page">
+              Start
+            </a>
+          </li>
+          <li>
+            <a
+              class="aed-nav__link"
               [routerLink]="['/!aed', '!registry'] | localize"
               routerLinkActive="aed-nav__link--active"
               ariaCurrentWhenActive="page">

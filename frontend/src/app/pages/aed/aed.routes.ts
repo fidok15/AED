@@ -5,6 +5,7 @@ import { LocalizeRouterService } from '@gilsdav/ngx-translate-router';
 import { AedApiService } from './aed-api.service';
 import { AedCompanyComponent } from './aed-company.component';
 import { AedDeviceFormComponent } from './aed-device-form.component';
+import { AedHomeComponent } from './aed-home.component';
 import { AedMinistryComponent } from './aed-ministry.component';
 import { AedMockService } from './aed-mock.service';
 import { AedPortalAccountsOffComponent } from './aed-prototype';
@@ -32,7 +33,7 @@ export const AED_ROUTES: Route[] = [
     component: AedComponent,
     providers: [AED_API],
     children: [
-      { path: '', redirectTo: '!registry', pathMatch: 'full' },
+      { path: '', component: AedHomeComponent },
       { path: '!registry', component: AedRegistryComponent },
       { path: '!company', component: AedCompanyComponent },
       { path: '!company/!device', component: AedDeviceFormComponent, canActivate: [signedIn] },
