@@ -37,7 +37,7 @@ from . import schema as S
 
 LAT, LON = "szerokosc_geograficzna", "dlugosc_geograficzna"
 EXPIRY_DATES = ("data_waznosci_elektrod", "data_waznosci_baterii")
-ACTIVE_REQUIRED = ("dostep", "godziny_dostepu", "data_weryfikacji")
+ACTIVE_REQUIRED = tuple(S.SCHEMA["wymagane_dla_statusu"]["aktywny"])
 ERROR, WARNING = "blad", "ostrzezenie"
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")

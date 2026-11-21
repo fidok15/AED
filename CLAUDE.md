@@ -205,14 +205,14 @@ Gdy brakuje czasu, tniemy w tej kolejności: ranking i odznaki → mapa sprzedaw
 ## Decyzje podjęte (fidok15, 21.11 wieczorem)
 
 - **Integracja z portalem:** ekrany AED jako moduł w forku frontendu dane.gov.pl, logika w samodzielnej usłudze `aed_service/`; w backendzie portalu tylko publikacja zbioru. Zadanie nie wymaga wbudowania prototypu w portal – wymaga zgodności z jego zasadami.
-- **Klikalny prototyp:** publiczny adres w chmurze (frontend i usługa AED), tak żeby jury nie konfigurowało niczego.
+- **Klikalny prototyp:** na razie tylko lokalnie w Dockerze – `docker compose up --build`, potem `http://localhost:8080/pl/aed` (usługa AED + nginx z buildem frontendu; reszta portalu czytana z publicznego API dane.gov.pl). Wdrożenie pod publicznym adresem wraca jako osobna decyzja.
 - **Logo:** projektuje zespół; agenty dostarczają tylko brief i szablon księgi znaku.
 - **Harmonogram:** pierwsza iteracja w 2 godziny (do ok. 20:15), całość „mniej więcej stoi” do północy, potem nowe funkcje i poprawki.
 - **Kluczowe decyzje podejmuje człowiek:** gdy agent czegoś nie wie albo wybór zmienia kierunek, pyta zamiast zgadywać.
 
 ## Otwarte decyzje
 
-- Dostawca hostingu dla prototypu i konto do wdrożenia.
+- Czy i gdzie wystawić prototyp pod publicznym adresem dla jury (dziś działa tylko lokalnie).
 - Ostateczna godzina i sposób oddania projektu – potwierdzić u organizatora.
 - Nazwa i hasło akcji (kandydaci w `kampania/nazwa-i-haslo.md`).
 - Czy numer seryjny jest publikowany w zbiorze otwartym, czy zostaje tylko w rejestrze.
