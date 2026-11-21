@@ -1,7 +1,7 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-import { AedAccount, AedApiService, aedErrorMessage } from './aed-api.service';
+import { AedAccount, AedApiService, aedErrorMessage, aedFocusFactory } from './aed-api.service';
 import { AED_DEMO_ACCOUNTS } from './aed-prototype';
 
 /**
@@ -80,9 +80,9 @@ import { AED_DEMO_ACCOUNTS } from './aed-prototype';
         }
       </form>
     } @else {
-      <p class="aed-account">
+      <p class="aed-account" tabindex="-1">
         Zalogowano: <strong>{{ api.account().nazwa }}</strong>
-        <button class="btn btn-link aed-account__out" type="button" (click)="api.logout()">Wyloguj się</button>
+        <button class="btn btn-link aed-account__out" type="button" (click)="logout()">Wyloguj się</button>
       </p>
       @if (wrongRole()) {
         <p class="aed-message aed-message--error">
@@ -98,13 +98,22 @@ export class AedLoginComponent {
   readonly rola = input.required<AedAccount['rola']>();
   readonly heading = input.required<string>();
 
+  private readonly focus = aedFocusFactory();
   protected readonly error = signal('');
   protected readonly wrongRole = computed(() => this.api.account()?.rola !== this.rola());
   protected readonly demo = computed(() => AED_DEMO_ACCOUNTS.filter((account) => account.rola === this.rola()));
 
+  protected logout(): void {
+    this.api.logout();
+    this.focus('#aed-email');
+  }
+
   protected login(email: string, haslo: string): void {
     this.api.login(email, haslo).subscribe({
-      next: () => this.error.set(''),
+      next: () => {
+        this.error.set('');
+        this.focus('.aed-account');
+      },
       error: (error) => this.error.set(aedErrorMessage(error)),
     });
   }

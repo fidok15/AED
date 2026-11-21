@@ -73,9 +73,18 @@
       <p>
         Plik w kodowaniu UTF-8, z przecinkiem jako separatorem i jednym wierszem nagłówka. Daty w formacie RRRR-MM-DD.
       </p>
-      <p>
-        <a [href]="templateHref" download="wzorzec-aed.csv">Pobierz pusty plik z nagłówkiem standardu (CSV)</a>
-      </p>
+      <ul class="aed-files">
+        <li>
+          <a [href]="exampleHref()" download="przyklad-aed.csv">Pobierz przykładowy plik z trzema urządzeniami</a>
+        </li>
+        <li>
+          <a [href]="exampleErrorsHref()" download="przyklad-aed-z-bledami.csv"
+            >Pobierz przykładowy plik z trzema błędami</a
+          >
+          – pokazuje raport sprawdzenia
+        </li>
+        <li><a [href]="templateHref" download="wzorzec-aed.csv">Pobierz pusty plik z nagłówkiem standardu</a></li>
+      </ul>
 
       <details class="aed-details">
         <summary>Kolumny wymagane przy zgłoszeniu sprzedaży ({{ required.length }})</summary>
@@ -105,7 +114,9 @@
 
       <div aria-live="polite">
         @if (report(); as report) {
-          <h3 class="aed-h3">{{ saved() ? 'Zgłoszenie wysłane' : 'Raport sprawdzenia pliku' }}</h3>
+          <h3 class="aed-h3" id="aed-report-heading" tabindex="-1">
+            {{ saved() ? 'Zgłoszenie wysłane' : 'Raport sprawdzenia pliku' }}
+          </h3>
           <dl class="aed-facts aed-facts--compact">
             <div>
               <dt>Wiersze w pliku</dt>
@@ -157,7 +168,7 @@
 
           @if (!saved() && report.podsumowanie.przyjete > 0) {
             <p>
-              <button class="btn btn-primary" type="button" [disabled]="busy()" (click)="send(true)">
+              <button class="btn btn-primary" type="button" [attr.aria-disabled]="busy() || null" (click)="send(true)">
                 Wyślij zgłoszenie – poprawne wiersze: {{ report.podsumowanie.przyjete }}
               </button>
             </p>
@@ -186,15 +197,44 @@
                   <strong>{{ device.id_aed }}</strong>
                   <span>{{ device.producent }} {{ device.model }}, nr seryjny {{ device.numer_seryjny }}</span>
                   @if (device.naklejka_url) {
-                    <a [href]="device.naklejka_url">Naklejka z kodem QR (SVG)</a>
+                    <a [href]="device.naklejka_url"
+                      >Naklejka z kodem QR (SVG)<span class="visually-hidden"> urządzenia {{ device.id_aed }}</span></a
+                    >
                   }
-                  <a [routerLink]="qrLink(device.link_aktywacyjny)">Strona potwierdzenia dla dysponenta</a>
+                  <a [routerLink]="qrLink(device.link_aktywacyjny)"
+                    >Strona potwierdzenia dla dysponenta<span class="visually-hidden">
+                      urządzenia {{ device.id_aed }}</span
+                    ></a
+                  >
                 </li>
               }
             </ul>
           }
         }
       </div>
+      @if (reported().length) {
+        <details class="aed-details">
+          <summary>Wcześniej zgłoszone urządzenia ({{ reported().length }}) – naklejki i linki dla dysponentów</summary>
+          <ul class="aed-accepted">
+            @for (device of reported(); track device.id_aed) {
+              <li>
+                <strong>{{ device.id_aed }}</strong>
+                <span>{{ device.producent }} {{ device.model }}, nr seryjny {{ device.numer_seryjny }}</span>
+                @if (device.naklejka_url) {
+                  <a [href]="device.naklejka_url"
+                    >Naklejka z kodem QR (SVG)<span class="visually-hidden"> urządzenia {{ device.id_aed }}</span></a
+                  >
+                }
+                <a [routerLink]="qrLink(device.link_aktywacyjny)"
+                  >Strona potwierdzenia dla dysponenta<span class="visually-hidden">
+                    urządzenia {{ device.id_aed }}</span
+                  ></a
+                >
+              </li>
+            }
+          </ul>
+        </details>
+      }
     </section>
 
     <aside class="aed-aside" aria-labelledby="aed-next-heading">

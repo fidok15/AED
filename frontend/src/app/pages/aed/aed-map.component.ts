@@ -50,6 +50,10 @@ const CELL = 72;
       <p class="aed-message aed-message--error" role="alert">{{ error() }}</p>
     }
     <p class="aed-count">{{ summary() }}</p>
+    <p class="aed-note">
+      Klawiatura: Tab przechodzi po znacznikach, Enter otwiera opis urządzenia albo przybliża grupę, Escape zamyka opis.
+      Gdy mapa ma fokus, strzałki ją przesuwają, a plus i minus zmieniają powiększenie.
+    </p>
     <div class="aed-map__canvas" #canvas role="region" aria-label="Mapa defibrylatorów AED"></div>
   `,
 })
@@ -95,9 +99,18 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
       this.markers.addTo(this.map);
       // An open popup pans the map to fit; redrawing then would remove its marker and close it.
       this.map.on('moveend', () => this.popup || this.load());
-      this.map.on('popupopen', (event) => (this.popup = event.popup));
+      this.map.on('popupopen', (event) => {
+        this.popup = event.popup;
+        // Keyboard: move focus into the popup so its text is read; Escape closes it.
+        const box = event.popup.getElement();
+        box.setAttribute('tabindex', '-1');
+        box.focus({ preventScroll: true });
+        // Leaflet listens for Escape only while the map itself has focus, so the popup closes itself.
+        box.onkeydown = (key) => key.key === 'Escape' && this.map.closePopup();
+      });
       this.map.on('popupclose', () => {
         this.popup = null;
+        this.map.getContainer().focus({ preventScroll: true });
         this.load();
       });
       this.map.fitBounds([
@@ -178,8 +191,13 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
     return L.marker(bounds.getCenter(), {
       title: label,
       alt: label,
+      autoPanOnFocus: false, // every marker drawn is inside the view; panning would redraw and drop keyboard focus
       icon: L.divIcon({ className: 'aed-cluster', html: String(features.length), iconSize: [size, size] }),
-    }).on('click keypress', () => this.map.fitBounds(bounds.pad(0.2)));
+    }).on('click keypress', () => {
+      // The group marker disappears on zoom; keep keyboard focus on the map (arrow keys move it, + and - zoom).
+      this.map.getContainer().focus({ preventScroll: true });
+      this.map.fitBounds(bounds.pad(0.2));
+    });
   }
 
   private device({ geometry, properties }: AedMapFeature, openState: (hours: string) => AedOpenState): L.Marker {
@@ -188,6 +206,7 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
     return L.marker([geometry.coordinates[1], geometry.coordinates[0]], {
       title: label,
       alt: label,
+      autoPanOnFocus: false, // every marker drawn is inside the view; panning would redraw and drop keyboard focus
       icon: L.divIcon({
         className: `aed-pin aed-pin--${properties.status}`,
         html: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${AED_STATUS_PATHS[properties.status]}"/></svg>`,

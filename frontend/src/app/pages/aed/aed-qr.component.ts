@@ -1,9 +1,16 @@
-import { afterNextRender, Component, ElementRef, inject, Injector, input, OnInit, signal } from '@angular/core';
+import { Component, inject, input, OnInit, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { SeoService } from '@app/services/seo.service';
 import { ScrollToFirstErrorDirective } from '@app/shared/forms/directives/scroll-to-first-error.directive';
-import { AedApiService, AedCondition, aedErrorMessage, AedRecord, AedSignalType } from './aed-api.service';
+import {
+  AedApiService,
+  AedCondition,
+  aedErrorMessage,
+  aedFocusFactory,
+  AedRecord,
+  AedSignalType,
+} from './aed-api.service';
 import { AedFieldComponent } from './aed-field.component';
 import { AedHoursPickerComponent } from './aed-hours-picker.component';
 import { aedControl, aedField, aedRequired, aedRequiredForStatus } from './aed-schema';
@@ -29,8 +36,7 @@ import { AedStatusComponent } from './aed-status.component';
 export class AedQrComponent implements OnInit {
   private readonly api = inject(AedApiService);
   private readonly seo = inject(SeoService);
-  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-  private readonly injector = inject(Injector);
+  private readonly focus = aedFocusFactory();
 
   /** Route parameter and query parameter, bound by the router. */
   readonly id = input<string>();
@@ -98,6 +104,7 @@ export class AedQrComponent implements OnInit {
 
   /** One tap: read the phone position and put it into the form (manager) or attach it to the signal. */
   protected locate(): void {
+    if (this.locating()) return;
     this.locationError.set('');
     if (!navigator.geolocation) {
       this.locationError.set('Ta przeglądarka nie udostępnia lokalizacji. Wpisz współrzędne ręcznie.');
@@ -165,8 +172,6 @@ export class AedQrComponent implements OnInit {
   private finish(done: 'potwierdzenie' | 'sygnal'): void {
     this.sendError.set('');
     this.done.set(done);
-    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>('#aed-done')?.focus(), {
-      injector: this.injector,
-    });
+    this.focus('#aed-done');
   }
 }

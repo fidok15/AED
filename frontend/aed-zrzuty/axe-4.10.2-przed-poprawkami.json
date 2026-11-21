@@ -1,0 +1,1974 @@
+{
+  "start": {
+    "axe": "4.10.2",
+    "url": "/pl/aed",
+    "viewport": "1280x900",
+    "obszarAed": {
+      "violations": [],
+      "incomplete": [],
+      "passes": 14
+    },
+    "calaStrona": {
+      "violations": [
+        {
+          "id": "aria-allowed-attr",
+          "impact": "critical",
+          "help": "Elements must only use supported ARIA attributes",
+          "wcag": [
+            "wcag2a",
+            "wcag412"
+          ],
+          "nodes": [
+            {
+              "target": "#dropdownMenuLink",
+              "summary": "Fix all of the following: ARIA attribute is not allowed: aria-expanded=\"false\""
+            }
+          ]
+        },
+        {
+          "id": "aria-progressbar-name",
+          "impact": "serious",
+          "help": "ARIA progressbar nodes must have an accessible name",
+          "wcag": [
+            "wcag2a",
+            "wcag111"
+          ],
+          "nodes": [
+            {
+              "target": "ng-progress",
+              "summary": "Fix any of the following: aria-label attribute does not exist or is empty aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty Element "
+            }
+          ]
+        },
+        {
+          "id": "aria-required-children",
+          "impact": "critical",
+          "help": "Certain ARIA roles must contain particular children",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            }
+          ]
+        },
+        {
+          "id": "aria-required-parent",
+          "impact": "critical",
+          "help": "Certain ARIA roles must be contained by particular parents",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "li:nth-child(1) > .page-footer__list-item[target=\"_blank\"][title=\"\"]:nth-child(1)",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[target=\"_blank\"][title=\"\"]:nth-child(2)",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href$=\"doc\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(3) > .page-footer__list-item[target=\"_blank\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(4) > .page-footer__list-item[target=\"_blank\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href=\"https://dane.gov.pl/pl\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".https\\:\\/\\/dane\\.gov\\.pl\\/pl\\/dataset",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[href$=\"article\"][target=\"_self\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[href$=\"dga\"][target=\"_self\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(8) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".btn-link-rodo",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href$=\"sitemap\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".btn-write-us",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".ql-align-justify > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            }
+          ]
+        },
+        {
+          "id": "listitem",
+          "impact": "serious",
+          "help": "<li> elements must be contained in a <ul> or <ol>",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(7)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(8)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".ql-align-justify",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            }
+          ]
+        }
+      ],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 3
+        }
+      ],
+      "passes": 30
+    }
+  },
+  "rejestr": {
+    "axe": "4.10.2",
+    "url": "/pl/aed/registry",
+    "viewport": "1280x900",
+    "obszarAed": {
+      "violations": [
+        {
+          "id": "target-size",
+          "impact": "serious",
+          "help": "All touch targets must be 24px large, or leave sufficient space",
+          "wcag": [
+            "wcag22aa",
+            "wcag258"
+          ],
+          "nodes": [
+            {
+              "target": ".page-item[ng-reflect-ng-class=\"[object Object]\"]:nth-child(3) > .page-link[ng-reflect-router-link=\"\"][href$=\"registry\"]",
+              "summary": "Fix any of the following: Target has insufficient size because it is partially obscured (smallest space is 23px by 28px, should be at least 24px by 24px) Target has insufficient space to its closest n"
+            }
+          ]
+        }
+      ],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 0
+        }
+      ],
+      "passes": 24
+    },
+    "calaStrona": {
+      "violations": [
+        {
+          "id": "aria-allowed-attr",
+          "impact": "critical",
+          "help": "Elements must only use supported ARIA attributes",
+          "wcag": [
+            "wcag2a",
+            "wcag412"
+          ],
+          "nodes": [
+            {
+              "target": "#dropdownMenuLink",
+              "summary": "Fix all of the following: ARIA attribute is not allowed: aria-expanded=\"false\""
+            }
+          ]
+        },
+        {
+          "id": "aria-progressbar-name",
+          "impact": "serious",
+          "help": "ARIA progressbar nodes must have an accessible name",
+          "wcag": [
+            "wcag2a",
+            "wcag111"
+          ],
+          "nodes": [
+            {
+              "target": "ng-progress",
+              "summary": "Fix any of the following: aria-label attribute does not exist or is empty aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty Element "
+            }
+          ]
+        },
+        {
+          "id": "aria-required-children",
+          "impact": "critical",
+          "help": "Certain ARIA roles must contain particular children",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            }
+          ]
+        },
+        {
+          "id": "aria-required-parent",
+          "impact": "critical",
+          "help": "Certain ARIA roles must be contained by particular parents",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "li:nth-child(1) > .page-footer__list-item[target=\"_blank\"][title=\"\"]:nth-child(1)",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[target=\"_blank\"][title=\"\"]:nth-child(2)",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href$=\"doc\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(3) > .page-footer__list-item[target=\"_blank\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(4) > .page-footer__list-item[target=\"_blank\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href=\"https://dane.gov.pl/pl\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".https\\:\\/\\/dane\\.gov\\.pl\\/pl\\/dataset",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[href$=\"article\"][target=\"_self\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[href$=\"dga\"][target=\"_self\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(8) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".btn-link-rodo",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href$=\"sitemap\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".btn-write-us",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".ql-align-justify > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            }
+          ]
+        },
+        {
+          "id": "listitem",
+          "impact": "serious",
+          "help": "<li> elements must be contained in a <ul> or <ol>",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(7)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(8)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".ql-align-justify",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            }
+          ]
+        },
+        {
+          "id": "target-size",
+          "impact": "serious",
+          "help": "All touch targets must be 24px large, or leave sufficient space",
+          "wcag": [
+            "wcag22aa",
+            "wcag258"
+          ],
+          "nodes": [
+            {
+              "target": ".page-item[ng-reflect-ng-class=\"[object Object]\"]:nth-child(3) > .page-link[ng-reflect-router-link=\"\"][href$=\"registry\"]",
+              "summary": "Fix any of the following: Target has insufficient size because it is partially obscured (smallest space is 23px by 28px, should be at least 24px by 24px) Target has insufficient space to its closest n"
+            }
+          ]
+        }
+      ],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 0
+        }
+      ],
+      "passes": 34
+    }
+  },
+  "ranking": {
+    "axe": "4.10.2",
+    "url": "/pl/aed/sellers",
+    "viewport": "1280x900",
+    "obszarAed": {
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 0
+        }
+      ],
+      "passes": 21
+    },
+    "calaStrona": {
+      "violations": [
+        {
+          "id": "aria-allowed-attr",
+          "impact": "critical",
+          "help": "Elements must only use supported ARIA attributes",
+          "wcag": [
+            "wcag2a",
+            "wcag412"
+          ],
+          "nodes": [
+            {
+              "target": "#dropdownMenuLink",
+              "summary": "Fix all of the following: ARIA attribute is not allowed: aria-expanded=\"false\""
+            }
+          ]
+        },
+        {
+          "id": "aria-progressbar-name",
+          "impact": "serious",
+          "help": "ARIA progressbar nodes must have an accessible name",
+          "wcag": [
+            "wcag2a",
+            "wcag111"
+          ],
+          "nodes": [
+            {
+              "target": "ng-progress",
+              "summary": "Fix any of the following: aria-label attribute does not exist or is empty aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty Element "
+            }
+          ]
+        },
+        {
+          "id": "aria-required-children",
+          "impact": "critical",
+          "help": "Certain ARIA roles must contain particular children",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            }
+          ]
+        },
+        {
+          "id": "aria-required-parent",
+          "impact": "critical",
+          "help": "Certain ARIA roles must be contained by particular parents",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "li:nth-child(1) > .page-footer__list-item[target=\"_blank\"][title=\"\"]:nth-child(1)",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[target=\"_blank\"][title=\"\"]:nth-child(2)",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href$=\"doc\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(3) > .page-footer__list-item[target=\"_blank\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(4) > .page-footer__list-item[target=\"_blank\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href=\"https://dane.gov.pl/pl\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".https\\:\\/\\/dane\\.gov\\.pl\\/pl\\/dataset",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[href$=\"article\"][target=\"_self\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[href$=\"dga\"][target=\"_self\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(8) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".btn-link-rodo",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href$=\"sitemap\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".btn-write-us",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".ql-align-justify > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            }
+          ]
+        },
+        {
+          "id": "listitem",
+          "impact": "serious",
+          "help": "<li> elements must be contained in a <ul> or <ol>",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(7)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(8)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > .ng-star-inserted > .hc-Cms-Text.ng-star-inserted[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".ql-align-justify",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            }
+          ]
+        }
+      ],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 0
+        }
+      ],
+      "passes": 32
+    }
+  },
+  "panel-firmy": {
+    "axe": "4.10.2",
+    "url": "/pl/aed/company",
+    "viewport": "1280x900",
+    "obszarAed": {
+      "violations": [],
+      "incomplete": [],
+      "passes": 20
+    },
+    "calaStrona": {
+      "violations": [
+        {
+          "id": "aria-allowed-attr",
+          "impact": "critical",
+          "help": "Elements must only use supported ARIA attributes",
+          "wcag": [
+            "wcag2a",
+            "wcag412"
+          ],
+          "nodes": [
+            {
+              "target": "#dropdownMenuLink",
+              "summary": "Fix all of the following: ARIA attribute is not allowed: aria-expanded=\"false\""
+            }
+          ]
+        },
+        {
+          "id": "aria-progressbar-name",
+          "impact": "serious",
+          "help": "ARIA progressbar nodes must have an accessible name",
+          "wcag": [
+            "wcag2a",
+            "wcag111"
+          ],
+          "nodes": [
+            {
+              "target": "ng-progress",
+              "summary": "Fix any of the following: aria-label attribute does not exist or is empty aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty Element "
+            }
+          ]
+        },
+        {
+          "id": "aria-required-children",
+          "impact": "critical",
+          "help": "Certain ARIA roles must contain particular children",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            }
+          ]
+        },
+        {
+          "id": "aria-required-parent",
+          "impact": "critical",
+          "help": "Certain ARIA roles must be contained by particular parents",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "li:nth-child(1) > .page-footer__list-item[target=\"_blank\"][title=\"\"]:nth-child(1)",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[target=\"_blank\"][title=\"\"]:nth-child(2)",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href$=\"doc\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(3) > .page-footer__list-item[target=\"_blank\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(4) > .page-footer__list-item[target=\"_blank\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href=\"https://dane.gov.pl/pl\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".https\\:\\/\\/dane\\.gov\\.pl\\/pl\\/dataset",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[href$=\"article\"][target=\"_self\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[href$=\"dga\"][target=\"_self\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(8) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".btn-link-rodo",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href$=\"sitemap\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".btn-write-us",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".ql-align-justify > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            }
+          ]
+        },
+        {
+          "id": "listitem",
+          "impact": "serious",
+          "help": "<li> elements must be contained in a <ul> or <ol>",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(7)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(8)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".ql-align-justify",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            }
+          ]
+        }
+      ],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 3
+        }
+      ],
+      "passes": 35
+    }
+  },
+  "naklejki": {
+    "axe": "4.10.2",
+    "url": "/pl/aed/company/stickers",
+    "viewport": "1280x900",
+    "obszarAed": {
+      "violations": [],
+      "incomplete": [],
+      "passes": 15
+    },
+    "calaStrona": {
+      "violations": [
+        {
+          "id": "aria-allowed-attr",
+          "impact": "critical",
+          "help": "Elements must only use supported ARIA attributes",
+          "wcag": [
+            "wcag2a",
+            "wcag412"
+          ],
+          "nodes": [
+            {
+              "target": "#dropdownMenuLink",
+              "summary": "Fix all of the following: ARIA attribute is not allowed: aria-expanded=\"false\""
+            }
+          ]
+        },
+        {
+          "id": "aria-progressbar-name",
+          "impact": "serious",
+          "help": "ARIA progressbar nodes must have an accessible name",
+          "wcag": [
+            "wcag2a",
+            "wcag111"
+          ],
+          "nodes": [
+            {
+              "target": "ng-progress",
+              "summary": "Fix any of the following: aria-label attribute does not exist or is empty aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty Element "
+            }
+          ]
+        },
+        {
+          "id": "aria-required-children",
+          "impact": "critical",
+          "help": "Certain ARIA roles must contain particular children",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            }
+          ]
+        },
+        {
+          "id": "aria-required-parent",
+          "impact": "critical",
+          "help": "Certain ARIA roles must be contained by particular parents",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "li:nth-child(1) > .page-footer__list-item[target=\"_blank\"][title=\"\"]:nth-child(1)",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[target=\"_blank\"][title=\"\"]:nth-child(2)",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href$=\"doc\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(3) > .page-footer__list-item[target=\"_blank\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(4) > .page-footer__list-item[target=\"_blank\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href=\"https://dane.gov.pl/pl\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".https\\:\\/\\/dane\\.gov\\.pl\\/pl\\/dataset",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[href$=\"article\"][target=\"_self\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[href$=\"dga\"][target=\"_self\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(8) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".btn-link-rodo",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href$=\"sitemap\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".btn-write-us",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".ql-align-justify > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            }
+          ]
+        },
+        {
+          "id": "listitem",
+          "impact": "serious",
+          "help": "<li> elements must be contained in a <ul> or <ol>",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(7)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(8)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".ql-align-justify",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            }
+          ]
+        }
+      ],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 3
+        }
+      ],
+      "passes": 30
+    }
+  },
+  "formularz-urzadzenia": {
+    "axe": "4.10.2",
+    "url": "/pl/aed/company/device",
+    "viewport": "1280x900",
+    "obszarAed": {
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 8
+        }
+      ],
+      "passes": 18
+    },
+    "calaStrona": {
+      "violations": [
+        {
+          "id": "aria-allowed-attr",
+          "impact": "critical",
+          "help": "Elements must only use supported ARIA attributes",
+          "wcag": [
+            "wcag2a",
+            "wcag412"
+          ],
+          "nodes": [
+            {
+              "target": "#dropdownMenuLink",
+              "summary": "Fix all of the following: ARIA attribute is not allowed: aria-expanded=\"false\""
+            }
+          ]
+        },
+        {
+          "id": "aria-progressbar-name",
+          "impact": "serious",
+          "help": "ARIA progressbar nodes must have an accessible name",
+          "wcag": [
+            "wcag2a",
+            "wcag111"
+          ],
+          "nodes": [
+            {
+              "target": "ng-progress",
+              "summary": "Fix any of the following: aria-label attribute does not exist or is empty aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty Element "
+            }
+          ]
+        },
+        {
+          "id": "aria-required-children",
+          "impact": "critical",
+          "help": "Certain ARIA roles must contain particular children",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            }
+          ]
+        },
+        {
+          "id": "aria-required-parent",
+          "impact": "critical",
+          "help": "Certain ARIA roles must be contained by particular parents",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "li:nth-child(1) > .page-footer__list-item[target=\"_blank\"][title=\"\"]:nth-child(1)",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[target=\"_blank\"][title=\"\"]:nth-child(2)",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href$=\"doc\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(3) > .page-footer__list-item[target=\"_blank\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(4) > .page-footer__list-item[target=\"_blank\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href=\"https://dane.gov.pl/pl\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".https\\:\\/\\/dane\\.gov\\.pl\\/pl\\/dataset",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[href$=\"article\"][target=\"_self\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[href$=\"dga\"][target=\"_self\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(8) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".btn-link-rodo",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href$=\"sitemap\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".btn-write-us",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".ql-align-justify > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            }
+          ]
+        },
+        {
+          "id": "listitem",
+          "impact": "serious",
+          "help": "<li> elements must be contained in a <ul> or <ol>",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(7)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(8)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".ql-align-justify",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            }
+          ]
+        }
+      ],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 11
+        }
+      ],
+      "passes": 33
+    }
+  },
+  "qr-dysponent": {
+    "axe": "4.10.2",
+    "url": "/pl/aed/qr/AED-GWVPIBG2DKFT",
+    "viewport": "390x900",
+    "obszarAed": {
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 4
+        }
+      ],
+      "passes": 19
+    },
+    "calaStrona": {
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 4
+        }
+      ],
+      "passes": 25
+    }
+  },
+  "qr-bez-uprawnien": {
+    "axe": "4.10.2",
+    "url": "/pl/aed/qr/AED-GWVPIBG2DKFT",
+    "viewport": "390x900",
+    "obszarAed": {
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 1
+        }
+      ],
+      "passes": 15
+    },
+    "calaStrona": {
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 1
+        }
+      ],
+      "passes": 21
+    }
+  },
+  "panel-ministerstwa": {
+    "axe": "4.10.2",
+    "url": "/pl/aed/ministry",
+    "viewport": "1280x900",
+    "obszarAed": {
+      "violations": [],
+      "incomplete": [],
+      "passes": 22
+    },
+    "calaStrona": {
+      "violations": [
+        {
+          "id": "aria-allowed-attr",
+          "impact": "critical",
+          "help": "Elements must only use supported ARIA attributes",
+          "wcag": [
+            "wcag2a",
+            "wcag412"
+          ],
+          "nodes": [
+            {
+              "target": "#dropdownMenuLink",
+              "summary": "Fix all of the following: ARIA attribute is not allowed: aria-expanded=\"false\""
+            }
+          ]
+        },
+        {
+          "id": "aria-progressbar-name",
+          "impact": "serious",
+          "help": "ARIA progressbar nodes must have an accessible name",
+          "wcag": [
+            "wcag2a",
+            "wcag111"
+          ],
+          "nodes": [
+            {
+              "target": "ng-progress",
+              "summary": "Fix any of the following: aria-label attribute does not exist or is empty aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty Element "
+            }
+          ]
+        },
+        {
+          "id": "aria-required-children",
+          "impact": "critical",
+          "help": "Certain ARIA roles must contain particular children",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"]",
+              "summary": "Fix any of the following: Element has children which are not allowed: li[tabindex]"
+            }
+          ]
+        },
+        {
+          "id": "aria-required-parent",
+          "impact": "critical",
+          "help": "Certain ARIA roles must be contained by particular parents",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "li:nth-child(1) > .page-footer__list-item[target=\"_blank\"][title=\"\"]:nth-child(1)",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[target=\"_blank\"][title=\"\"]:nth-child(2)",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href$=\"doc\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(3) > .page-footer__list-item[target=\"_blank\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(4) > .page-footer__list-item[target=\"_blank\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href=\"https://dane.gov.pl/pl\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".https\\:\\/\\/dane\\.gov\\.pl\\/pl\\/dataset",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[href$=\"article\"][target=\"_self\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".page-footer__list-item[href$=\"dga\"][target=\"_self\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "li:nth-child(8) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".btn-link-rodo",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "a[href$=\"sitemap\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".btn-write-us",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4) > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            },
+            {
+              "target": ".ql-align-justify > .page-footer__list-item[target=\"_self\"][title=\"\"]",
+              "summary": "Fix any of the following: Required ARIA parents role not present: menu, menubar, group"
+            }
+          ]
+        },
+        {
+          "id": "listitem",
+          "impact": "serious",
+          "help": "<li> elements must be contained in a <ul> or <ol>",
+          "wcag": [
+            "wcag2a",
+            "wcag131"
+          ],
+          "nodes": [
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-1 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(7)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(8)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(5)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-2 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(6)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(1)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(2)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(3)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": "div[ng-reflect-ng-class=\"page-footer__nav nav-3 raw-tex\"] > div:nth-child(1) > .hc-Cms-Text[ng-reflect-ng-style=\"[object Object]\"] > ul[role=\"menu\"] > li:nth-child(4)",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            },
+            {
+              "target": ".ql-align-justify",
+              "summary": "Fix any of the following: List item parent element has a role that is not role=\"list\""
+            }
+          ]
+        }
+      ],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 3
+        }
+      ],
+      "passes": 34
+    }
+  }
+}
