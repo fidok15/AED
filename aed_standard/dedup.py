@@ -152,7 +152,7 @@ def candidate_pairs(records):
 
 
 def merge_cluster(members):
-    """members sorted by priority. -> merged record (primary's values, gaps from non-OSM members)."""
+    """members sorted by (non-copying last, priority). -> merged record (primary's values, gaps from non-OSM members)."""
     primary = members[0]
     rec = {k: v for k, v in primary.items() if not k.startswith("_")}
     used = [primary]
@@ -237,7 +237,9 @@ def deduplicate(records):
         clusters[find(i)].append(i)
     merged, cluster_id = [], {}
     for root, idx in clusters.items():
-        members = sorted((records[i] for i in idx), key=priority)
+        # A record whose values may not be copied (ODbL) is never the primary, whatever its priority: it would turn
+        # the merged record into ODbL and drop the other sources' device from the export.
+        members = sorted((records[i] for i in idx), key=lambda r: (not copies_values(r), priority(r)))
         rec = merge_cluster(members)
         merged.append(rec)
         for i in idx:

@@ -9,6 +9,7 @@ import hashlib
 import hmac
 import io
 import json
+import math
 import os
 import re
 import secrets
@@ -23,8 +24,6 @@ import falcon
 import segno
 
 import aed_standard
-from aed_standard.dedup import CANDIDATE_M, similarity
-from aed_standard.sources import haversine_m
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -53,6 +52,8 @@ HIDDEN_PUBLIC = aed_standard.build.HIDDEN_PUBLIC  # one rule for every public ex
 CONFIRM_FIELDS = ("nazwa", "szerokosc_geograficzna", "dlugosc_geograficzna", "miejscowosc", "cecha_ulicy",
                   "nazwa_ulicy", "nr_budynku", "nr_lokalu", "kod_pocztowy", "opis_lokalizacji", "wewnatrz_budynku",
                   "dostep", "godziny_dostepu", "godziny_dostepu_opis", "data_waznosci_baterii", "data_waznosci_elektrod")
+OWNER_FIELDS = ("dysponent_nazwa", "dysponent_email", "dysponent_telefon")  # set by the manager on a takeover only
+ODBL = "ODbL 1.0"
 REQUIRED_CODES = ("brak_wymaganego", "wymagane_dla_aktywnego")  # not an error in an incomplete problem report
 SIGNAL_TYPES = ("jest", "brak", "uszkodzony", "zamkniety")
 
@@ -243,6 +244,12 @@ def import_registry(db, result=None):
             changed += 1
     db.executemany(INSERT_SQL, inserts)
     db.executemany(IMPORT_UPDATE_SQL, updates)
+    # A new or changed import record next to a device a seller submitted or a manager confirmed goes to the review
+    # queue (the other direction is checked at confirmation time).
+    fresh = {r[0] for r in inserts} | {u[-1] for u in updates}
+    owned = [json.loads(r[0]) for r in db.execute("SELECT data FROM devices WHERE %s AND lat IS NOT NULL" % OWNED_SQL)]
+    if fresh and owned:
+        queue_matches(db, owned, [clean(r) for r in records if r["id_aed"] in fresh])
     known = set(origins) | {r[0] for r in inserts}
     for p in pairs:
         a_id, b_id = p["id_aed_a"], p["id_aed_b"]
@@ -567,19 +574,44 @@ def queue_pair(db, a_id, b_id, distance, similarity):
                    (a_id, b_id, distance, similarity))
 
 
-def enqueue_matches(db, rec):
-    """A device that just got coordinates is compared with imported records nearby (aed_standard's candidate
-    distance and similarity). Each match goes to the review queue with the submitted record as the one to keep."""
+OWNED_SQL = "origin IN ('zgloszenie','zarzadca') AND status!='wycofany'"  # submitted by a seller or confirmed by a manager
+
+
+def coords(rec):
     lat, lon = to_float(rec.get("szerokosc_geograficzna")), to_float(rec.get("dlugosc_geograficzna"))
-    if lat is None or lon is None:
+    return None if lat is None or lon is None else (lat, lon)
+
+
+def nearby_box(lat, lon):
+    """(min_lat, max_lat, min_lon, max_lon) containing every point within aed_standard.CANDIDATE_M, with 10% margin."""
+    dlat = aed_standard.CANDIDATE_M * 1.1 / 111000.0
+    dlon = dlat / max(math.cos(math.radians(lat)), 0.1)
+    return lat - dlat, lat + dlat, lon - dlon, lon + dlon
+
+
+def queue_matches(db, owned, imported):
+    """Candidate duplicates (aed_standard.find_candidates) between submitted/confirmed devices and imported records
+    go to the review queue, the submitted device as record A (the one kept). Nothing is merged automatically."""
+    # ponytail: O(owned x imported) box filter, fine for thousands of owned devices; grid both sides if it grows
+    pts = [(p, r) for p, r in ((coords(r), r) for r in imported) if p]
+    for rec in owned:
+        p = coords(rec)
+        if not p:
+            continue
+        y1, y2, x1, x2 = nearby_box(*p)
+        near = [r for (lat, lon), r in pts if y1 <= lat <= y2 and x1 <= lon <= x2]
+        for c in aed_standard.find_candidates(rec, near):
+            queue_pair(db, rec["id_aed"], c["id_aed"], c["odleglosc_m"], c["podobienstwo"])
+
+
+def enqueue_matches(db, rec):
+    """A device that just got coordinates is compared with imported records nearby."""
+    p = coords(rec)
+    if not p:
         return
-    # 0.0006 deg lat ~ 67 m, 0.001 deg lon >= 57 m in Poland: a box that safely contains CANDIDATE_M
-    rows = db.execute("SELECT id_aed, data, lat, lon FROM devices WHERE origin='import' AND status!='wycofany'"
-                      " AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?", (lat - 0.0006, lat + 0.0006, lon - 0.001, lon + 0.001))
-    for other_id, data, olat, olon in rows.fetchall():
-        d = haversine_m(lat, lon, olat, olon)
-        if d <= CANDIDATE_M:
-            queue_pair(db, rec["id_aed"], other_id, round(d, 1), similarity(rec, json.loads(data)))
+    rows = db.execute("SELECT data FROM devices WHERE origin='import' AND status!='wycofany'"
+                      " AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?", nearby_box(*p)).fetchall()
+    queue_matches(db, [rec], [json.loads(r[0]) for r in rows])
 
 
 def apply_confirmation(db, id_aed, data, on=None):
@@ -595,7 +627,18 @@ def apply_confirmation(db, id_aed, data, on=None):
     if stan == "problem" and not uwagi:
         raise ApiError(422, "brak_uwag", "Przy stanie „problem” opisz problem w polu „uwagi”.")
     rec = json.loads(row["data"])
-    rec.update({k: v for k, v in clean(data).items() if k in CONFIRM_FIELDS and k in data})
+    fields = CONFIRM_FIELDS
+    if stan == "sprawny" and rec.get("licencja") == ODBL:
+        # Takeover of a record known only from OpenStreetMap (CLAUDE.md rule 3): the manager's record starts empty,
+        # so every published value (name and coordinates included) is the manager's own; only the link to OSM stays.
+        # The id is kept, so the mapper keeps skipping the OSM record (origin != import) and no duplicate appears.
+        linked = [x for x in rec.get("powiazane_zrodla", "").split(";") if x]
+        opaque = secrets.token_hex(6)
+        rec = dict({k: "" for k in aed_standard.field_names()}, id_aed=id_aed, zrodlo="zgloszenie", zrodlo_id=opaque,
+                   licencja="CC0 1.0", wprowadzajacy_typ="dysponent", status="niepotwierdzony",
+                   powiazane_zrodla=";".join(["%s:%s" % (rec["zrodlo"], rec["zrodlo_id"])] + linked))
+        fields = CONFIRM_FIELDS + OWNER_FIELDS
+    rec.update({k: v for k, v in clean(data).items() if k in fields and k in data})
     rec["data_aktualizacji"] = on
     if stan == "sprawny":
         rec.update(status="aktywny", data_weryfikacji=on, sposob_weryfikacji="qr")
@@ -605,7 +648,7 @@ def apply_confirmation(db, id_aed, data, on=None):
     report = aed_standard.validate_records([rec], "publikacja")
     errors = [p for p in report["problemy"] if p["poziom"] == "blad"]
     if stan == "problem":  # incomplete is fine, invalid is not: only type/enum/range errors of the supplied fields count
-        supplied = {k for k in CONFIRM_FIELDS if k in data}
+        supplied = {k for k in fields if k in data}
         if supplied & {"szerokosc_geograficzna", "dlugosc_geograficzna"}:
             supplied |= {"szerokosc_geograficzna", "dlugosc_geograficzna"}
         errors = [p for p in errors if p["kod"] not in REQUIRED_CODES and p["pole"] in supplied]
@@ -620,8 +663,8 @@ def apply_confirmation(db, id_aed, data, on=None):
 
 def confirm(req, resp, id_aed):
     rec = apply_confirmation(req.context.db, id_aed, body(req))
-    resp.media = {k: rec[k] for k in ("id_aed", "status", "data_weryfikacji", "sposob_weryfikacji", "kompletnosc")} | {
-        "rekord": rec}
+    resp.media = dict({k: rec[k] for k in ("id_aed", "status", "data_weryfikacji", "sposob_weryfikacji", "kompletnosc")},
+                      rekord=rec)
 
 
 def signal(req, resp, id_aed):
@@ -643,6 +686,33 @@ def signal(req, resp, id_aed):
     db.commit()
     resp.status = falcon.HTTP_201
     resp.media = {"przyjeto": True}
+
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def issue_link(req, resp, id_aed):
+    """Ministry: a manager link for a record already in the registry (e.g. known only from OSM or a city dataset),
+    so its manager can confirm it and take it over. The link goes to the e-mail the ministry gives (never to a contact
+    copied from the source) and is returned to the ministry as well."""
+    need_account(req, "ministerstwo")
+    db = req.context.db
+    row = get_device(db, id_aed)
+    if row["status"] == "wycofany":
+        raise ApiError(409, "wycofany", "Urządzenie zostało wycofane z rejestru; nie można wystawić linku.")
+    data = req.get_media(default_when_empty={})
+    email = str((data if isinstance(data, dict) else {}).get("email") or "").strip()
+    if email and not EMAIL_RE.match(email):
+        raise ApiError(422, "zly_email", "Pole „email” musi być adresem e-mail (instytucjonalnym) zarządcy.")
+    link = activation_link(id_aed, new_token(db, id_aed))
+    if email:
+        queue_message(db, "przejecie", id_aed, email, "Potwierdź urządzenie AED %s" % id_aed,
+                      "Urządzenie AED, którym Państwo zarządzają, jest w rejestrze krajowym, ale nikt odpowiedzialny go "
+                      "nie potwierdził. Podaj nazwę miejsca, położenie, godziny dostępu i kontakt, korzystając z linku. "
+                      "Link jest przeznaczony wyłącznie dla zarządcy urządzenia.", link)
+    db.commit()
+    resp.status = falcon.HTTP_201
+    resp.media = {"id_aed": id_aed, "link_aktywacyjny": link, "waznosc_dni": TOKEN_DAYS, "wyslano_na": email or None}
 
 
 # ---------- registry ----------
@@ -995,7 +1065,7 @@ def run_job(db, trigger, kind, blocking=True):
                 mapper, remind = (result, remind) if name == "mapper" else (mapper, result)
             except Exception as ex:
                 db.rollback()
-                traceback.print_exception(ex, file=sys.stderr)
+                traceback.print_exception(type(ex), ex, ex.__traceback__, file=sys.stderr)
                 errors.append("%s: nie udało się zakończyć zadania (%s)." % (label, type(ex).__name__))
         j = lambda v: None if v is None else json.dumps(v)  # noqa: E731
         job_id = db.execute("INSERT INTO jobs(start,koniec,wyzwalacz,rodzaj,odswiezono,mapper,przypomnienia,bledy)"
@@ -1044,7 +1114,7 @@ def start_scheduler(db_path, hours):
             try:
                 run_job(db, "harmonogram", "cykl")
             except Exception as ex:  # keep the thread alive whatever happens
-                traceback.print_exception(ex, file=sys.stderr)
+                traceback.print_exception(type(ex), ex, ex.__traceback__, file=sys.stderr)
 
     t = threading.Thread(target=loop, name="aed-scheduler", daemon=True)
     t.start()
@@ -1101,7 +1171,7 @@ def build_app(conn):
         resp.media = {"blad": {"kod": "http_%d" % ex.status_code, "komunikat": ex.title or "Błąd żądania."}}
 
     def on_crash(req, resp, ex, params):
-        traceback.print_exception(ex, file=sys.stderr)  # details go to the log, never to the client
+        traceback.print_exception(type(ex), ex, ex.__traceback__, file=sys.stderr)  # details go to the log, never to the client
         resp.status = falcon.HTTP_500
         resp.media = {"blad": {"kod": "blad_serwera", "komunikat": "Wystąpił błąd serwera. Spróbuj ponownie później."}}
 
@@ -1119,6 +1189,7 @@ def build_app(conn):
     route(app, "/urzadzenia/{id_aed}/naklejka.svg", get=sticker)
     route(app, "/urzadzenia/{id_aed}/potwierdzenie", post=confirm)
     route(app, "/urzadzenia/{id_aed}/sygnal", post=signal)
+    route(app, "/urzadzenia/{id_aed}/link-aktywacyjny", post=issue_link)
     route(app, "/statystyki", get=stats)
     route(app, "/sprzedawcy", get=sellers)
     route(app, "/eksport/dane-gov-pl.csv", get=export_csv, head=export_csv)

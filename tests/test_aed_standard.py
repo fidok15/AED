@@ -160,6 +160,18 @@ class NewSourceTest(unittest.TestCase):
         self.assertEqual(mine["3"]["szerokosc_geograficzna"], "52.3")
         self.assertTrue(any("Testowo, rekord 2" in n for n in notes), notes)
 
+    def test_source_cannot_inject_ids(self):
+        # "fields": "*" maps every standard column; id_aed from the file (here repeated) must not be taken over
+        entry = dict(NEW_ENTRY, record_id={"row_number": True}, fields="*")
+        entry.pop("coordinates")
+        rows = "AED-ZLY,Urząd,Testowo,52.1,19.1,x\nAED-ZLY,Szkoła,Testowo,52.2,19.2,y\n"
+        records, _, report = self.fixture(header="id_aed,nazwa,miejscowosc,szerokosc_geograficzna,dlugosc_geograficzna,"
+                                                 "powiazane_zrodla", rows=rows, entry=entry)
+        mine = [r for r in records if r["zrodlo"] == "dane.gov.pl/999999"]
+        self.assertEqual({r["id_aed"] for r in mine}, {A.make_id("dane.gov.pl/999999", "1/1"), A.make_id("dane.gov.pl/999999", "1/2")})
+        self.assertEqual({r["powiazane_zrodla"] for r in mine}, {""})
+        self.assertEqual(report["bledy_zrodel"], [])
+
     def test_missing_file_skips_source(self):
         _, _, report = self.fixture(in_manifest=False)
         self.assertEqual(report["pominiete_zrodla"], ["dane.gov.pl/999999"])
@@ -240,6 +252,18 @@ class BuildTest(unittest.TestCase):
         for m in self.records:
             members = [m["zrodlo"]] + [x.split(":", 1)[0] for x in m["powiazane_zrodla"].split(";") if x]
             self.assertEqual(len(members), len(set(members)), m)
+
+    def test_odbl_record_is_never_the_primary(self):
+        # a future source ranked below OSM must not turn the merged record into ODbL (and out of the export)
+        city = dict(rec("dane.gov.pl/1", "1", 52.2, 21.0, nazwa="Urząd"), _priority=5, _copy_values=True)
+        osm = dict(rec(M.OSM, "node/1", 52.2, 21.00001, nazwa="Urząd OSM", godziny_dostepu="24/7"),
+                   _priority=3, _copy_values=False)
+        merged, _, _ = deduplicate([osm, city])
+        self.assertEqual(len(merged), 1)
+        m = merged[0]
+        self.assertEqual((m["zrodlo"], m["nazwa"], m["godziny_dostepu"], m["licencja"]),
+                         ("dane.gov.pl/1", "Urząd", "", "CC BY 4.0"))
+        self.assertEqual(m["powiazane_zrodla"], "openstreetmap:node/1")
 
     def test_osm_values_never_leak(self):
         w = rec(M.WARSAW, "1", 52.2, 21.0, nazwa="Urząd")

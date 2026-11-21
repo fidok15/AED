@@ -40,8 +40,10 @@ def _manifest(raw_dir):
 def _record(zrodlo, zrodlo_id, licencja, data_aktualizacji, **values):
     rec = S.blank_record()
     rec.update({k: _clean(v) for k, v in values.items() if k in rec})
+    # id_aed, powiazane_zrodla and kompletnosc are computed by the build: a file with "fields": "*" and an id_aed
+    # column must not inject ids (a repeated or foreign id would collide with another record).
     rec.update(zrodlo=zrodlo, zrodlo_id=_clean(zrodlo_id), licencja=licencja, data_aktualizacji=data_aktualizacji,
-               wprowadzajacy_typ="import", status="niepotwierdzony")
+               wprowadzajacy_typ="import", status="niepotwierdzony", id_aed="", powiazane_zrodla="", kompletnosc="")
     return rec
 
 

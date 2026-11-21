@@ -31,6 +31,8 @@ def _entry_problems(e):
         return ["wpis musi być obiektem JSON"]
     out = ["brak wymaganego klucza „%s”" % k for k in REQUIRED if k not in e]
     out += ["nieznany klucz „%s”" % k for k in e if k not in REQUIRED + OPTIONAL]
+    out += ["„%s” musi być niepustym tekstem" % k for k in ("id", "zrodlo", "file", "label")
+            if k in e and not (isinstance(e[k], str) and e[k].strip())]
     if "priority" in e and not (_is_int(e["priority"]) and e["priority"] >= 1):
         out.append("„priority” musi być liczbą całkowitą od 1 (0 mają zgłoszenia firm i zarządców)")
     if e.get("zrodlo") == SUBMISSION:
@@ -80,7 +82,7 @@ def load_registry(path=REGISTRY_PATH):
         raise ValueError("Plik %s musi mieć klucze „licences” (obiekt) i „sources” (lista)." % path)
     sources, errors, ids, zrodla = [], [], set(), set()
     for n, e in enumerate(data["sources"], start=1):
-        name = e.get("id") if isinstance(e, dict) and e.get("id") else "nr %d" % n
+        name = e["id"] if isinstance(e, dict) and isinstance(e.get("id"), str) and e["id"] else "nr %d" % n
         problems = _entry_problems(e)
         if not problems and e["id"] in ids:
             problems.append("identyfikator „%s” powtarza się" % e["id"])
