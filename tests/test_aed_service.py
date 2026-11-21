@@ -96,6 +96,7 @@ class ServiceTest(unittest.TestCase):
         for hidden in ("dysponent_email", "dysponent_telefon", "numer_seryjny"):
             self.assertNotIn(hidden, pub)
         self.assertEqual(pub["status"], "zgloszony")
+        self.assertIs(pub["demo"], False)
         self.assertIn("numer_seryjny", c.simulate_get("/api/aed/urzadzenia/%s?t=%s" % (id_aed, token)).json)
         # activation mail in the outbox
         msgs = c.simulate_get("/api/aed/wiadomosci", headers=self.ministry()).json["dane"]
@@ -126,6 +127,35 @@ class ServiceTest(unittest.TestCase):
         again = self.submit(data).json["podsumowanie"]
         self.assertEqual(again["przyjete"], 0)
         self.assertEqual(again["duplikaty"], out["podsumowanie"]["przyjete"])
+
+    def test_sticker_text_fits_and_logo_placeholder(self):
+        """Rule (rendering cannot be tested here): every text line needs chars * font-size * 0.75 <= width - 2 * 20,
+        0.75 being a generous average glyph width of bold Arial capitals; the QR keeps a margin inside the viewBox."""
+        import xml.etree.ElementTree as ET
+        c, ns = self.client, "{http://www.w3.org/2000/svg}"
+        id_aed = self.submit(seller_csv(["STICKER-1"])).json["przyjete"][0]["id_aed"]
+        url = "/api/aed/urzadzenia/%s/naklejka.svg" % id_aed
+        root = ET.fromstring(c.simulate_get(url).text)
+        _, _, w, h = [float(v) for v in root.get("viewBox").split()]
+        texts = [(t.text, float(t.get("font-size"))) for t in root.iter(ns + "text")]
+        self.assertIn(id_aed, [t for t, _ in texts])
+        self.assertGreaterEqual(len(texts), 4)  # title, id, two caption lines
+        for text, size in texts:
+            self.assertLessEqual(len(text) * size * 0.75, w - 2 * svc.STICKER_MARGIN, text)
+        self.assertGreaterEqual(min(size for _, size in texts), 15)
+        qr = [e for e in root.iter(ns + "svg") if e is not root][0]
+        self.assertGreaterEqual(float(qr.get("x")), 10)
+        self.assertLessEqual(float(qr.get("x")) + float(qr.get("width")), w - 10)
+        self.assertLessEqual(float(qr.get("y")) + float(qr.get("height")), h)
+        # empty logo placeholder, filled when the logo file exists
+        slot = [g for g in root.iter(ns + "g") if g.get("id") == "miejsce-na-logo"][0]
+        self.assertEqual(len(slot), 0)
+        logo = os.path.join(self.tmp.name, "logo.svg")
+        open(logo, "w").write('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"/>')
+        with mock.patch.object(svc, "STICKER_LOGO_PATH", logo):
+            root = ET.fromstring(c.simulate_get(url).text)
+        slot = [g for g in root.iter(ns + "g") if g.get("id") == "miejsce-na-logo"][0]
+        self.assertEqual([e.tag for e in slot], [ns + "image"])
 
     def test_roles_and_upload_limits(self):
         c = self.client
@@ -343,6 +373,11 @@ class JobsAndDemoTest(unittest.TestCase):
         sel = {s["typ_podmiotu"]: s for s in c.simulate_get("/api/aed/sprzedawcy").json["dane"]}
         self.assertEqual((sel["producent"]["liczba_urzadzen"], sel["producent"]["odznaka"]), (12, "tak"))
         self.assertEqual((sel["sprzedawca"]["liczba_urzadzen"], sel["sprzedawca"]["odznaka"]), (6, "nie"))
+        dev = c.simulate_get("/api/aed/urzadzenia").json["dane"][0]
+        self.assertIs(c.simulate_get("/api/aed/urzadzenia/" + dev["id_aed"]).json["demo"], True)
+        self.assertTrue(all(r["demo"] is True for r in c.simulate_get("/api/aed/urzadzenia").json["dane"]))
+        feats = c.simulate_get("/api/aed/urzadzenia.geojson").json["features"]
+        self.assertTrue(feats and all(f["properties"]["demo"] is True for f in feats))
         # visible in the registry, absent from the publication export
         self.assertEqual(c.simulate_get("/api/aed/urzadzenia").json["razem"], 18)
         self.assertEqual(len(list(csv.DictReader(io.StringIO(c.simulate_get("/api/aed/eksport/dane-gov-pl.csv").text)))), 0)

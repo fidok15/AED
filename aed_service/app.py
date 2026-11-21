@@ -2,6 +2,7 @@
 
 All validation and registry logic lives in aed_standard; this module only stores, authorises and routes.
 """
+import base64
 import csv
 import datetime
 import hashlib
@@ -450,29 +451,53 @@ def device_get(req, resp, id_aed):
     row = get_device(req.context.db, id_aed)
     rec = json.loads(row["data"])
     if manager_ok(row, req.get_param("t")):
-        resp.media = rec
+        resp.media = dict(rec, demo=bool(row["demo"]))
     elif req.get_param("t"):
         raise ApiError(403, "zly_token", "Link jest niepoprawny lub wygasł. Poproś o nowy.")
     elif row["dostep"] == "prywatny":
         raise ApiError(404, "nie_znaleziono", "Nie ma urządzenia o identyfikatorze %s." % id_aed)
     else:
-        resp.media = public(rec)
+        resp.media = dict(public(rec), demo=bool(row["demo"]))
+
+
+STICKER_W = 360                # sticker width in user units; widened only if a long URL needs a bigger QR
+STICKER_MARGIN = 20            # text must stay this far from both edges
+STICKER_LOGO_PATH = os.environ.get("AED_STICKER_LOGO", os.path.join(HERE, "naklejka-logo.svg"))  # optional campaign logo
+STICKER_LOGO_H = 50
+STICKER_CAPTION = ("Zeskanuj kod QR", "i sprawdź lub zgłoś stan AED")  # two short lines, see test for the width rule
+FONT = 'font-family="Arial,sans-serif" text-anchor="middle"'
 
 
 def sticker(req, resp, id_aed):
     get_device(req.context.db, id_aed)
     qr = segno.make("%s/aed/qr/%s" % (BASE_URL.rstrip("/"), id_aed), error="m")
-    inner = qr.svg_inline(scale=8, border=2, dark="#000000", light="#ffffff").replace("<svg ", '<svg x="20" y="70" ', 1)
-    w = (qr.symbol_size(scale=8, border=2)[0])
+    scale = 7
+    qr_w = qr.symbol_size(scale=scale, border=4)[0]  # border=4 modules is the quiet zone the QR spec requires
+    w = max(STICKER_W, qr_w + 24)
+    cx = w / 2
+    # PLACEHOLDER for the campaign logo: empty group; filled with an <image> when STICKER_LOGO_PATH exists.
+    logo = ""
+    if os.path.exists(STICKER_LOGO_PATH):
+        with open(STICKER_LOGO_PATH, "rb") as f:
+            data = base64.b64encode(f.read()).decode()
+        logo = ('<image href="data:image/svg+xml;base64,%s" x="%d" y="16" width="%d" height="%d" '
+                'preserveAspectRatio="xMidYMid meet"/>' % (data, STICKER_MARGIN, w - 2 * STICKER_MARGIN, STICKER_LOGO_H))
+    top = 16 + STICKER_LOGO_H
+    qr_y = top + 44
+    id_y = qr_y + qr_w + 28
+    cap_y = id_y + 30
+    h = cap_y + 20 * len(STICKER_CAPTION) + 4
+    inner = qr.svg_inline(scale=scale, border=4, dark="#000000", light="#ffffff").replace(
+        "<svg ", '<svg x="%s" y="%d" ' % (cx - qr_w / 2, qr_y), 1)
+    caption = "".join('<text x="%s" y="%d" %s font-size="15" fill="#222">%s</text>' % (cx, cap_y + 20 * i, FONT, line)
+                      for i, line in enumerate(STICKER_CAPTION))
     svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" role="img" '
            'aria-label="Naklejka AED %s">'
-           '<rect width="100%%" height="100%%" rx="16" fill="#fff" stroke="#c8102e" stroke-width="6"/>'
-           '<text x="50%%" y="44" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="700" '
-           'fill="#c8102e">DEFIBRYLATOR AED</text>%s'
-           '<text x="50%%" y="%d" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" fill="#000">%s</text>'
-           '<text x="50%%" y="%d" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" fill="#333">'
-           'Zeskanuj kod, aby sprawdzić lub zgłosić stan urządzenia</text></svg>'
-           % (w + 40, w + 150, w + 40, w + 150, id_aed, inner, w + 108, id_aed, w + 134))
+           '<rect x="3" y="3" width="%d" height="%d" rx="16" fill="#fff" stroke="#c8102e" stroke-width="6"/>'
+           '<g id="miejsce-na-logo">%s</g>'
+           '<text x="%s" y="%d" %s font-size="24" font-weight="700" fill="#c8102e">DEFIBRYLATOR AED</text>%s'
+           '<text x="%s" y="%d" %s font-size="20" font-weight="700" fill="#000">%s</text>%s</svg>'
+           % (w, h, w, h, id_aed, w - 6, h - 6, logo, cx, top + 30, FONT, inner, cx, id_y, FONT, id_aed, caption))
     resp.content_type = "image/svg+xml"
     resp.text = svg
 
@@ -552,9 +577,9 @@ def list_devices(req, resp):
     cond = " AND ".join(where)
     db = req.context.db
     total = db.execute("SELECT COUNT(*) FROM devices WHERE " + cond, args).fetchone()[0]
-    rows = db.execute("SELECT data FROM devices WHERE %s ORDER BY id_aed LIMIT ? OFFSET ?" % cond,
+    rows = db.execute("SELECT data, demo FROM devices WHERE %s ORDER BY id_aed LIMIT ? OFFSET ?" % cond,
                       args + [size, (page - 1) * size]).fetchall()
-    resp.media = {"dane": [public(json.loads(r[0])) for r in rows], "razem": total, "strona": page, "na_stronie": size}
+    resp.media = {"dane": [dict(public(json.loads(r[0])), demo=bool(r[1])) for r in rows], "razem": total, "strona": page, "na_stronie": size}
 
 
 def geojson(req, resp):
@@ -568,10 +593,10 @@ def geojson(req, resp):
         where.append("lon BETWEEN ? AND ? AND lat BETWEEN ? AND ?")
         args += [x1, x2, y1, y2]
     rows = req.context.db.execute(
-        "SELECT id_aed,nazwa,status,dostep,godziny,kompletnosc,zrodlo,lon,lat FROM devices WHERE " + " AND ".join(where), args)
+        "SELECT id_aed,nazwa,status,dostep,godziny,kompletnosc,zrodlo,lon,lat,demo FROM devices WHERE " + " AND ".join(where), args)
     feats = [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [r[7], r[8]]},
               "properties": {"id_aed": r[0], "nazwa": r[1], "status": r[2], "dostep": r[3], "godziny_dostepu": r[4],
-                             "kompletnosc": r[5], "zrodlo": r[6]}} for r in rows]
+                             "kompletnosc": r[5], "zrodlo": r[6], "demo": bool(r[9])}} for r in rows]
     resp.content_type = "application/geo+json"
     resp.text = json.dumps({"type": "FeatureCollection", "features": feats}, ensure_ascii=False, separators=(",", ":"))
 
