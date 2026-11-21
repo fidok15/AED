@@ -468,9 +468,26 @@ class JobsAndDemoTest(unittest.TestCase):
         base.update(kw)
         return base
 
-    def mapper(self, c, recs, pairs=()):
-        with mock.patch.object(aed_standard, "build_registry", return_value=(recs, list(pairs), {"polaczenia": {"razem": 0}})):
+    def mapper(self, c, recs, pairs=(), report=None):
+        report = report or {"polaczenia": {"razem": 0}}
+        with mock.patch.object(aed_standard, "build_registry", return_value=(recs, list(pairs), report)):
             return c.simulate_post("/api/aed/mapper/uruchom", headers=self.ministry(c))
+
+    def test_skipped_source_is_not_retired_and_error_is_in_job_history(self):
+        c = self.client()
+        recs = [self.imported(i) for i in range(1, 5)] + [self.imported(i, zrodlo="inne") for i in range(5, 9)]
+        self.mapper(c, recs)
+        report = {"polaczenia": {"razem": 0}, "pominiete_zrodla": ["test"],
+                  "bledy_zrodel": ["Źródło Test (test) pominięte: licencja „CC BY-SA 4.0” nie jest obsługiwana."]}
+        r = self.mapper(c, recs[4:], report=report).json
+        self.assertEqual(r["wycofano"], 0)
+        get = lambda x: c.simulate_get("/api/aed/urzadzenia/" + x["id_aed"]).json  # noqa: E731
+        self.assertEqual({get(x)["status"] for x in recs}, {"niepotwierdzony"})
+        jobs = c.simulate_get("/api/aed/zadania", headers=self.ministry(c)).json["dane"]
+        self.assertIn("CC BY-SA 4.0", " ".join(jobs[0]["bledy"]))
+        self.assertNotIn("bledy_zrodel", jobs[0]["mapper"])
+        # once the source is back and a record really vanished from it, retirement works again
+        self.assertEqual(self.mapper(c, recs[1:]).json["wycofano"], 1)
 
     def test_serial_never_in_public_output(self):
         c = self.client()
