@@ -28,7 +28,7 @@ def publication_export(records):
 
 def build_registry(raw_dir):
     """-> (records, review_pairs, report). Pure: reads raw_dir, writes nothing."""
-    mapped, notes = load_all(raw_dir)
+    mapped, notes, _errors, _skipped = load_all(raw_dir)
     for r in mapped:
         r["id_aed"] = r["id_aed"] or make_id(r["zrodlo"], r["zrodlo_id"])
         r["kompletnosc"] = str(completeness(r))

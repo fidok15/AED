@@ -1,5 +1,6 @@
 """Tests on the real raw files. Run: python3 -m unittest discover -s tests"""
 import copy
+import json
 import os
 import sys
 import unittest
@@ -9,6 +10,7 @@ sys.path.insert(0, ROOT)
 
 import aed_standard as A  # noqa: E402
 from aed_standard import schema as S, sources as M  # noqa: E402
+from aed_standard.build import publication_export, to_csv  # noqa: E402
 from aed_standard.dedup import deduplicate  # noqa: E402
 from aed_standard.validate import check_record  # noqa: E402
 
@@ -32,10 +34,23 @@ def rec(zrodlo, zrodlo_id, lat, lon, **kw):
     return r
 
 
+class RegistryBuildTest(unittest.TestCase):
+    def test_committed_outputs_match_build(self):
+        records, pairs, report = A.build_registry(RAW)
+        with open(os.path.join(ROOT, "datasets", "out", "aed_dane_gov_pl.csv"), encoding="utf-8", newline="") as f:
+            self.assertEqual(to_csv(publication_export(records)), f.read())
+        with open(os.path.join(ROOT, "datasets", "out", "raport.json"), encoding="utf-8") as f:
+            committed = json.load(f)
+        for key in ("bledy_zrodel", "pominiete_zrodla"):  # source problems: none on the real data
+            self.assertEqual(report.pop(key, []), [])
+            committed.pop(key, None)
+        self.assertEqual(report, committed)
+
+
 class BuildTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.mapped, cls.notes = M.load_all(RAW)
+        cls.mapped, cls.notes, _, _ = M.load_all(RAW)
         cls.records, cls.pairs, cls.report = A.build_registry(RAW)
 
     def test_legionowo_is_subset_of_standard(self):
