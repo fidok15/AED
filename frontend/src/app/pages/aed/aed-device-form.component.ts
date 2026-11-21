@@ -7,7 +7,7 @@ import { SeoService } from '@app/services/seo.service';
 import { ScrollToFirstErrorDirective } from '@app/shared/forms/directives/scroll-to-first-error.directive';
 import { AedAccepted, AedApiService, aedErrorMessage, aedLinkFactory, AedProblem } from './aed-api.service';
 import { AedFieldComponent } from './aed-field.component';
-import { AED_GROUP_TITLES, aedControl, aedGroupFields, aedRequired } from './aed-schema';
+import { aedControl, aedGroups, aedRequired } from './aed-schema';
 
 /** Single-device form of a seller, generated from aed_standard/schema.json (profile `sprzedaz`). */
 @Component({
@@ -21,11 +21,10 @@ export class AedDeviceFormComponent implements OnInit {
   private readonly seo = inject(SeoService);
 
   private readonly required = aedRequired('sprzedaz');
-  private readonly group = (grupa: string) => ({ title: AED_GROUP_TITLES[grupa], fields: aedGroupFields(grupa) });
 
   /** What the seller knows at the moment of sale, then what may already be known about the place. */
-  protected readonly sale = ['urzadzenie', 'odpowiedzialnosc'].map(this.group);
-  protected readonly place = ['polozenie', 'dostep'].map(this.group);
+  protected readonly sale = aedGroups('sprzedawca');
+  protected readonly place = aedGroups('dysponent');
   protected readonly form = new FormGroup(
     Object.fromEntries(
       [...this.sale, ...this.place]

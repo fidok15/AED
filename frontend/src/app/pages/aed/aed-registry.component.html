@@ -83,16 +83,19 @@
           <p class="aed-row__note">{{ title('data_weryfikacji') }}: {{ record['data_weryfikacji'] }}</p>
         }
       </div>
-      <dl class="aed-row__access">
-        <div>
-          <dt>{{ title('dostep') }}</dt>
-          <dd>{{ record['dostep'] || 'brak danych' }}</dd>
-        </div>
-        <div>
-          <dt>{{ title('godziny_dostepu') }}</dt>
-          <dd>{{ record['godziny_dostepu'] || 'brak danych' }}</dd>
-        </div>
-      </dl>
+      <div class="aed-row__access">
+        <dl>
+          <div>
+            <dt>{{ title('dostep') }}</dt>
+            <dd>{{ record['dostep'] || 'brak danych' }}</dd>
+          </div>
+          <div>
+            <dt>{{ title('godziny_dostepu') }}</dt>
+            <dd>{{ record['godziny_dostepu'] || 'brak danych' }}</dd>
+          </div>
+        </dl>
+        <p class="aed-row__note">{{ openNow(record) }}</p>
+      </div>
       <p class="aed-row__gauge">
         <span>{{ title('kompletnosc') }} {{ record.kompletnosc }}%</span>
         <span class="aed-gauge" aria-hidden="true"><span [style.width.%]="record.kompletnosc"></span></span>
@@ -109,5 +112,9 @@
 
 <section class="aed-map" aria-labelledby="aed-map-heading">
   <h2 class="aed-h2" id="aed-map-heading">Mapa</h2>
-  <p>Mapa pokaże te same urządzenia co lista powyżej. Jest w przygotowaniu.</p>
+  <p>
+    Mapa pokazuje urządzenia z tego samego rejestru i uwzględnia status wybrany nad listą. Wszystkie informacje z mapy
+    są też na liście; wyszukiwanie działa tylko na liście.
+  </p>
+  <app-aed-map [status]="status()" />
 </section>

@@ -1,0 +1,211 @@
+<h1 class="heading heading--md">Panel ministerstwa</h1>
+<p class="aed-lede">
+  Ministerstwo prowadzi rejestr krajowy: przegląda możliwe duplikaty, prosi dysponentów o potwierdzanie danych i
+  publikuje zbiór na dane.gov.pl.
+</p>
+
+<app-aed-login rola="ministerstwo" heading="Zaloguj się na konto ministerstwa" />
+
+@if (error()) {
+  <p class="aed-message aed-message--error" role="alert">{{ error() }}</p>
+}
+
+@if (allowed()) {
+  @if (stats(); as stats) {
+    <section aria-labelledby="aed-numbers-heading">
+      <h2 class="aed-h2" id="aed-numbers-heading">Stan rejestru</h2>
+      <dl class="aed-facts">
+        <div>
+          <dt>Urządzenia w rejestrze</dt>
+          <dd>{{ number(stats.razem) }}</dd>
+        </div>
+        <div>
+          <dt>Potwierdzone w ostatnich 90 dniach</dt>
+          <dd>{{ number(stats.potwierdzone_90_dni) }}</dd>
+        </div>
+        <div>
+          <dt>Firmy zgłaszające urządzenia</dt>
+          <dd>{{ number(stats.dostawcy) }}</dd>
+        </div>
+        <div>
+          <dt>Średnia kompletność danych</dt>
+          <dd>{{ number(stats.srednia_kompletnosc) }}%</dd>
+        </div>
+      </dl>
+
+      <div class="aed-columns aed-columns--even">
+        <table class="aed-table">
+          <caption>
+            Urządzenia według statusu
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Status</th>
+              <th scope="col" class="aed-table__number">Liczba</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of statuses(); track item[0]) {
+              <tr>
+                <td><app-aed-status [status]="item[0]" /></td>
+                <td class="aed-table__number">{{ number(item[1]) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <table class="aed-table">
+          <caption>
+            Urządzenia według źródła
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Źródło</th>
+              <th scope="col" class="aed-table__number">Liczba</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of sources(); track item[0]) {
+              <tr>
+                <td>{{ item[0] }}</td>
+                <td class="aed-table__number">{{ number(item[1]) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p>
+        <a [href]="api.exportUrl" download>Pobierz zbiór do publikacji na dane.gov.pl (CSV)</a>
+      </p>
+      <p class="aed-note">
+        Do zbioru trafiają tylko rekordy gotowe do publikacji. Rekordy znane wyłącznie z OpenStreetMap (licencja ODbL)
+        oraz urządzenia z dostępem prywatnym zostają w rejestrze.
+      </p>
+    </section>
+  }
+
+  <section aria-labelledby="aed-duplicates-heading">
+    <h2 class="aed-h2" id="aed-duplicates-heading">Możliwe duplikaty do przeglądu</h2>
+    <div aria-live="polite">
+      @if (decided()) {
+        <p class="aed-message aed-message--ok">{{ decided() }}</p>
+      }
+    </div>
+    @if (pair(); as pair) {
+      <p>
+        Para {{ position() + 1 }} z {{ number(duplicates().length) }}. Odległość między punktami:
+        <strong>{{ number(pair.odleglosc_m) }} m</strong>. Podobieństwo nazwy i adresu:
+        <strong>{{ number(pair.podobienstwo * 100) }}%</strong>.
+      </p>
+      <div class="aed-scroll" tabindex="0" role="region" aria-labelledby="aed-pair-caption">
+        <table class="aed-table aed-compare">
+          <caption id="aed-pair-caption">
+            Porównanie rekordów
+            {{
+              pair.rekord_a.id_aed
+            }}
+            i
+            {{
+              pair.rekord_b.id_aed
+            }}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Pole</th>
+              <th scope="col">Rekord A</th>
+              <th scope="col">Rekord B</th>
+              <th scope="col">Zgodność</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of comparison(); track row.title) {
+              <tr [class.aed-compare__differs]="!row.same">
+                <th scope="row">{{ row.title }}</th>
+                <td>{{ row.a || 'brak' }}</td>
+                <td>{{ row.b || 'brak' }}</td>
+                <td>{{ row.same ? 'to samo' : 'różnica' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="aed-note">Po połączeniu zostaje rekord A, a rekord B dostaje status „wycofany”.</p>
+      <div class="aed-actions">
+        <button class="btn btn-primary" type="button" [disabled]="busy()" (click)="decide('polacz')">
+          To samo urządzenie – połącz
+        </button>
+        <button class="btn btn-outline-primary" type="button" [disabled]="busy()" (click)="decide('rozdziel')">
+          Różne urządzenia – zostaw oba
+        </button>
+        <button class="btn btn-link" type="button" [disabled]="busy()" (click)="skip()">Pomiń tę parę</button>
+      </div>
+    } @else {
+      <p>Nie ma par do przeglądu. Nowe mogą pojawić się po uruchomieniu mappera źródeł.</p>
+    }
+  </section>
+
+  <section aria-labelledby="aed-jobs-heading">
+    <h2 class="aed-h2" id="aed-jobs-heading">Zadania cykliczne</h2>
+    <p>W działającym systemie uruchamiają się same. Tutaj można uruchomić je ręcznie i zobaczyć wynik.</p>
+    <div class="aed-columns aed-columns--even">
+      <div>
+        <h3 class="aed-h3">Prośby o potwierdzenie i przypomnienia</h3>
+        <p>
+          Prosi dysponentów o potwierdzenie danych po 6 miesiącach, przypomina o końcu ważności baterii i elektrod, a
+          rekordy bez potwierdzenia od 12 miesięcy oznacza jako nieaktualne.
+        </p>
+        <button class="btn btn-primary" type="button" [disabled]="busy()" (click)="runReminders()">
+          Uruchom przypomnienia
+        </button>
+        <div aria-live="polite">
+          @if (reminders(); as result) {
+            <p class="aed-message aed-message--ok">
+              Prośby o potwierdzenie: {{ result.prosby_o_potwierdzenie }}. Przypomnienia o terminach:
+              {{ result.przypomnienia_terminow }}. Oznaczone jako nieaktualne: {{ result.nieaktualne }}.
+            </p>
+          }
+        </div>
+      </div>
+      <div>
+        <h3 class="aed-h3">Mapper otwartych źródeł</h3>
+        <p>
+          Pobiera rekordy ze zbiorów na dane.gov.pl, z API Warszawy i z OpenStreetMap, sprowadza je do standardu i usuwa
+          duplikaty.
+        </p>
+        <button class="btn btn-primary" type="button" [disabled]="busy()" (click)="runMapper()">
+          Uruchom mapper źródeł
+        </button>
+        <div aria-live="polite">
+          @if (mapper(); as result) {
+            <p class="aed-message aed-message--ok">
+              Dodane rekordy: {{ result.dodano }}. Zmienione: {{ result.zmieniono }}. Połączone automatycznie:
+              {{ result.polaczono }}. Do ręcznego przeglądu: {{ result.do_przegladu }}.
+            </p>
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="aed-outbox-heading">
+    <h2 class="aed-h2" id="aed-outbox-heading">Wiadomości do dysponentów</h2>
+    <p>
+      Prototyp nie wysyła poczty. Wiadomości trafiają tutaj, razem z linkiem, który dysponent dostałby e-mailem.
+      Pokazano {{ messages().length }} z {{ number(messagesTotal()) }}, od najnowszych.
+    </p>
+    <ul class="aed-outbox">
+      @for (message of messages(); track message.id) {
+        <li class="aed-outbox__item">
+          <p class="aed-outbox__meta">{{ message.data.replace('T', ', ') }} – {{ kind(message.rodzaj) }}</p>
+          <h3 class="aed-outbox__subject">{{ message.temat }}</h3>
+          <p class="aed-outbox__to">Do: {{ message.odbiorca }}</p>
+          <p>{{ message.tresc }}</p>
+          <p>
+            <a [routerLink]="link(message.link)">Otwórz link dysponenta dla urządzenia {{ message.id_aed }}</a>
+          </p>
+        </li>
+      } @empty {
+        <li class="aed-outbox__item">Nie ma jeszcze żadnych wiadomości.</li>
+      }
+    </ul>
+  </section>
+}

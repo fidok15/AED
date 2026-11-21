@@ -5,7 +5,7 @@ import { SeoService } from '@app/services/seo.service';
 import { ScrollToFirstErrorDirective } from '@app/shared/forms/directives/scroll-to-first-error.directive';
 import { AedApiService, AedCondition, aedErrorMessage, AedRecord, AedSignalType } from './aed-api.service';
 import { AedFieldComponent } from './aed-field.component';
-import { aedControl, aedField, aedRequired } from './aed-schema';
+import { aedControl, aedField, aedRequired, aedRequiredForStatus } from './aed-schema';
 import { AedStatusComponent } from './aed-status.component';
 
 const ALWAYS = '24/7';
@@ -41,8 +41,8 @@ export class AedQrComponent implements OnInit {
   protected readonly locationError = signal('');
 
   // Manager: fields of the confirmation request, in the order of the three steps.
-  // `dostep` and `godziny_dostepu` are required by the schema rule for status `aktywny` (the rule is prose only).
-  private readonly required = [...aedRequired('publikacja'), 'dostep', 'godziny_dostepu'];
+  // Required: what publication needs plus what the schema demands for status `aktywny`.
+  private readonly required = [...aedRequired('publikacja'), ...aedRequiredForStatus('aktywny')];
   protected readonly coordinates = ['szerokosc_geograficzna', 'dlugosc_geograficzna'].map(aedField);
   protected readonly place = ['nazwa', 'miejscowosc', 'nazwa_ulicy', 'nr_budynku', 'kod_pocztowy'].map(aedField);
   protected readonly spot = ['opis_lokalizacji', 'wewnatrz_budynku'].map(aedField);

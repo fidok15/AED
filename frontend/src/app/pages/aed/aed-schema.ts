@@ -11,7 +11,11 @@ export interface AedField {
   type: string;
   format?: string;
   grupa: string;
+  /** Who fills the field in: sprzedawca, dysponent or system. */
+  wypelnia: string;
   przyklad?: string;
+  /** Display labels of enum values. */
+  etykiety?: Record<string, string>;
   constraints?: { enum?: string[]; pattern?: string; minimum?: number; maximum?: number };
 }
 
@@ -29,18 +33,22 @@ export const aedOptions = (field: AedField): string[] =>
   field.constraints?.enum ??
   (field.type === 'boolean' ? [schema.wartosci_logiczne.prawda, schema.wartosci_logiczne.falsz] : []);
 
-// The schema does not say yet who fills a field (system, seller, site manager) and has no display
-// names for groups. Until it does, that split lives only here.
-export const AED_GROUP_TITLES: Record<string, string> = {
-  urzadzenie: 'Urządzenie',
-  odpowiedzialnosc: 'Dysponent, czyli kto odpowiada za urządzenie',
-  polozenie: 'Położenie',
-  dostep: 'Dostęp',
-};
+/** Display label of an enum value (`etykiety` in the schema); other values are shown as they are. */
+export const aedLabel = (field: AedField, value: AedValue | undefined): string =>
+  field.etykiety?.[String(value)] ?? String(value ?? '');
 
-/** Fields of a group that a person fills in; `wprowadzajacy_*` comes from the logged-in account. */
-export const aedGroupFields = (grupa: string): AedField[] =>
-  AED_FIELDS.filter((field) => field.grupa === grupa && !field.name.startsWith('wprowadzajacy_'));
+/** Fields required before a record may get the given status, e.g. `aktywny`. */
+export const aedRequiredForStatus = (status: keyof typeof schema.wymagane_dla_statusu): string[] =>
+  schema.wymagane_dla_statusu[status];
+
+/** Form sections for one role: the schema groups that hold fields this role fills in (`wypelnia`). */
+export const aedGroups = (wypelnia: 'sprzedawca' | 'dysponent'): { title: string; fields: AedField[] }[] =>
+  Object.entries(schema.grupy)
+    .map(([grupa, title]) => ({
+      title,
+      fields: AED_FIELDS.filter((field) => field.grupa === grupa && field.wypelnia === wypelnia),
+    }))
+    .filter((group) => group.fields.length);
 
 /** Form control validated against the schema constraints of its field. */
 export function aedControl(field: AedField, required = false): FormControl<AedValue> {

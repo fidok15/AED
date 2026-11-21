@@ -8,44 +8,9 @@
   <p class="aed-message aed-message--error" role="alert">{{ error() }}</p>
 }
 
-@if (!api.account()) {
-  <form class="aed-panel aed-login" #form="ngForm" (ngSubmit)="form.valid && login(email.value, haslo.value)">
-    <h2 class="aed-h2">Zaloguj się na konto firmy</h2>
-    <div class="aed-field">
-      <label class="aed-field__label" for="aed-email">Adres e-mail konta</label>
-      <input
-        class="form-control"
-        id="aed-email"
-        name="email"
-        type="email"
-        autocomplete="username"
-        required
-        ngModel
-        #email />
-    </div>
-    <div class="aed-field">
-      <label class="aed-field__label" for="aed-haslo">Hasło</label>
-      <input
-        class="form-control"
-        id="aed-haslo"
-        name="haslo"
-        type="password"
-        autocomplete="current-password"
-        required
-        ngModel
-        #haslo />
-    </div>
-    @if (form.submitted && form.invalid) {
-      <p class="aed-field__error" role="alert">Podaj adres e-mail i hasło.</p>
-    }
-    <button class="btn btn-primary" type="submit">Zaloguj się</button>
-  </form>
-} @else {
-  <p class="aed-account">
-    Zalogowano: <strong>{{ api.account().nazwa }}</strong>
-    <button class="btn btn-link aed-account__out" type="button" (click)="api.logout()">Wyloguj się</button>
-  </p>
+<app-aed-login rola="firma" heading="Zaloguj się na konto firmy" />
 
+@if (api.account()?.rola === 'firma') {
   <div class="aed-columns">
     <section class="aed-panel" aria-labelledby="aed-csv-heading">
       <h2 class="aed-h2" id="aed-csv-heading">Zgłoś wiele urządzeń plikiem CSV</h2>

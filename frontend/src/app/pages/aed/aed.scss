@@ -546,7 +546,7 @@
       overflow-wrap: anywhere;
     }
 
-    &__access > div {
+    &__access dl > div {
       display: flex;
       flex-wrap: wrap;
       gap: 0 0.5rem;
@@ -574,8 +574,79 @@
 
   .aed-map {
     margin-top: 3rem;
-    padding: 0.5rem 1.5rem 1rem;
-    background: var(--aed-surface);
+
+    &__canvas {
+      height: min(34rem, 75vh);
+      border: 1px solid var(--aed-control);
+      font: inherit;
+    }
+
+    .leaflet-bar a {
+      color: var(--aed-ink);
+      text-decoration: none;
+    }
+
+    .leaflet-popup-content {
+      margin: 0.75rem 1rem;
+      color: var(--aed-ink);
+      font-size: 0.9375rem;
+
+      p {
+        margin: 0.25rem 0 0;
+      }
+    }
+  }
+
+  // Map marker of one device: the status window from the list, so the mark shape tells the status.
+  .aed-pin {
+    border: 2px solid var(--aed-muted);
+    border-radius: 2px;
+    background: var(--aed-paper);
+    color: var(--aed-muted);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+
+    svg {
+      display: block;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    &--aktywny {
+      border-color: var(--aed-ok);
+      background: var(--aed-ok);
+      color: var(--aed-paper);
+    }
+
+    &--zgloszony {
+      border-color: var(--aed-blue);
+      color: var(--aed-blue);
+    }
+
+    &--nieaktualny {
+      border-color: var(--aed-warn);
+      color: var(--aed-warn);
+    }
+
+    &--wycofany {
+      border-color: var(--aed-error);
+      color: var(--aed-error);
+    }
+  }
+
+  // Group of devices too close to draw separately: a disc with their number.
+  .aed-cluster {
+    display: grid;
+    place-items: center;
+    border: 2px solid var(--aed-paper);
+    border-radius: 50%;
+    background: var(--aed-blue);
+    color: var(--aed-paper);
+    font-size: 0.875rem;
+    font-weight: 700;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
   }
 
   .aed-columns {
@@ -648,6 +719,69 @@
       border-bottom: 1px solid var(--aed-line);
       text-align: left;
       vertical-align: top;
+    }
+  }
+
+  .aed-columns--even {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  }
+
+  .aed-table__number {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  // Duplicate review: differing fields carry the word „różnica” and a bar on the left.
+  .aed-compare {
+    th[scope='row'] {
+      padding-left: 0.75rem;
+      border-left: 4px solid transparent;
+      font-weight: 400;
+      color: var(--aed-muted);
+    }
+
+    &__differs {
+      font-weight: 700;
+
+      th[scope='row'] {
+        border-left-color: var(--aed-warn);
+      }
+    }
+  }
+
+  .aed-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+    margin: 1rem 0;
+  }
+
+  .aed-outbox {
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--aed-line);
+    list-style: none;
+
+    &__item {
+      max-width: none;
+      padding: 1rem 0;
+      border-bottom: 1px solid var(--aed-line);
+
+      p {
+        margin: 0 0 0.375rem;
+      }
+    }
+
+    &__meta,
+    &__to {
+      color: var(--aed-muted);
+      font-size: 0.875rem;
+    }
+
+    &__subject {
+      margin: 0 0 0.25rem;
+      font-size: 1.125rem;
+      font-weight: 700;
     }
   }
 

@@ -1,17 +1,17 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { LocalizeRouterPipe } from '@gilsdav/ngx-translate-router';
 
 import { SeoService } from '@app/services/seo.service';
 import { AedApiService, aedErrorMessage, aedLinkFactory, AedSubmission } from './aed-api.service';
+import { AedLoginComponent } from './aed-login.component';
 import { AED_FIELDS, aedField, aedRequired } from './aed-schema';
 
 /** Company panel: sign in, check a CSV file, send it, get the QR links for the accepted devices. */
 @Component({
   selector: 'app-aed-company',
   standalone: true,
-  imports: [FormsModule, RouterLink, LocalizeRouterPipe],
+  imports: [RouterLink, LocalizeRouterPipe, AedLoginComponent],
   templateUrl: './aed-company.component.html',
 })
 export class AedCompanyComponent implements OnInit {
@@ -34,13 +34,6 @@ export class AedCompanyComponent implements OnInit {
 
   ngOnInit(): void {
     this.seo.setPageTitle(['Panel firmy', 'Rejestr AED']);
-  }
-
-  protected login(email: string, haslo: string): void {
-    this.api.login(email, haslo).subscribe({
-      next: () => this.error.set(''),
-      error: (error) => this.error.set(aedErrorMessage(error)),
-    });
   }
 
   protected choose(input: HTMLInputElement): void {
