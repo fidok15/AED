@@ -105,7 +105,7 @@ Stan źródeł na 21.11: pięć zbiorów z dane.gov.pl (Krosno, Marki, Przemyśl
 
 Fakty o portalu ustalone w kodzie:
 
-- typy instytucji w `backend/mcod/organizations/models.py`: `local`, `state`, `private`, `developer`, `other`. Typ `developer` (deweloperzy raportujący ceny mieszkań) jest precedensem dla nowego typu „producent lub sprzedawca AED”;
+- typy instytucji w `backend/mcod/organizations/models.py`: `local`, `state`, `private`, `developer`, `other`;
 - role użytkowników: redaktor (`is_staff`), pełnomocnik (`is_agent`), urzędnik (`is_official`);
 - frontend nie serwuje API; adres backendu ustawia się w plikach `proxy.*.conf.json`.
 
@@ -148,8 +148,7 @@ Gotowe, gdy: ścieżka sprzedawca → naklejka → potwierdzenie → rekord `akt
 Kroki i pliki: `docs/integracja-portal-backend.md`.
 
 1. Uruchomić portal lokalnie (Docker Compose). Limit: 3 godziny.
-2. Nowy typ instytucji dla producentów i sprzedawców AED wzorem typu `developer` (klucz do 9 znaków); instytucja „ministerstwo” i konto firmy w danych demonstracyjnych.
-3. Wgrać `datasets/out/aed_dane_gov_pl.csv` jako zasób ministerstwa, ustawić mapę w „Mapy i wykresy”, zrobić zrzuty: widok tabeli, mapa, API zasobu, poziom otwartości.
+2. Wgrać `datasets/out/aed_dane_gov_pl.csv` jako zasób ministerstwa, ustawić mapę w „Mapy i wykresy”, zrobić zrzuty: widok tabeli, mapa, API zasobu, poziom otwartości.
 
 Gotowe, gdy: zbiór krajowy widać w lokalnym portalu z mapą. Plan B po przekroczeniu limitu: zrzuty z usługi `aed_service/` i notatka integracyjna jako plan wdrożenia.
 
@@ -163,7 +162,7 @@ Gotowe, gdy: zbiór krajowy widać w lokalnym portalu z mapą. Plan B po przekro
 
 Gotowe, gdy: juror przechodzi ścieżkę sprzedawca → naklejka QR → potwierdzenie zarządcy na telefonie i komputerze, samą klawiaturą.
 
-### E. Kampania i prezentacja – BRAK WŁAŚCICIELA, przypisać od razu (25% oceny)
+### E. Kampania i prezentacja – zespół (logo projektują ludzie; 25% oceny)
 
 Materiały przygotowane przez agenta czekają na decyzje człowieka: `kampania/nazwa-i-haslo.md` (kandydaci; czołówka: „Opiekun AED”, „Na Widoku”, „Pokaż AED”), `kampania/brief-logo.md`, `kampania/ksiega-znaku-szablon.md`, `kampania/zachety.md`, `docs/prezentacja-konspekt.md`, `docs/instrukcja-dla-jury.md`. Znak rysuje człowiek.
 
@@ -177,7 +176,7 @@ Materiały przygotowane przez agenta czekają na decyzje człowieka: `kampania/n
 1. Zrobione: A1 (schemat) – wszyscy czytają `aed_standard/schema.json`.
 2. Równolegle: A2–A5, C2.1 (portal lokalnie), D1 (frontend lokalnie), E1–E2 (nazwa i logo), B2.
 3. Po A2–A4: usługa C, potem D2–D4 podpinają ją zamiast danych próbnych.
-4. Na końcu: C2.3, D5, zrzuty ekranu, prezentacja, niezależny przegląd całości (kod i UI/UX) przez Codexa i poprawki po nim.
+4. Na końcu: C2.2, D5, zrzuty ekranu, prezentacja, niezależny przegląd całości (kod i UI/UX) przez Codexa i poprawki po nim.
 
 Git: każdy etap idzie przez osobną gałąź, PR i merge do `main`, gdy testy przechodzą. Agenty nie commitują – robi to sesja prowadząca.
 
@@ -203,10 +202,18 @@ Gdy brakuje czasu, tniemy w tej kolejności: ranking i odznaki → mapa sprzedaw
 - Najprostsze działające rozwiązanie; bez abstrakcji na zapas.
 - Ograniczenie odkryte w trakcie pracy dopisz od razu do listy ograniczeń w prezentacji.
 
+## Decyzje podjęte (fidok15, 21.11 wieczorem)
+
+- **Integracja z portalem:** ekrany AED jako moduł w forku frontendu dane.gov.pl, logika w samodzielnej usłudze `aed_service/`; w backendzie portalu tylko publikacja zbioru. Zadanie nie wymaga wbudowania prototypu w portal – wymaga zgodności z jego zasadami.
+- **Klikalny prototyp:** publiczny adres w chmurze (frontend i usługa AED), tak żeby jury nie konfigurowało niczego.
+- **Logo:** projektuje zespół; agenty dostarczają tylko brief i szablon księgi znaku.
+- **Harmonogram:** pierwsza iteracja w 2 godziny (do ok. 20:15), całość „mniej więcej stoi” do północy, potem nowe funkcje i poprawki.
+- **Kluczowe decyzje podejmuje człowiek:** gdy agent czegoś nie wie albo wybór zmienia kierunek, pyta zamiast zgadywać.
+
 ## Otwarte decyzje
 
-- Godzina i sposób oddania projektu – potwierdzić u organizatora.
-- Kto prowadzi kampanię i logo (ścieżka E).
+- Dostawca hostingu dla prototypu i konto do wdrożenia.
+- Ostateczna godzina i sposób oddania projektu – potwierdzić u organizatora.
+- Nazwa i hasło akcji (kandydaci w `kampania/nazwa-i-haslo.md`).
 - Czy numer seryjny jest publikowany w zbiorze otwartym, czy zostaje tylko w rejestrze.
-- Gdzie stoi klikalny prototyp (portal w Dockerze wymaga serwera; plan B to nagranie i zrzuty).
 - Podstawa prawna obowiązku raportowania przez sprzedawców: dziś brak, więc dobrowolność i zachęty; rekomendacja regulacyjna na slajdzie „co dalej”.
