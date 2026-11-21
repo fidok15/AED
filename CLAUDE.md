@@ -71,9 +71,9 @@ Nazwy kolumn adresu i położenia są zgodne ze zbiorem Legionowa, najczystszym 
 Ta sama struktura obsługuje dwa profile wymagalności:
 
 - **`sprzedaz`** – sprzedawca zna urządzenie i nabywcę, nie zna jeszcze miejsca montażu. Wymagane: producent, model, numer seryjny, data produkcji, daty ważności elektrod i baterii, nabywca.
-- **`publikacja`** – rekord gotowy do zbioru otwartego. Wymagane dodatkowo: nazwa miejsca, współrzędne, miejscowość, dostęp, godziny dostępu.
+- **`publikacja`** – rekord w zbiorze otwartym. Wymagane: identyfikator, nazwa miejsca, współrzędne, miejscowość, status, źródło, licencja. Dostęp, godziny dostępu i data weryfikacji są wymagane dopiero dla statusu `aktywny`; ich brak w rekordach z importu obniża kompletność.
 
-Do zbioru na dane.gov.pl trafia tylko rekord spełniający profil `publikacja`. Kompletność rekordu (0–100) liczymy z pól wymaganych i zalecanych.
+Do zbioru na dane.gov.pl trafia tylko rekord spełniający profil `publikacja`. Kompletność rekordu (0–100) liczymy z wag pól zapisanych w schemacie.
 
 Deduplikacja:
 
@@ -87,14 +87,19 @@ Deduplikacja:
 ```
 aed_standard/   standard danych: schema.json, walidator, mapper źródeł, deduplikacja, eksporty
                 (czysty Python, bez zależności, zgodny z Pythonem 3.8 – importowalny w backendzie portalu)
-scripts/        download_aed_data.py (pobranie źródeł), budowa zbioru krajowego, szablon XLSX
+aed_service/    samodzielna usługa API (Falcon + SQLite): konta firm, zgłoszenia CSV, QR, potwierdzenia, rejestr
+scripts/        download_aed_data.py (pobranie źródeł), build_template.py (szablon XLSX)
+wzorzec/        wzorzec-aed.xlsx i przykładowe pliki CSV
 datasets/raw/   surowe źródła z manifestem (nie edytować ręcznie)
 datasets/out/   zbiór krajowy, lista duplikatów do przeglądu, raport
-backend/        fork backendu dane.gov.pl (mcod: Python 3.8, Django 2.2, Falcon, Docker Compose)
+backend/        fork backendu dane.gov.pl (mcod 2.63.0: Python 3.8, Django 2.2, Falcon, Docker Compose)
 frontend/       fork frontendu dane.gov.pl (Angular 18)
-kampania/       logo, księga znaku, materiały akcji
-docs/           zadanie, research, instrukcja dla jury, użycie AI
+kampania/       nazwa i hasło, brief logo, szablon księgi znaku, zachęty; docelowo pliki logo
+docs/           zadanie, research, api-aed.md (kontrakt API), integracja-portal-backend.md,
+                prezentacja-konspekt.md, instrukcja-dla-jury.md, użycie AI
 ```
+
+Kontrakt między frontendem a usługą: `docs/api-aed.md`. Ustalenia z kodu portalu i plan wdrożenia w forku: `docs/integracja-portal-backend.md`.
 
 Stan źródeł na 21.11: pięć zbiorów z dane.gov.pl (Krosno, Marki, Przemyśl, Legionowo, Warszawa), API Warszawy (708 urządzeń), OpenAEDMap (18 297 obiektów). Innych maszynowo czytelnych zbiorów miejskich nie znaleziono; Kraków („Impuls Życia”) i Koszalin („Punkty Życia”) publikują tylko listy na stronach WWW.
 
@@ -126,15 +131,27 @@ Gotowe, gdy: jedna komenda buduje zbiór krajowy z surowych źródeł, a testy p
 
 Gotowe, gdy: drugie uruchomienie na zmienionym źródle dokłada tylko różnice.
 
-### C. Fork portalu – backend – Jakub Zawadzki
+### C. Usługa AED (`aed_service/`) – agent Claude
 
-1. Uruchomić portal lokalnie (Docker Compose). Limit: 3 godziny; plan B to dowody z produkcyjnego API i osobna usługa.
-2. Nowy typ instytucji dla producentów i sprzedawców AED wzorem typu `developer`; konto firmy.
-3. Przyjęcie pliku CSV od firmy: walidacja modułem `aed_standard` (profil `sprzedaz`), zapis do rejestru, raport błędów.
-4. Publikacja zbioru krajowego jako zasobu dostawcy „ministerstwo” mechanizmami portalu; ustawienie mapy w „Mapy i wykresy”.
-5. Mechanizm potwierdzeń: wiadomość do właściciela z linkiem jednorazowym (portal ma lokalną skrzynkę testową), przypomnienie przed końcem ważności baterii i elektrod.
+Pełna integracja w kodzie portalu to ok. 20 godzin pracy, a stos portalu jest ciężki (ok. 10 kontenerów, emulacja amd64). Dlatego logikę budujemy najpierw jako samodzielną usługę w tym samym frameworku co API portalu (Falcon), według `docs/api-aed.md`.
 
-Gotowe, gdy: firma loguje się, wysyła CSV, a rekordy widać w zbiorze krajowym w lokalnym portalu.
+1. Konta firm i ministerstwa (dane demonstracyjne), logowanie.
+2. Przyjęcie CSV i pojedynczego urządzenia: walidacja `aed_standard` (profil `sprzedaz`), nadanie `id_aed`, naklejka QR, link aktywacyjny dla zarządcy.
+3. Potwierdzenie przez zarządcę i sygnał od osoby postronnej.
+4. Rejestr krajowy zasilony zbiorem z mappera, statystyki, mapa sprzedawców, eksport publikacyjny.
+5. Skrzynka nadawcza, przypomnienia i ręczne uruchomienie zadań cyklicznych.
+
+Gotowe, gdy: ścieżka sprzedawca → naklejka → potwierdzenie → rekord `aktywny` w eksporcie przechodzi w teście automatycznym.
+
+### C2. Fork portalu – backend – Jakub Zawadzki
+
+Kroki i pliki: `docs/integracja-portal-backend.md`.
+
+1. Uruchomić portal lokalnie (Docker Compose). Limit: 3 godziny.
+2. Nowy typ instytucji dla producentów i sprzedawców AED wzorem typu `developer` (klucz do 9 znaków); instytucja „ministerstwo” i konto firmy w danych demonstracyjnych.
+3. Wgrać `datasets/out/aed_dane_gov_pl.csv` jako zasób ministerstwa, ustawić mapę w „Mapy i wykresy”, zrobić zrzuty: widok tabeli, mapa, API zasobu, poziom otwartości.
+
+Gotowe, gdy: zbiór krajowy widać w lokalnym portalu z mapą. Plan B po przekroczeniu limitu: zrzuty z usługi `aed_service/` i notatka integracyjna jako plan wdrożenia.
 
 ### D. Frontend – fidok15 z agentem
 
@@ -148,6 +165,8 @@ Gotowe, gdy: juror przechodzi ścieżkę sprzedawca → naklejka QR → potwierd
 
 ### E. Kampania i prezentacja – BRAK WŁAŚCICIELA, przypisać od razu (25% oceny)
 
+Materiały przygotowane przez agenta czekają na decyzje człowieka: `kampania/nazwa-i-haslo.md` (kandydaci; czołówka: „Opiekun AED”, „Na Widoku”, „Pokaż AED”), `kampania/brief-logo.md`, `kampania/ksiega-znaku-szablon.md`, `kampania/zachety.md`, `docs/prezentacja-konspekt.md`, `docs/instrukcja-dla-jury.md`. Znak rysuje człowiek.
+
 1. Nazwa i hasło akcji; sprawdzić kolizje z istniejącymi nazwami.
 2. Logo w SVG z eksportem do PNG, JPG, PDF; księga znaku w PDF (koncepcja w 3–5 zdaniach, kolorystyka, pole ochronne, minimalna wielkość, niedozwolone użycia).
 3. Pakiet zachęt dla firm i samorządów: odznaka, obecność na mapie sprzedawców, przypomnienia o terminach baterii i elektrod jako usługa, ranking.
@@ -155,12 +174,14 @@ Gotowe, gdy: juror przechodzi ścieżkę sprzedawca → naklejka QR → potwierd
 
 ### Kolejność i zależności
 
-1. Teraz: A1 (schemat) – wszyscy pozostali czytają `aed_standard/schema.json`.
-2. Równolegle: C1 (portal lokalnie), D1 (frontend lokalnie), E1–E2 (nazwa i logo), B2.
-3. Po A2–A4: C3 i D2 podpinają walidator i zbiór krajowy.
-4. Na końcu: C4–C5, D3–D5, zrzuty ekranu, prezentacja.
+1. Zrobione: A1 (schemat) – wszyscy czytają `aed_standard/schema.json`.
+2. Równolegle: A2–A5, C2.1 (portal lokalnie), D1 (frontend lokalnie), E1–E2 (nazwa i logo), B2.
+3. Po A2–A4: usługa C, potem D2–D4 podpinają ją zamiast danych próbnych.
+4. Na końcu: C2.3, D5, zrzuty ekranu, prezentacja, niezależny przegląd całości (kod i UI/UX) przez Codexa i poprawki po nim.
 
-Gdy brakuje czasu, tniemy w tej kolejności: ranking i odznaki → mapa sprzedawców → przypomnienia e-mail (zostają na slajdzie) → publikacja w lokalnym portalu (plan B). Nie tniemy: standardu i szablonu XLSX, mappera z deduplikacją, zgłoszenia CSV przez firmę, strony QR, logo i księgi znaku, instrukcji dla jury.
+Git: każdy etap idzie przez osobną gałąź, PR i merge do `main`, gdy testy przechodzą. Agenty nie commitują – robi to sesja prowadząca.
+
+Gdy brakuje czasu, tniemy w tej kolejności: ranking i odznaki → mapa sprzedawców → przypomnienia (zostają na slajdzie) → publikacja w lokalnym portalu (plan B). Nie tniemy: standardu i szablonu XLSX, mappera z deduplikacją, zgłoszenia CSV przez firmę, strony QR, logo i księgi znaku, instrukcji dla jury.
 
 ## Co oddajemy
 
