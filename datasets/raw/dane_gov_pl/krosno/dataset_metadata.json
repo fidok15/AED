@@ -1,89 +1,11 @@
 {
-  "attributes": {
-    "license_condition_default_cc40": false,
-    "title": "Defibrylatory zlokalizowane w Mieście Krosno",
-    "downloads_count": 212,
-    "modified": "2024-03-19T19:17:59Z",
-    "image_url": "",
-    "image_alt": "",
-    "has_dynamic_data": false,
-    "regions": [
-      {
-        "is_additional": false,
-        "name": "Polska",
-        "region_id": "85633723",
-        "hierarchy_label": "Polska"
-      }
-    ],
-    "slug": "defibrylatory-zlokalizowane-w-miescie-krosno",
-    "source": null,
-    "has_research_data": false,
-    "notes": "<p>Defibrylatory zlokalizowane w Mieście Krosno</p>",
-    "is_liked_by_current_user": false,
-    "keywords": [
-      "Defibrylator"
-    ],
-    "license_condition_timestamp": null,
-    "visualization_types": [
-      "map",
-      "table"
-    ],
-    "license_condition_original": null,
-    "license_condition_custom_description": "",
-    "update_frequency": "Nie dotyczy",
-    "formats": [
-      "csv",
-      "jsonld"
-    ],
-    "license_condition_personal_data": null,
-    "current_condition_descriptions": {},
-    "types": [
-      "file"
-    ],
-    "url": "",
-    "views_count": 1026,
-    "openness_scores": [
-      4
-    ],
-    "has_high_value_data_from_ec_list": null,
-    "likes_count": 0,
-    "archived_resources_files_url": "https://api.dane.gov.pl/datasets/3624,defibrylatory-zlokalizowane-w-miescie-krosno/resources/files/download",
-    "license_name": "CC0 1.0",
-    "is_promoted": false,
-    "license_chosen": null,
-    "has_high_value_data": false,
-    "categories": [
-      {
-        "title": "Ludność i społeczeństwo",
-        "id": "146",
-        "code": "SOCI"
-      },
-      {
-        "title": "Zdrowie",
-        "id": "147",
-        "code": "HEAL"
-      }
-    ],
-    "category": null,
-    "created": "2024-02-19T15:05:06Z",
-    "verified": "2024-02-19T17:20:29Z",
-    "supplements": [],
-    "license_condition_db_or_copyrighted": "",
-    "license_description": ""
-  },
-  "id": "3624",
-  "links": {
-    "self": "https://api.dane.gov.pl/1.4/datasets/3624,defibrylatory-zlokalizowane-w-miescie-krosno"
-  },
-  "type": "dataset",
   "relationships": {
-    "institution": {
-      "data": {
-        "id": "229",
-        "type": "institution"
+    "resources": {
+      "meta": {
+        "count": 1
       },
       "links": {
-        "related": "https://api.dane.gov.pl/1.4/institutions/229,urzad-miasta-krosna"
+        "related": "https://api.dane.gov.pl/1.4/datasets/3624,defibrylatory-zlokalizowane-w-miescie-krosno/resources"
       }
     },
     "showcases": {
@@ -94,13 +16,91 @@
         "related": "https://api.dane.gov.pl/1.4/datasets/3624,defibrylatory-zlokalizowane-w-miescie-krosno/showcases"
       }
     },
-    "resources": {
-      "meta": {
-        "count": 1
-      },
+    "institution": {
       "links": {
-        "related": "https://api.dane.gov.pl/1.4/datasets/3624,defibrylatory-zlokalizowane-w-miescie-krosno/resources"
+        "related": "https://api.dane.gov.pl/1.4/institutions/229,urzad-miasta-krosna"
+      },
+      "data": {
+        "type": "institution",
+        "id": "229"
       }
     }
-  }
+  },
+  "attributes": {
+    "license_condition_personal_data": null,
+    "types": [
+      "file"
+    ],
+    "license_condition_default_cc40": false,
+    "openness_scores": [
+      4
+    ],
+    "supplements": [],
+    "title": "Defibrylatory zlokalizowane w Mieście Krosno",
+    "keywords": [
+      "Defibrylator"
+    ],
+    "categories": [
+      {
+        "code": "SOCI",
+        "title": "Ludność i społeczeństwo",
+        "id": "146"
+      },
+      {
+        "code": "HEAL",
+        "title": "Zdrowie",
+        "id": "147"
+      }
+    ],
+    "slug": "defibrylatory-zlokalizowane-w-miescie-krosno",
+    "verified": "2024-02-19T17:20:29Z",
+    "visualization_types": [
+      "table",
+      "map"
+    ],
+    "license_description": "",
+    "license_condition_custom_description": "",
+    "downloads_count": 212,
+    "license_condition_timestamp": null,
+    "modified": "2024-03-19T19:17:59Z",
+    "is_promoted": false,
+    "image_url": "",
+    "created": "2024-02-19T15:05:06Z",
+    "category": null,
+    "license_name": "CC0 1.0",
+    "source": null,
+    "archived_resources_files_url": "https://api.dane.gov.pl/datasets/3624,defibrylatory-zlokalizowane-w-miescie-krosno/resources/files/download",
+    "license_condition_db_or_copyrighted": "",
+    "image_alt": "",
+    "has_dynamic_data": false,
+    "update_frequency": "Nie dotyczy",
+    "license_condition_original": null,
+    "notes": "<p>Defibrylatory zlokalizowane w Mieście Krosno</p>",
+    "views_count": 1026,
+    "has_high_value_data": false,
+    "has_high_value_data_from_ec_list": null,
+    "has_research_data": false,
+    "regions": [
+      {
+        "name": "Polska",
+        "region_id": "85633723",
+        "hierarchy_label": "Polska",
+        "is_additional": false
+      }
+    ],
+    "likes_count": 0,
+    "formats": [
+      "csv",
+      "jsonld"
+    ],
+    "license_chosen": null,
+    "is_liked_by_current_user": false,
+    "url": "",
+    "current_condition_descriptions": {}
+  },
+  "type": "dataset",
+  "links": {
+    "self": "https://api.dane.gov.pl/1.4/datasets/3624,defibrylatory-zlokalizowane-w-miescie-krosno"
+  },
+  "id": "3624"
 }
