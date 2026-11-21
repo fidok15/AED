@@ -26,9 +26,12 @@ def publication_export(records):
     return [r for r in records if not publication_reasons(r)]
 
 
-def build_registry(raw_dir):
-    """-> (records, review_pairs, report). Pure: reads raw_dir, writes nothing."""
-    mapped, notes, _errors, _skipped = load_all(raw_dir)
+def build_registry(raw_dir, registry_path=None):
+    """-> (records, review_pairs, report). Pure: reads raw_dir (and the source registry), writes nothing.
+
+    report["bledy_zrodel"]: Polish messages about registry entries and sources that were skipped;
+    report["pominiete_zrodla"]: zrodlo values of the skipped sources (their records are absent this run)."""
+    mapped, notes, source_errors, skipped = load_all(raw_dir, registry_path)
     for r in mapped:
         r["id_aed"] = r["id_aed"] or make_id(r["zrodlo"], r["zrodlo_id"])
         r["kompletnosc"] = str(completeness(r))
@@ -71,6 +74,8 @@ def build_registry(raw_dir):
         "pokrycie_pol": {z: {f: round(sum(1 for r in v if r[f]) / float(len(v)), 3) for f in S.FIELD_NAMES}
                          for z, v in sorted(per_source.items())},
         "naprawy_danych": notes,
+        "bledy_zrodel": source_errors,
+        "pominiete_zrodla": skipped,
     }
     return records, pairs, report
 

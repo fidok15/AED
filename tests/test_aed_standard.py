@@ -2,7 +2,9 @@
 import copy
 import json
 import os
+import shutil
 import sys
+import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -66,6 +68,71 @@ class PriorityTest(unittest.TestCase):
         r.update(_priority=7, _copy_values=True)
         self.assertEqual(priority(r)[0], 7)
         self.assertTrue(copies_values(r))
+
+
+NEW_ENTRY = {"id": "testowo", "label": "Testowo", "zrodlo": "dane.gov.pl/999999", "priority": 1,
+             "file": "dane_gov_pl/testowo/resource_1.csv", "format": "csv", "record_id": {"column": "Id"},
+             "coordinates": {"lat": "Lat", "lon": "Lon"}, "fields": {"nazwa": "Nazwa", "miejscowosc": "Miasto"}}
+
+
+class NewSourceTest(unittest.TestCase):
+    """A municipality added with a registry entry only: a copy of the real raw snapshot plus one fictitious file."""
+
+    def fixture(self, licence="CC0 1.0", header="Id,Nazwa,Miasto,Lat,Lon", in_manifest=True):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        raw = os.path.join(tmp, "raw")
+        os.makedirs(os.path.join(raw, "dane_gov_pl", "testowo"))
+        for name in os.listdir(RAW):  # symlinks: the real snapshot stays untouched and the copy is instant
+            if name not in ("manifest.json", "dane_gov_pl"):
+                os.symlink(os.path.join(RAW, name), os.path.join(raw, name))
+        for name in os.listdir(DGP):
+            os.symlink(os.path.join(DGP, name), os.path.join(raw, "dane_gov_pl", name))
+        with open(os.path.join(raw, NEW_ENTRY["file"]), "w", encoding="utf-8") as f:
+            f.write(header + "\n1,Urząd Gminy Testowo,Testowo,52.1,19.1\n2,Szkoła Testowo,Testowo,52.2,19.2\n")
+        with open(os.path.join(RAW, "manifest.json"), encoding="utf-8") as f:
+            manifest = json.load(f)
+        if in_manifest:
+            manifest["files"].append({"file": NEW_ENTRY["file"], "source": "dane.gov.pl", "dataset_id": 999999,
+                                      "resource_id": 1, "license": licence, "data_date": "2026-11-01"})
+        with open(os.path.join(raw, "manifest.json"), "w", encoding="utf-8") as f:
+            json.dump(manifest, f, ensure_ascii=False)
+        with open(os.path.join(ROOT, "aed_standard", "sources.json"), encoding="utf-8") as f:
+            registry = json.load(f)
+        registry["sources"].append(NEW_ENTRY)
+        reg = os.path.join(tmp, "sources.json")
+        with open(reg, "w", encoding="utf-8") as f:
+            json.dump(registry, f, ensure_ascii=False)
+        return A.build_registry(raw, registry_path=reg)
+
+    def test_new_municipality_by_configuration_only(self):
+        records, _, report = self.fixture()
+        mine = [r for r in records if r["zrodlo"] == "dane.gov.pl/999999"]
+        self.assertEqual(sorted(r["nazwa"] for r in mine), ["Szkoła Testowo", "Urząd Gminy Testowo"])
+        self.assertEqual({r["licencja"] for r in mine}, {"CC0 1.0"})
+        self.assertEqual({r["id_aed"] for r in mine},
+                         {A.make_id("dane.gov.pl/999999", "1"), A.make_id("dane.gov.pl/999999", "2")})
+        self.assertEqual((report["bledy_zrodel"], report["pominiete_zrodla"]), ([], []))
+        self.assertEqual(report["rekordy_na_zrodlo"]["dane.gov.pl/999999"]["przed"], 2)
+
+    def test_unknown_licence_skips_only_that_source(self):
+        records, _, report = self.fixture(licence="CC BY-SA 4.0")
+        self.assertNotIn("dane.gov.pl/999999", {r["zrodlo"] for r in records})
+        self.assertEqual(report["pominiete_zrodla"], ["dane.gov.pl/999999"])
+        self.assertIn("CC BY-SA 4.0", report["bledy_zrodel"][0])
+        self.assertEqual(report["rejestr_rekordy"], 18814)
+
+    def test_changed_header_skips_only_that_source(self):
+        records, _, report = self.fixture(header="ID,Name,Town,Lat,Lon")
+        self.assertEqual(report["pominiete_zrodla"], ["dane.gov.pl/999999"])
+        self.assertIn("Testowo", report["bledy_zrodel"][0])
+        self.assertIn("Nazwa", report["bledy_zrodel"][0])
+        self.assertEqual(report["rejestr_rekordy"], 18814)
+
+    def test_missing_file_skips_source(self):
+        _, _, report = self.fixture(in_manifest=False)
+        self.assertEqual(report["pominiete_zrodla"], ["dane.gov.pl/999999"])
+        self.assertIn("manifest.json", report["bledy_zrodel"][0])
 
 
 class BuildTest(unittest.TestCase):

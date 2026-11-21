@@ -36,6 +36,8 @@ def main(argv=None):
             print(os.path.join(args.out, name))
         print("Rejestr: %d rekordów, eksport dane.gov.pl: %d, do przeglądu: %d"
               % (len(records), report["eksport_dane_gov_pl"]["rekordy"], len(pairs)))
+        for error in report["bledy_zrodel"]:
+            print("! " + error)
         return 0
     if args.cmd == "validate":
         with open(args.file, "rb") as f:
