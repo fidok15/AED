@@ -90,7 +90,9 @@ Z linii poleceń (Python 3, bez dodatkowych pakietów):
 2. Walidacja pliku firmy: `python3 -m aed_standard validate wzorzec/przyklad-sprzedawca-bledy.csv --profil sprzedaz`. Oczekiwane: „Wiersze danych: 10, poprawne: 2, błędy: 8, ostrzeżenia: 1”.
 3. Plik poprawny: `python3 -m aed_standard validate wzorzec/przyklad-sprzedawca.csv --profil sprzedaz`. Oczekiwane: „plik poprawny”.
 4. Profil publikacji: `python3 -m aed_standard validate wzorzec/przyklad-publikacja.csv --profil publikacja`. Oczekiwane: „plik poprawny”, 3 wiersze. Opcja `--json` daje wynik maszynowy.
-5. Testy: `uv run --python 3.13 --with-requirements aed_service/requirements.txt python -m unittest` (pliki `tests/test_aed_standard.py`, `tests/test_aed_service.py`; testy frontendu: `frontend/src/app/pages/aed/*.spec.ts`) [do sprawdzenia: wynik uruchomienia na maszynie jury].
+5. Testy: `uv run --python 3.13 --with-requirements aed_service/requirements.txt --with xmlschema python -m unittest` (pliki `tests/test_aed_standard.py`, `tests/test_aed_service.py`, `tests/test_feed.py`; testy frontendu: `frontend/src/app/pages/aed/*.spec.ts`) [do sprawdzenia: wynik uruchomienia na maszynie jury].
+
+6. Zasilanie XML dla harwestera dane.gov.pl (sekcja DATA SOURCES panelu portalu): `uv run --python 3.13 --with-requirements aed_service/requirements.txt python -m aed_service.feed --out wynik --url https://przyklad.gov.pl/aed`. Oczekiwane: w katalogu `wynik` pliki `zasilanie.xml` (XSD 1.13 portalu), `zasilanie.md5` i `aed_dane_gov_pl-<hash>.csv`.
 
 ## 4. Wymagania z treści zadania i gdzie je sprawdzić
 
@@ -158,8 +160,9 @@ Z linii poleceń (Python 3, bez dodatkowych pakietów):
 3. **Licencje źródeł są zachowane.** Kolumna `licencja` w każdym rekordzie (CC0 1.0, CC BY 4.0, ODbL 1.0). Rekordy z OpenStreetMap (ODbL) nie trafiają do eksportu: w `raport.json` pole `eksport_dane_gov_pl.powody_wykluczenia` ma 18 032 takich wykluczeń. Wymaga opinii prawnika (patrz sekcja 6).
 4. **Prototyp używa portalu tylko do odczytu.** Strony poza obszarem AED pobierają dane z publicznego API dane.gov.pl; konta portalu są wyłączone w trybie prototypu (strona „portal-accounts” informuje o tym, `aed-prototype.ts`). Prototyp niczego nie publikuje na dane.gov.pl.
 5. **Fork frontendu portalu.** Moduł AED to osobna ścieżka `frontend/src/app/pages/aed/` w forku frontendu portalu (nagłówek, stopka i nawigacja portalu). Backend portalu (`backend/`) pozostaje niezmieniony.
-6. **Plan wdrożenia w backendzie portalu:** `docs/integracja-portal-backend.md`: wniosek z kodu, że portal pozwala firmie prywatnej wgrać zasób CSV po założeniu instytucji i konta; rekomendowany kształt integracji w 10 krokach (nowy typ instytucji wzorem typu `developer`, aplikacja `mcod/aed`, zadania cykliczne w Celery), każdy z szacunkiem godzin. To jest **plan, nie wdrożenie**: backend portalu nie został uruchomiony ani zmieniony w tym prototypie.
-7. Zrzut lokalnie uruchomionego portalu z opublikowanym zbiorem: patrz „Do uzupełnienia”.
+6. **Plan wdrożenia w backendzie portalu:** `docs/integracja-portal-backend.md`: wniosek z kodu, że portal pozwala firmie prywatnej wgrać zasób CSV po założeniu instytucji i konta; rekomendowany kształt integracji w 10 krokach (nowy typ instytucji wzorem typu `developer`, aplikacja `mcod/aed`, zadania cykliczne w Celery), każdy z szacunkiem godzin. To jest **plan, nie wdrożenie**: kod backendu portalu nie został zmieniony.
+7. **Publikacja mechanizmem portalu (DATA SOURCES).** Rejestr wystawia `zasilanie.xml` zgodny z XSD 1.13 portalu, a harwester portalu codziennie pobiera go i aktualizuje zbiór „Defibrylatory AED w Polsce” instytucji „Ministerstwo Cyfryzacji”. Identyfikatory zbioru i zasobu są stałe, każda wersja CSV ma własną nazwę pliku, a stare wersje zostają. Sprawdzone na lokalnie uruchomionym portalu: `docs/integracja-portal-backend.md`, rozdział „Zasilanie XML przez harwester”.
+8. Zrzut lokalnie uruchomionego portalu z opublikowanym zbiorem: patrz „Do uzupełnienia”.
 
 ## 6. Znane ograniczenia (skrót)
 

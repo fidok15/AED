@@ -22,6 +22,15 @@ Ten rozdział ma pierwszeństwo przed wcześniejszym researchem.
 8. **Zachęty:** dostawcy mają zgłaszać się sami. Trzeba pokazać, co firma kupująca AED i utrzymująca aktualne dane z tego ma (punkt odniesienia: akcja InPostu z AED przy Paczkomatach).
 9. **Kampania:** logo, marketing, prezentacja z narracją sprzedażową.
 
+Wskazówki komisji (hasła, 21.11 wieczorem) i jak je realizujemy:
+
+- **Publikacja przez harwester (sekcja DATA SOURCES panelu):** rejestr ministerstwa wystawia zasilanie XML (XSD 1.13), portal pobiera je codziennie – `docs/integracja-portal-backend.md`, rozdział „Zasilanie XML przez harwester”.
+- **Identyfikatory się nie powtarzają:** stałe `id_aed` i `extIdent`; harwester usuwa obiekt, którego zabraknie w pliku.
+- **Dane stare mają pozostać:** nie kasujemy zbiorów samorządów ani rekordów (statusy `nieaktualny`, `wycofany`); każda wersja CSV ma własny plik.
+- **Bez wyróżniania danych i bez zmiany stylistyki portalu:** nie włączamy `is_promoted` dla zbioru AED; moduł AED wygląda jak reszta portalu.
+- **Flagi i kategorie są obowiązkowe:** ustawione jawnie w `zbior_dane_gov_pl` w `aed_standard/schema.json`.
+- Do sprawdzenia: „wykaz, gdzie można zgłosić rozwiązanie” – najpewniej zakładka PoCoTo (propozycja przykładu ponownego wykorzystania danych).
+
 Pola, które komisja wymieniła wprost: identyfikator, producent, model, numer seryjny, data produkcji, data ważności elektrod, data ważności baterii, szerokość i długość geograficzna, godziny dostępu, kto wprowadził urządzenie. Uwaga komisji „10/14 lat żywotności” rozumiemy jako żywotność samego urządzenia (baterie i elektrody są wymienne) – do potwierdzenia.
 
 ## Proces, który budujemy
@@ -51,7 +60,7 @@ Cykl życia rekordu: `zgloszony` (sprzedawca podał dane urządzenia) → `aktyw
 
 ## Twarde zasady
 
-1. **Źródłem prawdy o strukturze danych jest `aed_standard/schema.json`.** Formularze, walidator, mapper, szablon XLSX i eksporty wynikają z tego pliku. Nie duplikuj listy pól w kodzie ani w dokumentach. Tak samo źródłem prawdy o źródłach danych (pliki, mapowanie kolumn, priorytet, licencja) jest `aed_standard/sources.json` - instrukcja: `docs/dodawanie-zrodla.md`.
+1. **Źródłem prawdy o strukturze danych jest `aed_standard/schema.json`.** Formularze, walidator, mapper, szablon XLSX i eksporty wynikają z tego pliku. Nie duplikuj listy pól w kodzie ani w dokumentach. Metadane zbioru na dane.gov.pl (tytuł, opis, kategorie, tagi, flagi, identyfikatory harwestera) są w tym samym pliku pod kluczem `zbior_dane_gov_pl`. Tak samo źródłem prawdy o źródłach danych (pliki, mapowanie kolumn, priorytet, licencja) jest `aed_standard/sources.json` - instrukcja: `docs/dodawanie-zrodla.md`.
 2. **Na dane.gov.pl publikuje dostawca, nie zespół i nie obywatel.** Dostawcą zbioru krajowego jest ministerstwo; firmy raportują do ministerstwa przez konta firmowe. Zgłoszenie obywatela (skan QR bez uprawnień) jest sygnałem dla właściciela, nie edycją danych.
 3. **Dane OSM (ODbL) nie mieszają się z danymi otwieranymi przez ministerstwo.** Rekord, który istnieje tylko w OSM, zostaje w rejestrze jako `niepotwierdzony` z licencją ODbL i nie trafia do eksportu na dane.gov.pl. Pól z OSM nie przepisujemy do rekordów z innych źródeł; zapisujemy tylko powiązanie. Po potwierdzeniu przez właściciela dane pochodzą od właściciela. Wymaga opinii prawnika – na slajdzie jako ograniczenie.
 4. **Kod portalu (`backend/`, `frontend/`) to fork kodu Ministerstwa.** Zmiany w nim trzymaj małe i wydzielone (osobna aplikacja Django, osobny moduł Angular), żeby dało się je pokazać jako łatkę. Nie kopiuj kodu OpenAEDMap (AGPL). Prawa do rozwiązania przechodzą na Ministra Cyfryzacji.
@@ -85,7 +94,7 @@ Deduplikacja:
 ## Repozytorium
 
 ```
-aed_standard/   standard danych: schema.json, rejestr źródeł sources.json, walidator, mapper źródeł, deduplikacja, eksporty
+aed_standard/   standard danych: schema.json, rejestr źródeł sources.json, walidator, mapper źródeł, deduplikacja, eksporty, zasilanie XML harwestera
                 (czysty Python, bez zależności, zgodny z Pythonem 3.8 – importowalny w backendzie portalu)
 aed_service/    samodzielna usługa API (Falcon + SQLite): konta firm, zgłoszenia CSV, QR, potwierdzenia, rejestr
 scripts/        download_aed_data.py (pobranie źródeł), build_template.py (szablon XLSX)

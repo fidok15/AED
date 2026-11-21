@@ -69,6 +69,28 @@ Razem ok. 20 godzin dla osoby znającej Django – więcej, niż mamy. Dlatego k
 - **Harvester XML:** uruchamiany codziennie o 03:00; wymaga adresu HTTPS kończącego się na `.xml`, pliku `.md5` obok, typu treści XML i zgodności z XSD (najnowszy: 1.13 w `data/harvester/`). `extIdent` (1–36 znaków) jest kluczem; obiekt, który zniknie z pliku, jest usuwany. Przykłady: `statics/harvester/otwarte_dane_sample_{min,max}.xml`.
 - **Poczta:** wzorzec przypomnień w `datasets/models.py:829-849` i `datasets/tasks.py:136`; szablony w `mcod/templates/mails/`.
 
+## Zasilanie XML przez harwester (DATA SOURCES) – wdrożone i sprawdzone lokalnie
+
+Rejestr ministerstwa publikuje zbiór mechanizmem portalu dla dostawców z własnym systemem, bez zmian w kodzie portalu. Rejestr wystawia `zasilanie.xml` (XSD 1.13), `zasilanie.md5` i plik CSV, a harwester portalu codziennie o 03:00 pobiera XML i sam aktualizuje zbiór. Metadane zbioru (tytuł, opis, kategoria `HEAL`, tagi, częstotliwość, flagi) są w `aed_standard/schema.json` pod kluczem `zbior_dane_gov_pl`. Generator: `aed_standard/feed.py`, zapis plików: `aed_service/feed.py`.
+
+Ustalenia z kodu, które wyznaczają kształt pliku:
+
+- `url` zasobu musi być `https://` (`harvester/serializers.py:136`); obok XML musi leżeć `.md5` (`harvester/utils.py:168`).
+- Kluczem zbioru i zasobu jest `extIdent`. Nasze identyfikatory są stałe (`aed-polska`, `aed-polska-csv`), bo obiekt, którego zabraknie w pliku, harwester usuwa na stałe (`harvester/models.py:369-388`).
+- Portal pobiera plik zasobu ponownie tylko po zmianie `link` (`resources/models.py:1285`). Dlatego każda wersja CSV ma nazwę z hashem treści (`aed_dane_gov_pl-<hash>.csv`), a stare wersje zostają w katalogu.
+- Flagi (`hasDynamicData` itd.) są w XSD opcjonalne, ale w formularzu zbioru obowiązkowe – w pliku są podane jawnie.
+
+Kroki lokalnie (portal z `docker-compose.aed-ports.yml`):
+
+1. `uv run --python 3.13 --with-requirements aed_service/requirements.txt python -m aed_service.feed --out backend/statics/aed --url https://api.mcod.local/static/aed` – nginx serwuje `backend/statics` pod `https://api.mcod.local/static/`, skąd czyta też kontener Celery.
+2. Panel `http://localhost:8001`: instytucja „Ministerstwo Cyfryzacji” (typ: państwowa), potem źródło danych: typ XML, adres `https://api.mcod.local/static/aed/zasilanie.xml`, częstotliwość codziennie, kategoria Zdrowie, status aktywne. Zapis ze statusem aktywnym od razu uruchamia import (`harvester/admin.py:233`).
+3. Raport importu przy źródle danych: status OK, 1 zbiór, 1 zasób.
+4. Redaktor w zasobie, zakładka danych tabelarycznych: typ `string` dla `nr_budynku`, `kod_terc`, `kod_simc`, `zrodlo_id` oraz znaczniki mapy `b` = `szerokosc_geograficzna`, `l` = `dlugosc_geograficzna`, `label` = `nazwa`. Portal sam wnioskuje typ `integer` dla tych kolumn, a schemat ma `missingValues: []`, więc puste pole jest błędem walidacji, a kody TERC/SIMC tracą zera wiodące. Ustawienia zostają przy kolejnych wersjach pliku (sprawdzone).
+
+Sprawdzone 21.11 na lokalnym portalu: import utworzył zbiór i zasób; nowa wersja CSV zaktualizowała ten sam zasób (nowy link, nowy plik, 780 rekordów w indeksie), typy kolumn i mapa zostały; powrót do pełnej wersji przywrócił 781 rekordów. API zasobu przez chwilę zwraca liczbę z pamięci podręcznej.
+
+Automatyzacja po stronie rejestru: zmienne `AED_FEED_DIR` i `AED_FEED_URL` usługi – po każdym cyklu harmonogramu pliki są zapisywane od nowa (`aed_service/__main__.py`).
+
 ## Licencja kodu
 
 W `backend/` i `frontend/` nie ma pliku `LICENSE` ani nagłówków licencyjnych. Jedyna deklaracja to `"license": "MIT"` w `frontend/package.json`. Strona portalu z kodem źródłowym mówi o GPL v3 (ustalenie z researchu, nie z kodu). Do wyjaśnienia z organizatorem.

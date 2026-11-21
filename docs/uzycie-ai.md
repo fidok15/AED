@@ -40,3 +40,4 @@ Claude Code (model Claude firmy Anthropic) w roli asystenta programisty: sesja p
 |---|---|---|
 | 2026-11-21 | research; plan; standard danych; walidator, mapper i deduplikacja; usługa API; pierwsza wersja modułu AED we frontendzie; Docker; szkice materiałów kampanii i prezentacji | fidok15 |
 | 2026-11-21 | przegląd stanu aplikacji i jej uruchomienie; zamykanie połączeń SQLite w usłudze i testach (koniec `ResourceWarning`) | Jakub Zawadzki |
+| 2026-11-21 | uruchomienie lokalnego portalu (porty, proxy frontendu); interpretacja wskazówek komisji; zasilanie XML dla harwestera dane.gov.pl: metadane zbioru, generator, zapis plików, testy z XSD portalu, próba importu na lokalnym portalu | HubertK05 |

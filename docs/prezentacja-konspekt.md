@@ -80,6 +80,7 @@ Dostępne zrzuty (katalog `frontend/aed-zrzuty/`): `01-rejestr-lista.jpg`, `02-p
   - zbiór do publikacji: `datasets/out/aed_dane_gov_pl.csv`, **781 rekordów**, 38 kolumn, tylko format maszynowy; zachowane licencje źródeł (CC0 1.0, CC BY 4.0) w kolumnie `licencja`;
   - nie publikujemy numeru seryjnego, e-maila i telefonu dysponenta w eksporcie; prywatne AED i rekordy z OpenStreetMap (ODbL) zostają w rejestrze;
   - moduł AED działa w forku frontendu portalu (nagłówek, stopka i nawigacja dane.gov.pl); reszta portalu jest czytana z publicznego API tylko do odczytu;
+  - publikacja **mechanizmem portalu**: rejestr wystawia zasilanie XML (XSD 1.13), a harwester dane.gov.pl (DATA SOURCES) codziennie aktualizuje zbiór ministerstwa; sprawdzone na lokalnym portalu, bez zmian w jego kodzie;
   - integracja w backendzie portalu to **plan** (`docs/integracja-portal-backend.md`: 10 kroków z szacunkiem godzin, nowy typ instytucji wzorem typu `developer`), nie wdrożenie.
 - **Zrzut dowodowy:** `frontend/aed-zrzuty/01-rejestr-lista.jpg`, `frontend/aed-zrzuty/03-rejestr-mapa.jpg`; `[BRAK: lokalny portal dane.gov.pl z opublikowanym zbiorem (od kolegi odpowiedzialnego za portal)]`
 - **Notatki mówcy:** To odpowiedź na uwagę organizatora, że nie można przebudować mechaniki portalu tak, żeby każdy publikował. Dostawcą jest instytucja, a my dajemy jej narzędzia. Uczciwie mówimy, że wbudowanie w backend portalu to plan wdrożenia, a prototyp pokazuje cały proces w osobnej usłudze.
@@ -119,6 +120,8 @@ Dostępne zrzuty (katalog `frontend/aed-zrzuty/`): `01-rejestr-lista.jpg`, `02-p
   - żaden rekord zbioru z surowych źródeł nie jest jeszcze potwierdzony przez zarządcę; status `aktywny` powstaje dopiero po ścieżce potwierdzenia;
   - brak podstawy prawnej obowiązku raportowania przez sprzedawców, więc opieramy się na dobrowolności i zachętach; rekomendacja regulacyjna na slajdzie „co dalej”;
   - numer seryjny nie jest w eksporcie otwartym; decyzja otwarta; „10/14 lat żywotności” rozumiemy jako żywotność urządzenia, do potwierdzenia z komisją;
+  - harwester portalu **usuwa** zbiór lub zasób, którego zabraknie w pliku XML, i wymaga adresów HTTPS – plik zawsze zawiera cały zbiór, a identyfikatory są stałe;
+  - portal sam wnioskuje typy kolumn: kody TERC/SIMC i numer budynku dostają typ liczbowy, więc redaktor raz ustawia je jako tekst (i znaczniki mapy) w panelu;
   - usługa demonstracyjna: jednowątkowa, bez limitu prób logowania;
   - odznaka i ranking sprzedawców są w API; w interfejsie nie znaleziono osobnego widoku mapy sprzedawców `[do sprawdzenia]`;
   - **dostępność (WCAG 2.2 AA) i responsywność:** interfejs wykorzystuje komponenty i układ portalu, strona potwierdzenia jest przygotowana pod telefon (`05-qr-dysponent-telefon.jpg`); formalny audyt (axe, Lighthouse, test klawiaturą na 320 px) `[do sprawdzenia: raportu nie ma w repozytorium]`.
