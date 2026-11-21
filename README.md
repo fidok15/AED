@@ -44,7 +44,9 @@ uv run --python 3.13 --with-requirements aed_service/requirements.txt python -m 
 # frontend na porcie 4200
 cd frontend && npm ci && npm run start:aed
 
-# frontend z lokalnym backendem portalu (mcod: API :8000, CMS :8002, nginx :443) zamiast publicznego API
+# frontend z lokalnym backendem portalu (mcod: API :8000, CMS :8002, nginx :443) zamiast publicznego API;
+# porty publikuje backend/docker-compose.aed-ports.yml
+cd backend && docker compose -f docker-compose.local.yml -f docker-compose.aed-ports.yml up mcod-local-api mcod-local-admin mcod-local-cms mcod-local-celery
 cd frontend && npm run start:aed-local
 
 # testy

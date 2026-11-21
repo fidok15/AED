@@ -1,0 +1,15 @@
+# Publishes the API on http://localhost:8000, the admin panel on http://localhost:8001 and the CMS on
+# http://localhost:8002 (the local stack exposes nothing but nginx); frontend/proxy.aed-local.conf.json targets them.
+# Usage: docker compose -f docker-compose.local.yml -f docker-compose.aed-ports.yml up mcod-local-api mcod-local-admin mcod-local-cms mcod-local-celery
+services:
+  mcod-local-api:
+    ports:
+      - "8000:8000"
+
+  mcod-local-admin:
+    ports:
+      - "8001:8001"
+
+  mcod-local-cms:
+    ports:
+      - "8002:8002"
