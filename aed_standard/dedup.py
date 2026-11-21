@@ -51,11 +51,58 @@ def _ratio(a, b):
 def similarity(a, b):
     """Name/address similarity 0..1: difflib ratio of normalised names, or of name + address when
     both records have a street (OSM rarely has addresses, so a missing address must not count against)."""
-    score = _ratio(normalize(a["nazwa"]), normalize(b["nazwa"]))
-    if a["nazwa_ulicy"] and b["nazwa_ulicy"]:
-        full = lambda r: normalize(" ".join((r["nazwa"], r["nazwa_ulicy"], r["nr_budynku"])))
+    score = _ratio(normalize(a.get("nazwa")), normalize(b.get("nazwa")))
+    if a.get("nazwa_ulicy") and b.get("nazwa_ulicy"):
+        full = lambda r: normalize(" ".join((r.get("nazwa") or "", r["nazwa_ulicy"], r.get("nr_budynku") or "")))
         score = max(score, _ratio(full(a), full(b)))
     return round(score, 3)
+
+
+def classify(d, sim):
+    """Spatial rule for a pair from different sources within CANDIDATE_M -> (auto_merge, powod)."""
+    if d <= AUTO_M:
+        return True, "odleglosc"
+    if sim >= AUTO_SIMILARITY:
+        return True, "odleglosc_i_podobienstwo"
+    return False, "kandydat"
+
+
+def serial_conflict(a, b):
+    """a, b: sets of known serial identities (at most one each)."""
+    return bool(a and b and a != b)
+
+
+def find_candidates(record, others):
+    """Probable duplicates of ONE record among `others`, with the batch rules and thresholds.
+
+    -> [{"id_aed", "odleglosc_m", "podobienstwo", "powod", "auto"}], closest first. Same serial
+    identity -> powod "numer_seryjny", auto True (same source: "konflikt_zrodel", auto False).
+    Other records of the same source, records with a different known serial, and records farther
+    than CANDIDATE_M are not returned.
+    """
+    # ponytail: linear scan (~20 ms on 19k records); use the grid from candidate_pairs if called in bulk.
+    key = serial_key(record)
+    has_pt = bool(record.get(LAT) and record.get(LON))
+    out = []
+    for o in others:
+        okey = serial_key(o)
+        same_source = o.get("zrodlo") == record.get("zrodlo")
+        if same_source and not (key and key == okey):
+            continue
+        d = None
+        if has_pt and o.get(LAT) and o.get(LON):
+            d = haversine_m(float(record[LAT]), float(record[LON]), float(o[LAT]), float(o[LON]))
+        same_serial = bool(key and key == okey)
+        if not same_serial and (serial_conflict({key} - {None}, {okey} - {None}) or d is None or d > CANDIDATE_M):
+            continue
+        sim = similarity(record, o)
+        auto, powod = (True, "numer_seryjny") if same_serial else classify(d, sim)
+        if same_source:  # as in the batch: never merged within one source, sent to review
+            auto, powod = False, "konflikt_zrodel"
+        out.append({"id_aed": o.get("id_aed", ""), "odleglosc_m": None if d is None else round(d, 1),
+                    "podobienstwo": sim, "powod": powod, "auto": auto})
+    out.sort(key=lambda c: (c["odleglosc_m"] is None, c["odleglosc_m"] or 0, c["id_aed"]))
+    return out
 
 
 def candidate_pairs(records):
@@ -109,6 +156,7 @@ def deduplicate(records):
     n = len(records)
     parent = list(range(n))
     sources = [{records[i]["zrodlo"]} for i in range(n)]
+    serials = [{serial_key(r)} - {None} for r in records]  # a cluster holds at most one known serial identity
 
     def find(i):
         while parent[i] != i:
@@ -137,24 +185,26 @@ def deduplicate(records):
     review = []
     for i, j, d in candidate_pairs(records):
         sim = similarity(records[i], records[j])
-        if d <= AUTO_M:
-            edges.append(((2, d), i, j, d, sim, "odleglosc"))
-        elif sim >= AUTO_SIMILARITY:
-            edges.append(((2, d), i, j, d, sim, "odleglosc_i_podobienstwo"))
+        auto, rule = classify(d, sim)
+        if auto:
+            edges.append(((2, d), i, j, d, sim, rule))
         else:
-            review.append((i, j, d, sim, "kandydat"))
+            review.append((i, j, d, sim, rule))
 
     merged_edges = []
     for _key, i, j, d, sim, rule in sorted(edges, key=lambda e: e[0]):
         ri, rj = find(i), find(j)
         if ri == rj:
             continue
+        if serial_conflict(serials[ri], serials[rj]):
+            continue  # two different known serial numbers = two devices, even in one building
         if sources[ri] & sources[rj]:
             # One record per source in a cluster; edges are processed closest first, so the closest wins.
             review.append((i, j, d, sim, "konflikt_zrodel"))
             continue
         parent[rj] = ri
         sources[ri] |= sources[rj]
+        serials[ri] |= serials[rj]
         merged_edges.append((records[i]["zrodlo"], records[j]["zrodlo"], rule))
 
     clusters = defaultdict(list)
@@ -170,7 +220,8 @@ def deduplicate(records):
 
     pairs = []
     for i, j, d, sim, reason in review:
-        if find(i) == find(j):
+        # Different known serials are proof of two devices: not offered for review.
+        if find(i) == find(j) or serial_conflict(serials[find(i)], serials[find(j)]):
             continue
         pairs.append({"id_aed_a": cluster_id[i], "id_aed_b": cluster_id[j], "rekord_a": records[i], "rekord_b": records[j],
                       "odleglosc_m": None if d is None else round(d, 1), "podobienstwo": sim, "powod": reason})

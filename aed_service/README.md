@@ -86,6 +86,14 @@ Nazwy, e-maile (`@demo.example`) i numery seryjne (`DEMO-PUL-001`, ...) są fikc
 
 Publiczny widok urządzenia, wiersze listy i `properties` w geojson mają pole `demo` (true dla fikcyjnych rekordów demo, patrz wyżej).
 
+## Linki zarządcy, wycofywanie, Docker
+
+- Każdy link zarządcy (aktywacja, prośby, przypomnienia) ma własny token ważny 90 dni (`TOKEN_DAYS`); wydanie nowego nie unieważnia poprzednich.
+- Mapper wycofuje (`wycofany`) rekordy z importu, których nie ma już w jego wyniku; wracają, gdy się pojawią. Gdy wynik jest pusty lub mniejszy niż połowa rekordów z importu (`RETIRE_MIN_SHARE`), nic nie jest wycofywane, a w historii zadań jest wpis w `bledy`. Rekordy wycofane nie trafiają do eksportu.
+- Po potwierdzeniu lokalizacji urządzenie ze zgłoszenia jest porównywane z rekordami z importu w promieniu `aed_standard.dedup.CANDIDATE_M`; pasujące pary trafiają do `/duplikaty` (zachowywany jest rekord ze zgłoszenia).
+- Numer seryjny nie jest nigdzie publiczny: `zrodlo_id` zgłoszeń jest losowe, nowe `id_aed` też (stare zostają bez zmian).
+- Katalog migawki źródeł: `AED_RAW_DIR` (domyślnie `datasets/raw`); skrypt pobierania zawsze zapisuje w `datasets/raw`, więc przy innym katalogu odświeżanie jest wyłączone z komunikatem w `bledy`. W Dockerze katalog `datasets` należy do użytkownika usługi.
+
 ## Starsza baza
 
 Przy starcie schemat jest uzupełniany (`migrate`: kolumna `demo`, tabela `jobs`), więc baza z poprzedniej wersji działa bez resetu. Zmiany mapowania w `aed_standard` (np. Warszawa „Prywatny” -> `ograniczony`) trafią do starej bazy po uruchomieniu mappera.

@@ -22,10 +22,13 @@ import falcon
 import segno
 
 import aed_standard
+from aed_standard.dedup import CANDIDATE_M, similarity
+from aed_standard.sources import haversine_m
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-RAW_DIR = os.path.join(ROOT, "datasets", "raw")
+SCRIPT_RAW_DIR = os.path.join(ROOT, "datasets", "raw")  # where scripts/download_aed_data.py writes
+RAW_DIR = os.environ.get("AED_RAW_DIR", SCRIPT_RAW_DIR)  # snapshot read by the mapper; must be writable for refresh
 DEFAULT_DB = os.path.join(HERE, "aed_service.db")
 
 MAX_UPLOAD = 5 * 1024 * 1024
@@ -41,12 +44,15 @@ BADGE_MIN_ACTIVE_SHARE = 0.5  # share of devices with status "aktywny"
 REQUEST_AFTER_DAYS = 183   # ask the manager to confirm after ~6 months without verification
 EXPIRY_WARNING_DAYS = 60   # battery / pads expiry warning window
 STALE_AFTER_DAYS = 365     # status "nieaktualny" after 12 months without confirmation
+RETIRE_MIN_SHARE = 0.5      # mapper output below this share of the current import set = broken run, retire nothing
+TOKEN_DAYS = 90           # every manager link stays valid this long; several links per device are valid at once
 RESEND_GAP_DAYS = 30       # do not repeat the same kind of message for a device within this gap
 
 HIDDEN_PUBLIC = ("dysponent_email", "dysponent_telefon", "numer_seryjny")
 CONFIRM_FIELDS = ("nazwa", "szerokosc_geograficzna", "dlugosc_geograficzna", "miejscowosc", "cecha_ulicy",
                   "nazwa_ulicy", "nr_budynku", "nr_lokalu", "kod_pocztowy", "opis_lokalizacji", "wewnatrz_budynku",
-                  "dostep", "godziny_dostepu", "godziny_dostepu_opis")
+                  "dostep", "godziny_dostepu", "godziny_dostepu_opis", "data_waznosci_baterii", "data_waznosci_elektrod")
+REQUIRED_CODES = ("brak_wymaganego", "wymagane_dla_aktywnego")  # not an error in an incomplete problem report
 SIGNAL_TYPES = ("jest", "brak", "uszkodzony", "zamkniety")
 
 SCHEMA_SQL = """
@@ -70,6 +76,8 @@ CREATE TABLE IF NOT EXISTS messages(
   id INTEGER PRIMARY KEY, rodzaj TEXT NOT NULL, id_aed TEXT, odbiorca TEXT, temat TEXT, tresc TEXT, link TEXT, data TEXT);
 CREATE TABLE IF NOT EXISTS signals(
   id INTEGER PRIMARY KEY, id_aed TEXT NOT NULL, typ TEXT NOT NULL, lat REAL, lon REAL, uwagi TEXT, data TEXT);
+CREATE TABLE IF NOT EXISTS tokens(
+  hash TEXT PRIMARY KEY, id_aed TEXT NOT NULL, utworzono TEXT NOT NULL, wygasa TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS jobs(
   id INTEGER PRIMARY KEY, start TEXT NOT NULL, koniec TEXT, wyzwalacz TEXT NOT NULL, rodzaj TEXT NOT NULL,
   odswiezono TEXT, mapper TEXT, przypomnienia TEXT, bledy TEXT NOT NULL DEFAULT '[]');
@@ -84,6 +92,19 @@ def migrate(db):
     cols = {r[1] for r in db.execute("PRAGMA table_info(devices)")}
     if "demo" not in cols:  # demo = 1 marks fictional seed devices: visible in the registry, never exported
         db.execute("ALTER TABLE devices ADD COLUMN demo INTEGER NOT NULL DEFAULT 0")
+    if "powod" not in cols:  # reason a record was withdrawn by the mapper
+        db.execute("ALTER TABLE devices ADD COLUMN powod TEXT")
+    # single-token era: move the one hash per device into the tokens table (once), then clear the old column
+    exp = (datetime.datetime.now() + datetime.timedelta(days=TOKEN_DAYS)).replace(microsecond=0).isoformat()
+    db.execute("INSERT OR IGNORE INTO tokens(hash,id_aed,utworzono,wygasa) SELECT token_hash,id_aed,?,? FROM devices"
+               " WHERE token_hash IS NOT NULL", (now(), exp))
+    db.execute("UPDATE devices SET token_hash=NULL WHERE token_hash IS NOT NULL")
+    # zrodlo_id of submissions used to be "producent|serial": replace it with an opaque value (id_aed stays as issued)
+    for id_aed, data in db.execute("SELECT id_aed, data FROM devices WHERE zrodlo='zgloszenie'").fetchall():
+        rec = json.loads(data)
+        if "|" in rec.get("zrodlo_id", ""):
+            rec["zrodlo_id"] = secrets.token_hex(6)
+            db.execute("UPDATE devices SET data=? WHERE id_aed=?", (json.dumps(rec, ensure_ascii=False), id_aed))
     db.commit()
 
 
@@ -150,7 +171,7 @@ UPSERT_COLS = ("id_aed,data,origin,konto_id,zgloszenie_id,token_hash,utworzono,k
                "miejscowosc,szukaj,godziny,kompletnosc,data_weryfikacji,lat,lon")
 INSERT_SQL = "INSERT INTO devices(%s) VALUES(%s)" % (UPSERT_COLS, ",".join("?" * 19))
 IMPORT_UPDATE_SQL = ("UPDATE devices SET data=?,klucz=?,status=?,dostep=?,zrodlo=?,nazwa=?,miejscowosc=?,szukaj=?,"
-                     "godziny=?,kompletnosc=?,data_weryfikacji=?,lat=?,lon=? WHERE id_aed=? AND origin='import'")
+                     "godziny=?,kompletnosc=?,data_weryfikacji=?,lat=?,lon=?,powod=NULL WHERE id_aed=? AND origin='import'")
 
 
 def save_device(db, rec, **kw):
@@ -174,13 +195,16 @@ def public(rec):
 
 
 def new_token(db, id_aed):
+    """Issue one more manager token; earlier tokens of the device stay valid until they expire (TOKEN_DAYS)."""
     token = secrets.token_urlsafe(24)
-    db.execute("UPDATE devices SET token_hash=? WHERE id_aed=?", (sha(token), id_aed))
+    expires = (datetime.datetime.now() + datetime.timedelta(days=TOKEN_DAYS)).replace(microsecond=0).isoformat()
+    db.execute("INSERT INTO tokens(hash,id_aed,utworzono,wygasa) VALUES(?,?,?,?)", (sha(token), id_aed, now(), expires))
     return token
 
 
-def manager_ok(row, token):
-    return bool(token) and bool(row["token_hash"]) and hmac.compare_digest(row["token_hash"], sha(str(token)))
+def manager_ok(db, id_aed, token):
+    return bool(token) and db.execute("SELECT 1 FROM tokens WHERE hash=? AND id_aed=? AND wygasa>?",
+                                      (sha(str(token)), id_aed, now())).fetchone() is not None
 
 
 def queue_message(db, rodzaj, id_aed, odbiorca, temat, tresc, link=None):
@@ -221,13 +245,25 @@ def import_registry(db, result=None):
     known = set(origins) | {r[0] for r in inserts}
     for p in pairs:
         a_id, b_id = p["id_aed_a"], p["id_aed_b"]
-        # a decided pair never returns to the queue, whichever order the mapper lists it in
-        if a_id in known and b_id in known and not db.execute(
-                "SELECT 1 FROM duplicates WHERE (id_a=? AND id_b=?) OR (id_a=? AND id_b=?)", (a_id, b_id, b_id, a_id)).fetchone():
-            db.execute("INSERT INTO duplicates(id_a,id_b,odleglosc_m,podobienstwo) VALUES(?,?,?,?)",
-                       (a_id, b_id, p.get("odleglosc_m"), p.get("podobienstwo")))
+        if a_id in known and b_id in known:  # a decided pair never returns, whichever order it is listed in
+            queue_pair(db, a_id, b_id, p.get("odleglosc_m"), p.get("podobienstwo"))
     merged = int(report["polaczenia"]["razem"])
-    return {"dodano": added, "zmieniono": changed, "polaczono": merged, "do_przegladu": len(pairs)}
+    out = {"dodano": added, "zmieniono": changed, "polaczono": merged, "do_przegladu": len(pairs), "wycofano": 0}
+    # Retire imported records that are gone from the mapper output (merged elsewhere or removed at the source).
+    # Never touches submissions, manager-confirmed or ministry-decided records (origin != import).
+    live = {r[0] for r in db.execute("SELECT id_aed FROM devices WHERE origin='import' AND status!='wycofany'")}
+    gone = live - {r["id_aed"] for r in records}
+    if gone and (not records or len(records) < RETIRE_MIN_SHARE * len(live)):
+        out["ostrzezenie"] = ("Mapper zwrócił podejrzanie mało rekordów (%d, a w rejestrze jest %d z importu); "
+                              "nie wycofano żadnych rekordów." % (len(records), len(live)))
+    else:
+        for id_aed in gone:
+            rec = json.loads(db.execute("SELECT data FROM devices WHERE id_aed=?", (id_aed,)).fetchone()[0])
+            rec["status"] = "wycofany"
+            db.execute("UPDATE devices SET status='wycofany', data=?, powod=? WHERE id_aed=? AND origin='import'",
+                       (json.dumps(rec, ensure_ascii=False), "Brak w wynikach mappera: scalony z innym rekordem lub usunięty ze źródła.", id_aed))
+        out["wycofano"] = len(gone)
+    return out
 
 
 DEMO_ACCOUNTS = [  # email, password, name, role, type, city, lat, lon
@@ -372,8 +408,10 @@ def process_submission(db, account, records, report, filename, dry_run):
             duplicates += 1
             continue
         seen.add(key)
-        rec_id = aed_standard.make_id("zgloszenie", key)
-        rec.update(id_aed=rec_id, status="zgloszony", zrodlo="zgloszenie", zrodlo_id=key, licencja="CC0 1.0",
+        # Opaque random source id: nothing derived from the serial number may appear in public data.
+        opaque = secrets.token_hex(6)
+        rec_id = aed_standard.make_id("zgloszenie", opaque)
+        rec.update(id_aed=rec_id, status="zgloszony", zrodlo="zgloszenie", zrodlo_id=opaque, licencja="CC0 1.0",
                    wprowadzajacy_typ=account["typ_podmiotu"], wprowadzajacy_nazwa=account["nazwa"],
                    data_aktualizacji=today().isoformat(), data_weryfikacji="", sposob_weryfikacji="")
         rec["kompletnosc"] = str(aed_standard.completeness(rec))
@@ -460,7 +498,7 @@ def schema(req, resp):
 def device_get(req, resp, id_aed):
     row = get_device(req.context.db, id_aed)
     rec = json.loads(row["data"])
-    if manager_ok(row, req.get_param("t")):
+    if manager_ok(req.context.db, id_aed, req.get_param("t")):
         resp.media = dict(rec, demo=bool(row["demo"]))
     elif req.get_param("t"):
         raise ApiError(403, "zly_token", "Link jest niepoprawny lub wygasł. Poproś o nowy.")
@@ -512,11 +550,34 @@ def sticker(req, resp, id_aed):
     resp.text = svg
 
 
+def queue_pair(db, a_id, b_id, distance, similarity):
+    """Add a pair to the review queue unless the ministry (or the queue) already knows it, in either order."""
+    if not db.execute("SELECT 1 FROM duplicates WHERE (id_a=? AND id_b=?) OR (id_a=? AND id_b=?)",
+                      (a_id, b_id, b_id, a_id)).fetchone():
+        db.execute("INSERT INTO duplicates(id_a,id_b,odleglosc_m,podobienstwo) VALUES(?,?,?,?)",
+                   (a_id, b_id, distance, similarity))
+
+
+def enqueue_matches(db, rec):
+    """A device that just got coordinates is compared with imported records nearby (aed_standard's candidate
+    distance and similarity). Each match goes to the review queue with the submitted record as the one to keep."""
+    lat, lon = to_float(rec.get("szerokosc_geograficzna")), to_float(rec.get("dlugosc_geograficzna"))
+    if lat is None or lon is None:
+        return
+    # 0.0006 deg lat ~ 67 m, 0.001 deg lon >= 57 m in Poland: a box that safely contains CANDIDATE_M
+    rows = db.execute("SELECT id_aed, data, lat, lon FROM devices WHERE origin='import' AND status!='wycofany'"
+                      " AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?", (lat - 0.0006, lat + 0.0006, lon - 0.001, lon + 0.001))
+    for other_id, data, olat, olon in rows.fetchall():
+        d = haversine_m(lat, lon, olat, olon)
+        if d <= CANDIDATE_M:
+            queue_pair(db, rec["id_aed"], other_id, round(d, 1), similarity(rec, json.loads(data)))
+
+
 def apply_confirmation(db, id_aed, data, on=None):
     """Manager confirmation (shared by the endpoint and the demo seed). `on` = date of the confirmation."""
     on = (on or today()).isoformat()
     row = get_device(db, id_aed)
-    if not manager_ok(row, data.get("t")):
+    if not manager_ok(db, id_aed, data.get("t")):
         raise ApiError(403, "zly_token", "Link jest niepoprawny lub wygasł. Poproś o nowy na adres e-mail dysponenta.")
     stan = data.get("stan")
     if stan not in ("sprawny", "problem"):
@@ -532,13 +593,18 @@ def apply_confirmation(db, id_aed, data, on=None):
     elif rec["status"] == "aktywny":
         rec["status"] = "niepotwierdzony"
     rec["kompletnosc"] = str(aed_standard.completeness(rec))
-    if stan == "sprawny":
-        report = aed_standard.validate_records([rec], "publikacja")
-        errors = [p for p in report["problemy"] if p["poziom"] == "blad"]
-        if errors:
-            raise ApiError(422, "niepoprawne_dane", "Uzupełnij dane, zanim potwierdzisz urządzenie.",
-                           {"problemy": report["problemy"]})
+    report = aed_standard.validate_records([rec], "publikacja")
+    errors = [p for p in report["problemy"] if p["poziom"] == "blad"]
+    if stan == "problem":  # incomplete is fine, invalid is not: only type/enum/range errors of the supplied fields count
+        supplied = {k for k in CONFIRM_FIELDS if k in data}
+        if supplied & {"szerokosc_geograficzna", "dlugosc_geograficzna"}:
+            supplied |= {"szerokosc_geograficzna", "dlugosc_geograficzna"}
+        errors = [p for p in errors if p["kod"] not in REQUIRED_CODES and p["pole"] in supplied]
+    if errors:
+        raise ApiError(422, "niepoprawne_dane", "Uzupełnij dane, zanim potwierdzisz urządzenie." if stan == "sprawny"
+                       else "Popraw błędne wartości w zgłoszeniu.", {"problemy": report["problemy"]})
     save_device(db, rec, origin="zarzadca", uwagi_zarzadcy=uwagi if stan == "problem" else None)
+    enqueue_matches(db, rec)
     db.commit()
     return rec
 
@@ -645,7 +711,7 @@ def sellers(req, resp):
 
 def export_csv(req, resp):
     # Private and fictional demo devices are dropped here; ODbL, validation and the rest are aed_standard's job.
-    rows = req.context.db.execute("SELECT data FROM devices WHERE dostep != 'prywatny' AND demo=0")
+    rows = req.context.db.execute("SELECT data FROM devices WHERE dostep != 'prywatny' AND demo=0 AND status != 'wycofany'")
     exported = aed_standard.publication_export([json.loads(r[0]) for r in rows])
     out = io.StringIO()
     w = csv.DictWriter(out, fieldnames=aed_standard.field_names(), extrasaction="ignore", lineterminator="\r\n")
@@ -705,6 +771,7 @@ def reminders(db):
     t = today()
     day = lambda n: (t + datetime.timedelta(days=n)).isoformat()  # noqa: E731
     counts = {"nieaktualne": 0, "prosby_o_potwierdzenie": 0, "przypomnienia_terminow": 0}
+    db.execute("DELETE FROM tokens WHERE wygasa<?", (now(),))
     # 1) stale: active but not confirmed for 12 months
     counts["nieaktualne"] = db.execute(
         "UPDATE devices SET status='nieaktualny', data=json_set(data,'$.status','nieaktualny')"
@@ -770,6 +837,8 @@ def refresh_sources():
     """
     if not os.path.exists(DOWNLOAD_SCRIPT):
         return None, []
+    if os.path.realpath(RAW_DIR) != os.path.realpath(SCRIPT_RAW_DIR):
+        return None, ["Odświeżanie źródeł wyłączone: skrypt pobierania zapisuje w datasets/raw, a AED_RAW_DIR wskazuje inny katalog."]
     path = os.path.join(RAW_DIR, "manifest.json")
     try:
         with open(path, "rb") as f:
@@ -778,10 +847,14 @@ def refresh_sources():
     except (OSError, ValueError, KeyError):
         old_bytes, old = None, []
 
-    def restore():
-        if old_bytes is not None:
-            with open(path, "wb") as f:
-                f.write(old_bytes)
+    def restore():  # never raises: a read-only snapshot must not stop the cycle
+        try:
+            if old_bytes is not None:
+                with open(path, "wb") as f:
+                    f.write(old_bytes)
+        except OSError:
+            return False
+        return True
 
     try:
         r = subprocess.run([sys.executable, DOWNLOAD_SCRIPT], cwd=ROOT, capture_output=True, text=True,
@@ -798,8 +871,10 @@ def refresh_sources():
             json.dump(dict(new, files=merged), f, ensure_ascii=False, indent=2)
         os.replace(tmp, path)
     except Exception as ex:  # timeout, cannot start, unreadable manifest, ...
-        restore()
-        return None, ["Nie udało się odświeżyć źródeł (%s). Użyto zapisanej migawki." % type(ex).__name__]
+        msg = "Nie udało się odświeżyć źródeł (%s). Użyto zapisanej migawki." % type(ex).__name__
+        if not restore():
+            msg += " Nie udało się przywrócić manifestu (katalog tylko do odczytu?)."
+        return None, [msg]
     errors = [_short_error(e) for e in new.get("errors", [])]
     if len(fresh) == len(merged):
         done = "Odświeżono wszystkie źródła (%d plików)" % len(merged)
@@ -815,12 +890,17 @@ def run_job(db, trigger, kind, blocking=True):
     try:
         start, refreshed, mapper, remind, errors = now(), None, None, None, []
         if kind == "cykl":
-            refreshed, errors = refresh_sources()
+            try:
+                refreshed, errors = refresh_sources()
+            except Exception as ex:  # refresh_sources should not raise; the cycle must survive anyway
+                refreshed, errors = None, ["Odświeżanie źródeł nie powiodło się (%s). Użyto zapisanej migawki." % type(ex).__name__]
         for name, fn, label in (("mapper", lambda: import_registry(db), "Mapper"), ("przypomnienia", lambda: reminders(db), "Przypomnienia")):
             if kind not in ("cykl", name):
                 continue
             try:
                 result = fn()
+                if isinstance(result, dict) and "ostrzezenie" in result:
+                    errors.append(result.pop("ostrzezenie"))
                 db.commit()
                 mapper, remind = (result, remind) if name == "mapper" else (mapper, result)
             except Exception as ex:
