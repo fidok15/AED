@@ -11,6 +11,8 @@ export interface AedField {
   type: string;
   format?: string;
   grupa: string;
+  /** Weight of the field in the completeness score; 0 means it does not count. */
+  waga: number;
   /** Who fills the field in: sprzedawca, dysponent or system. */
   wypelnia: string;
   przyklad?: string;
@@ -49,6 +51,10 @@ export const aedGroups = (wypelnia: 'sprzedawca' | 'dysponent'): { title: string
       fields: AED_FIELDS.filter((field) => field.grupa === grupa && field.wypelnia === wypelnia),
     }))
     .filter((group) => group.fields.length);
+
+/** Fields that raise the completeness score for one role, heaviest first. */
+export const aedScoreFields = (wypelnia: 'sprzedawca' | 'dysponent'): AedField[] =>
+  AED_FIELDS.filter((field) => field.wypelnia === wypelnia && field.waga > 0).sort((a, b) => b.waga - a.waga);
 
 /** Form control validated against the schema constraints of its field. */
 export function aedControl(field: AedField, required = false): FormControl<AedValue> {

@@ -1,11 +1,11 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LocalizeRouterPipe } from '@gilsdav/ngx-translate-router';
 
 import { SeoService } from '@app/services/seo.service';
-import { AedApiService, aedErrorMessage, aedLinkFactory, AedSubmission } from './aed-api.service';
+import { AedApiService, aedErrorMessage, aedLinkFactory, AedSellers, AedSubmission } from './aed-api.service';
 import { AedLoginComponent } from './aed-login.component';
-import { AED_FIELDS, aedField, aedRequired } from './aed-schema';
+import { AED_FIELDS, aedField, aedRequired, aedScoreFields } from './aed-schema';
 
 /** Company panel: sign in, check a CSV file, send it, get the QR links for the accepted devices. */
 @Component({
@@ -26,6 +26,17 @@ export class AedCompanyComponent implements OnInit {
 
   protected readonly qrLink = aedLinkFactory();
 
+  // Score of the signed-in company, from the public ranking, and what raises it (weights from the schema).
+  private readonly sellers = signal<AedSellers | null>(null);
+  protected readonly score = computed(() =>
+    this.sellers()?.dane.find((seller) => seller.nazwa === this.api.account()?.nazwa),
+  );
+  protected readonly thresholds = computed(() => this.sellers()?.progi);
+  protected readonly sellerScore = aedScoreFields('sprzedawca');
+  protected readonly managerScore = aedScoreFields('dysponent').filter((field) => field.waga >= 2);
+  protected readonly number = (value: number) => value.toLocaleString('pl-PL');
+  protected readonly points = (waga: number) => (waga === 1 ? '1 punkt' : `${waga} punkty`);
+
   protected readonly file = signal<File | null>(null);
   protected readonly report = signal<AedSubmission | null>(null);
   protected readonly saved = signal(false);
@@ -34,6 +45,11 @@ export class AedCompanyComponent implements OnInit {
 
   ngOnInit(): void {
     this.seo.setPageTitle(['Panel firmy', 'Rejestr AED']);
+    this.loadScore();
+  }
+
+  private loadScore(): void {
+    this.api.sellers().subscribe({ next: (sellers) => this.sellers.set(sellers), error: () => this.sellers.set(null) });
   }
 
   protected choose(input: HTMLInputElement): void {
@@ -50,6 +66,7 @@ export class AedCompanyComponent implements OnInit {
       next: (report) => {
         this.report.set(report);
         this.saved.set(save);
+        if (save) this.loadScore();
         this.error.set('');
         this.busy.set(false);
       },

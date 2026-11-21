@@ -6,6 +6,7 @@ import {
   AedApiService,
   AedDuplicate,
   aedErrorMessage,
+  AedJobRun,
   aedLinkFactory,
   AedMapperRun,
   AedMessage,
@@ -66,6 +67,14 @@ export class AedMinistryComponent implements OnInit {
 
   protected readonly messages = signal<AedMessage[]>([]);
   protected readonly messagesTotal = signal(0);
+  protected readonly jobs = signal<AedJobRun[]>([]);
+  protected readonly when = (iso: string | null | undefined) => (iso ? iso.slice(0, 16).replace('T', ', ') : '');
+  protected readonly triggers = { harmonogram: 'Automatycznie, według harmonogramu', ministerstwo: 'Ręcznie z panelu' };
+  protected readonly jobKinds = {
+    cykl: 'Mapper i przypomnienia',
+    mapper: 'Mapper źródeł',
+    przypomnienia: 'Przypomnienia',
+  };
   protected readonly reminders = signal<AedRemindersRun | null>(null);
   protected readonly mapper = signal<AedMapperRun | null>(null);
 
@@ -94,6 +103,7 @@ export class AedMinistryComponent implements OnInit {
       },
       error: this.fail,
     });
+    this.api.jobs().subscribe({ next: (jobs) => this.jobs.set(jobs), error: this.fail });
     this.api.messages().subscribe({
       next: (page) => {
         this.messages.set(page.dane);

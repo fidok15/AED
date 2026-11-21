@@ -45,7 +45,16 @@
           <p class="aed-step">Krok 1 z 3</p>
           <h2 class="aed-card__title" id="aed-step-1">Gdzie znajduje się urządzenie</h2>
 
-          <button class="aed-button aed-button--secondary" type="button" [disabled]="locating()" (click)="locate()">
+          <p class="aed-field__hint" id="aed-location-hint">
+            Telefon zapyta o zgodę na użycie lokalizacji. Odczytujemy ją jeden raz, tylko po to, żeby zapisać położenie
+            urządzenia. Bez zgody możesz wpisać współrzędne ręcznie.
+          </p>
+          <button
+            class="aed-button aed-button--secondary"
+            type="button"
+            aria-describedby="aed-location-hint"
+            [disabled]="locating()"
+            (click)="locate()">
             {{ locating() ? 'Ustalam położenie…' : 'Użyj lokalizacji telefonu' }}
           </button>
           <div aria-live="polite">
@@ -78,32 +87,8 @@
 
           <app-aed-field [field]="access" [control]="values.controls[access.name]" />
 
-          <fieldset
-            class="aed-field form-field"
-            [class.is-invalid]="allDay.touched && allDay.invalid"
-            [attr.aria-describedby]="allDay.touched && allDay.invalid ? 'aed-allday-error' : null">
-            <legend class="aed-field__label">
-              {{ hours.title }} <span class="aed-field__required">(wymagane)</span>
-            </legend>
-            <div class="aed-choices">
-              <label class="aed-choice">
-                <input type="radio" name="aed-allday" [value]="true" [formControl]="allDay" />
-                <span>Całą dobę, we wszystkie dni</span>
-              </label>
-              <label class="aed-choice">
-                <input type="radio" name="aed-allday" [value]="false" [formControl]="allDay" />
-                <span>W wybranych godzinach</span>
-              </label>
-            </div>
-            @if (allDay.touched && allDay.invalid) {
-              <p class="aed-field__error" id="aed-allday-error">
-                <span class="visually-hidden">Błąd: </span>Wybierz jedną z opcji.
-              </p>
-            }
-          </fieldset>
-          @if (allDay.value === false) {
-            <app-aed-field [field]="hours" [control]="values.controls[hours.name]" />
-          }
+          <app-aed-hours-picker [field]="hours" [control]="values.controls[hours.name]" />
+          <app-aed-field [field]="hoursNote" [control]="values.controls[hoursNote.name]" />
         </section>
 
         <section class="aed-card" aria-labelledby="aed-step-3">

@@ -66,6 +66,10 @@
 
 <h2 class="aed-h2" id="aed-list-heading">Lista urządzeń</h2>
 <p class="aed-count" role="status">{{ shown() }}</p>
+<p class="aed-note">
+  Każdy wiersz podaje, czy urządzenie jest teraz dostępne. Filtrować według tej dostępności można na razie tylko na
+  mapie pod listą.
+</p>
 
 <ul class="aed-list" aria-labelledby="aed-list-heading">
   @for (record of records(); track record.id_aed) {

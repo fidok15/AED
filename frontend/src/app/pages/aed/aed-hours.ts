@@ -86,3 +86,39 @@ export function aedOpenNow(hours: string | null | undefined, now = aedWarsawNow(
   }
   return open ? 'dostepny' : 'zamkniety';
 }
+
+// ---- Hours picker of the QR page: the site manager picks days and times, the code writes the syntax.
+
+export interface AedHoursRow {
+  days: 'Mo-Fr' | 'Sa' | 'Su';
+  label: string;
+  open: boolean;
+  from: string;
+  to: string;
+}
+
+export const aedHoursRows = (): AedHoursRow[] => [
+  { days: 'Mo-Fr', label: 'Dni robocze (poniedziałek–piątek)', open: true, from: '08:00', to: '16:00' },
+  { days: 'Sa', label: 'Sobota', open: false, from: '09:00', to: '13:00' },
+  { days: 'Su', label: 'Niedziela', open: false, from: '09:00', to: '13:00' },
+];
+
+/** `Mo-Fr 08:00-16:00; Sa 09:00-13:00` from the rows; '' when no day is chosen or a range is not valid. */
+export function aedHoursFromRows(rows: AedHoursRow[]): string {
+  const open = rows.filter((row) => row.open);
+  const time = /^\d{2}:\d{2}$/;
+  if (!open.length || open.some((row) => !time.test(row.from) || !time.test(row.to) || row.to <= row.from)) return '';
+  return open.map((row) => `${row.days} ${row.from}-${row.to}`).join('; ');
+}
+
+/** Rows for a value this picker could have written; null for any other text. */
+export function aedRowsFromHours(value: string): AedHoursRow[] | null {
+  const rows = aedHoursRows().map((row) => ({ ...row, open: false }));
+  for (const part of value.split(';').map((rule) => rule.trim())) {
+    const match = /^(Mo-Fr|Sa|Su) (\d{2}:\d{2})-(\d{2}:\d{2})$/.exec(part);
+    const row = match && rows.find((item) => item.days === match[1]);
+    if (!row || row.open) return null;
+    Object.assign(row, { open: true, from: match[2], to: match[3] });
+  }
+  return rows;
+}

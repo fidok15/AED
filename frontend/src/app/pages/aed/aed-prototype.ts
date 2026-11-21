@@ -12,6 +12,24 @@ import { SeoService } from '@app/services/seo.service';
  */
 export const AED_PROTOTYPE = !environment.production;
 
+/** In prototype mode the portal's own entry notices (RODO modal) stay away from the AED pages. */
+export const aedSkipsPortalNotice = (path: string): boolean => AED_PROTOTYPE && /\/aed(\/|$)/.test(path);
+
+export interface AedDemoAccount {
+  rola: 'firma' | 'ministerstwo';
+  opis: string;
+  email: string;
+  haslo: string;
+}
+
+/**
+ * Demo accounts of aed_service (fictional data), shown on the sign-in cards so the jury can walk the
+ * whole path. They live in the environment files of the prototype builds (environment.ts,
+ * environment.aed.ts); the production environment has none, so a production bundle does not contain them.
+ */
+export const AED_DEMO_ACCOUNTS: AedDemoAccount[] =
+  (environment as { aedDemoAccounts?: AedDemoAccount[] }).aedDemoAccounts ?? [];
+
 /** Strip shown above everything on every page, the phone screen from a QR sticker included. */
 @Component({
   selector: 'app-aed-prototype-banner',

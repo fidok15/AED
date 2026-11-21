@@ -1,0 +1,93 @@
+<h1 class="heading heading--md">Firmy zgłaszające urządzenia</h1>
+<p class="aed-lede">
+  Producenci i sprzedawcy, którzy zgłaszają sprzedane defibrylatory i dbają, żeby ich dane były pełne i potwierdzone
+  przez dysponentów.
+</p>
+
+@if (error()) {
+  <p class="aed-message aed-message--error" role="alert">{{ error() }}</p>
+}
+
+@if (sellers(); as sellers) {
+  <p>
+    Odznakę dostaje firma, której urządzenia mają średnią kompletność danych co najmniej
+    <strong>{{ sellers.progi.srednia_kompletnosc }}%</strong> i z których co najmniej
+    <strong>{{ number(sellers.progi.udzial_aktywnych * 100) }}%</strong> jest potwierdzonych przez dysponenta.
+  </p>
+
+  @if (ranked().length) {
+    <div class="aed-scroll" tabindex="0" role="region" aria-labelledby="aed-ranking-caption">
+      <table class="aed-table">
+        <caption id="aed-ranking-caption">
+          Ranking firm według średniej kompletności danych
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Miejsce</th>
+            <th scope="col">Firma</th>
+            <th scope="col" class="aed-table__number">Urządzenia</th>
+            <th scope="col" class="aed-table__number">Średnia kompletność</th>
+            <th scope="col" class="aed-table__number">Potwierdzone</th>
+            <th scope="col">Odznaka</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (seller of ranked(); track seller.nazwa; let place = $index) {
+            <tr>
+              <td>{{ place + 1 }}</td>
+              <th scope="row">
+                {{ seller.nazwa }}
+                <span class="aed-table__sub">{{ seller.typ_podmiotu }}, {{ seller.miejscowosc }}</span>
+              </th>
+              <td class="aed-table__number">{{ number(seller.liczba_urzadzen) }}</td>
+              <td class="aed-table__number">
+                {{ number(seller.srednia_kompletnosc) }}%
+                <span class="aed-gauge" aria-hidden="true"
+                  ><span [style.width.%]="seller.srednia_kompletnosc"></span
+                ></span>
+              </td>
+              <td class="aed-table__number">{{ number(seller.udzial_aktywnych * 100) }}%</td>
+              <td>
+                @if (seller.odznaka === 'tak') {
+                  <span class="aed-badge">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path d="M12 2.5 20 5.5v6c0 4.6-3.2 8.3-8 10-4.8-1.7-8-5.4-8-10v-6z" />
+                      <path d="M8 12l3 3 5.5-6" />
+                    </svg>
+                    Przyznana
+                  </span>
+                } @else {
+                  Jeszcze nie
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <p class="aed-message">
+      Żadna firma nie zgłosiła jeszcze urządzenia, więc ranking jest pusty. Wypełni się po pierwszym zgłoszeniu w panelu
+      firmy.
+    </p>
+  }
+
+  @if (waiting().length) {
+    <h2 class="aed-h2">Firmy z kontem, jeszcze bez zgłoszeń</h2>
+    <ul>
+      @for (seller of waiting(); track seller.nazwa) {
+        <li>{{ seller.nazwa }} – {{ seller.typ_podmiotu }}, {{ seller.miejscowosc }}</li>
+      }
+    </ul>
+  }
+
+  <p>
+    <a [routerLink]="['/!aed', '!company'] | localize">Zgłoś urządzenia w panelu firmy</a>
+  </p>
+}
+
+<section class="aed-map" aria-labelledby="aed-sellers-map-heading">
+  <h2 class="aed-h2" id="aed-sellers-map-heading">Siedziby firm na mapie</h2>
+  <p>Te same firmy co na liście powyżej. Znak ✓ na znaczniku oznacza firmę z odznaką.</p>
+  <div class="aed-map__canvas aed-map__canvas--small" #canvas role="region" aria-label="Mapa siedzib firm"></div>
+</section>

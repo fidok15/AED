@@ -5,14 +5,17 @@
   <fieldset
     class="aed-field form-field"
     [class.is-invalid]="invalid"
-    [attr.aria-describedby]="invalid ? hintId + ' ' + errorId : hintId">
+    [attr.aria-describedby]="(field().etykiety ? '' : hintId) + (invalid ? ' ' + errorId : '') || null">
     <legend class="aed-field__label">
       {{ field().title }}
       @if (required) {
         <span class="aed-field__required">(wymagane)</span>
       }
     </legend>
-    <p class="aed-field__hint" [id]="hintId">{{ field().description }}</p>
+    <!-- option labels from the schema already explain each choice; the description would repeat them -->
+    @if (!field().etykiety) {
+      <p class="aed-field__hint" [id]="hintId">{{ field().description }}</p>
+    }
     <div class="aed-choices">
       @for (option of options(); track option) {
         <label class="aed-choice">
