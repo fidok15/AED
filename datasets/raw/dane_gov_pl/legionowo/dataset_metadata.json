@@ -1,0 +1,113 @@
+{
+  "attributes": {
+    "license_condition_default_cc40": false,
+    "title": "Zdrowie",
+    "downloads_count": 126,
+    "modified": "2026-09-21T08:31:31Z",
+    "image_url": "",
+    "image_alt": "",
+    "has_dynamic_data": false,
+    "regions": [
+      {
+        "is_additional": false,
+        "name": "Polska",
+        "region_id": "85633723",
+        "hierarchy_label": "Polska"
+      }
+    ],
+    "slug": "zdowie",
+    "source": null,
+    "has_research_data": true,
+    "notes": "<p>Zbiór zawiera dane dotyczące realizacji zadań w zakresie zdrowia oraz spraw społecznych w Legionowie</p>",
+    "is_liked_by_current_user": false,
+    "keywords": [
+      "apteki",
+      "zdrowie publiczne",
+      "przychodnia",
+      "aed"
+    ],
+    "license_condition_timestamp": null,
+    "visualization_types": [
+      "table"
+    ],
+    "license_condition_original": null,
+    "license_condition_custom_description": "",
+    "update_frequency": "Nieregularnie",
+    "formats": [
+      "csv",
+      "jsonld"
+    ],
+    "license_condition_personal_data": null,
+    "current_condition_descriptions": {},
+    "types": [
+      "file"
+    ],
+    "url": "",
+    "views_count": 84,
+    "openness_scores": [
+      4
+    ],
+    "has_high_value_data_from_ec_list": true,
+    "likes_count": 0,
+    "archived_resources_files_url": "https://api.dane.gov.pl/datasets/40593,zdowie/resources/files/download",
+    "license_name": "CC0 1.0",
+    "is_promoted": false,
+    "license_chosen": null,
+    "has_high_value_data": true,
+    "categories": [
+      {
+        "title": "Ludność i społeczeństwo",
+        "id": "146",
+        "code": "SOCI"
+      },
+      {
+        "title": "Zdrowie",
+        "id": "147",
+        "code": "HEAL"
+      },
+      {
+        "title": "Regiony i miasta",
+        "id": "149",
+        "code": "REGI"
+      }
+    ],
+    "category": null,
+    "created": "2026-09-14T12:59:31Z",
+    "verified": "2026-09-15T11:08:00Z",
+    "supplements": [],
+    "license_condition_db_or_copyrighted": "",
+    "license_description": ""
+  },
+  "id": "40593",
+  "links": {
+    "self": "https://api.dane.gov.pl/1.4/datasets/40593,zdowie"
+  },
+  "type": "dataset",
+  "relationships": {
+    "institution": {
+      "data": {
+        "id": "297",
+        "type": "institution"
+      },
+      "links": {
+        "related": "https://api.dane.gov.pl/1.4/institutions/297,urzad-miasta-legionowo"
+      }
+    },
+    "showcases": {
+      "meta": {
+        "count": 0
+      },
+      "links": {
+        "related": "https://api.dane.gov.pl/1.4/datasets/40593,zdowie/showcases"
+      }
+    },
+    "resources": {
+      "meta": {
+        "count": 2
+      },
+      "links": {
+        "related": "https://api.dane.gov.pl/1.4/datasets/40593,zdowie/resources"
+      }
+    }
+  }
+}

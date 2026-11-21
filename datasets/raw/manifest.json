@@ -1,0 +1,211 @@
+{
+  "files": [
+    {
+      "source": "dane.gov.pl",
+      "dataset_id": 3624,
+      "kind": "metadata",
+      "url": "https://api.dane.gov.pl/1.4/datasets/3624",
+      "file": "dane_gov_pl/krosno/dataset_metadata.json",
+      "bytes": 2772,
+      "sha256": "733e84d27bb30f1a085804ef39e412a1ed0d549a8e8bebd80da666c27731098a",
+      "downloaded_at": "2026-11-21T14:35:59+00:00"
+    },
+    {
+      "source": "dane.gov.pl",
+      "dataset_id": 3624,
+      "dataset_title": "Defibrylatory zlokalizowane w Mieście Krosno",
+      "resource_id": 54632,
+      "resource_title": "Defibrylatory zlokalizowane w Mieście Krosno",
+      "data_date": "2024-02-19",
+      "license": "CC0 1.0",
+      "url": "https://api.dane.gov.pl/media/resources/20240219/Defibrylator_jAmxQcp.csv",
+      "file": "dane_gov_pl/krosno/resource_54632.csv",
+      "bytes": 2787,
+      "sha256": "bfd98b17099e294174f35ce3fdc9eb617bdf394ba8ebe148ea840419fe2f2370",
+      "downloaded_at": "2026-11-21T14:36:00+00:00"
+    },
+    {
+      "source": "dane.gov.pl",
+      "dataset_id": 4955,
+      "kind": "metadata",
+      "url": "https://api.dane.gov.pl/1.4/datasets/4955",
+      "file": "dane_gov_pl/marki/dataset_metadata.json",
+      "bytes": 2985,
+      "sha256": "9ab6a35c2118424404707d19ff60c23124bcb0654df62cbb0e263aa9bac31659",
+      "downloaded_at": "2026-11-21T14:36:04+00:00"
+    },
+    {
+      "source": "dane.gov.pl",
+      "dataset_id": 4955,
+      "dataset_title": "Defibrylatory zlokalizowane na terenie Miasta Marki",
+      "resource_id": 68353,
+      "resource_title": "Defibrylatory zlokalizowane na terenie Miasta Marki",
+      "data_date": "2025-07-10",
+      "license": "CC BY 4.0",
+      "url": "https://api.dane.gov.pl/media/resources/20250710/Defibrylator_GminaMiastoMarki_1.csv",
+      "file": "dane_gov_pl/marki/resource_68353.csv",
+      "bytes": 1008,
+      "sha256": "d42a91e47d3a89f9e2937aaaafe31c7736306c456967ae525d994a1c3743be05",
+      "downloaded_at": "2026-11-21T14:36:05+00:00"
+    },
+    {
+      "source": "dane.gov.pl",
+      "dataset_id": 4955,
+      "dataset_title": "Defibrylatory zlokalizowane na terenie Miasta Marki",
+      "resource_id": 68355,
+      "resource_title": "Defibrylatory zlokalizowane na terenie Miasta Marki",
+      "data_date": "2025-07-10",
+      "license": "CC BY 4.0",
+      "url": "https://api.dane.gov.pl/media/resources/20250710/Defibrylator_GminaMiastoMarki_1.xlsx",
+      "file": "dane_gov_pl/marki/resource_68355.xlsx",
+      "bytes": 10092,
+      "sha256": "ce04fbabc44559d7359a1889c28392d0fc33694a3c6958e1e63e58d5fbbcd929",
+      "downloaded_at": "2026-11-21T14:36:07+00:00"
+    },
+    {
+      "source": "dane.gov.pl",
+      "dataset_id": 4581,
+      "kind": "metadata",
+      "url": "https://api.dane.gov.pl/1.4/datasets/4581",
+      "file": "dane_gov_pl/przemysl/dataset_metadata.json",
+      "bytes": 3997,
+      "sha256": "056c319de6f2edf3086f35fbe199d8eb5de1b341ac6ea757c8c9f28c217a9303",
+      "downloaded_at": "2026-11-21T14:36:11+00:00"
+    },
+    {
+      "source": "dane.gov.pl",
+      "dataset_id": 4581,
+      "dataset_title": "Lokalizacje AED – Automatycznych Defibrylatorów Zewnętrznych w Przemyślu",
+      "resource_id": 62092,
+      "resource_title": "Lokalizacje AED – Automatycznych Defibrylatorów Zewnętrznych w Przemyślu",
+      "data_date": "2024-11-06",
+      "license": "CC0 1.0",
+      "url": "https://przemysl.skycms.com.pl/open-data/20/1730818801_b50R6UVxPgoVdBbq/gml",
+      "file": "dane_gov_pl/przemysl/resource_62092.xml",
+      "bytes": 49361,
+      "sha256": "1a73cb47fdd2963a933f2f5319623589013daa03077cae24475047a614699209",
+      "downloaded_at": "2026-11-21T14:36:11+00:00"
+    },
+    {
+      "source": "dane.gov.pl",
+      "dataset_id": 4581,
+      "dataset_title": "Lokalizacje AED – Automatycznych Defibrylatorów Zewnętrznych w Przemyślu",
+      "resource_id": 62093,
+      "resource_title": "Lokalizacje AED – Automatycznych Defibrylatorów Zewnętrznych w Przemyślu",
+      "data_date": "2024-11-06",
+      "license": "CC0 1.0",
+      "url": "https://przemysl.skycms.com.pl/open-data/20/1730818801_b50R6UVxPgoVdBbq/geojson",
+      "file": "dane_gov_pl/przemysl/resource_62093.geojson",
+      "bytes": 48823,
+      "sha256": "2f49fe5394c1eb9e841ad5921b19c1cade6b843278d7283534658f0caba01797",
+      "downloaded_at": "2026-11-21T14:36:12+00:00"
+    },
+    {
+      "source": "dane.gov.pl",
+      "dataset_id": 4581,
+      "dataset_title": "Lokalizacje AED – Automatycznych Defibrylatorów Zewnętrznych w Przemyślu",
+      "resource_id": 62094,
+      "resource_title": "Lokalizacje AED – Automatycznych Defibrylatorów Zewnętrznych w Przemyślu",
+      "data_date": "2024-11-06",
+      "license": "CC0 1.0",
+      "url": "https://przemysl.skycms.com.pl/open-data/20/1730818801_b50R6UVxPgoVdBbq/json",
+      "file": "dane_gov_pl/przemysl/resource_62094.json",
+      "bytes": 48111,
+      "sha256": "d00d407ab46cee89ab9818d60906f8e2e61b2e713e15b5d04df090281072cfee",
+      "downloaded_at": "2026-11-21T14:36:12+00:00"
+    },
+    {
+      "source": "dane.gov.pl",
+      "dataset_id": 4581,
+      "dataset_title": "Lokalizacje AED – Automatycznych Defibrylatorów Zewnętrznych w Przemyślu",
+      "resource_id": 62095,
+      "resource_title": "Lokalizacje AED – Automatycznych Defibrylatorów Zewnętrznych w Przemyślu",
+      "data_date": "2024-11-06",
+      "license": "CC0 1.0",
+      "url": "https://przemysl.skycms.com.pl/open-data/20/1730818801_b50R6UVxPgoVdBbq/csv",
+      "file": "dane_gov_pl/przemysl/resource_62095.csv",
+      "bytes": 39049,
+      "sha256": "78eea5be4594200096d708f142ab6c649666dbad5f34e4cd84402003db9646d5",
+      "downloaded_at": "2026-11-21T14:36:13+00:00"
+    },
+    {
+      "source": "dane.gov.pl",
+      "dataset_id": 4581,
+      "dataset_title": "Lokalizacje AED – Automatycznych Defibrylatorów Zewnętrznych w Przemyślu",
+      "resource_id": 62424,
+      "resource_title": "Lokalizacje AED – Automatycznych Defibrylatorów Zewnętrznych w Przemyślu",
+      "data_date": "2024-11-20",
+      "license": "CC0 1.0",
+      "url": "https://przemysl.skycms.com.pl/open-data/20/1730818801_b50R6UVxPgoVdBbq/gml",
+      "file": "dane_gov_pl/przemysl/resource_62424.xml",
+      "bytes": 49361,
+      "sha256": "1a73cb47fdd2963a933f2f5319623589013daa03077cae24475047a614699209",
+      "downloaded_at": "2026-11-21T14:36:14+00:00"
+    },
+    {
+      "source": "dane.gov.pl",
+      "dataset_id": 39512,
+      "kind": "metadata",
+      "url": "https://api.dane.gov.pl/1.4/datasets/39512",
+      "file": "dane_gov_pl/warszawa/dataset_metadata.json",
+      "bytes": 2654,
+      "sha256": "27a383f9e7557f51f952c3437f88c7bb05cd16b2491b63024f56b6bbe11e1910",
+      "downloaded_at": "2026-11-21T14:36:20+00:00"
+    },
+    {
+      "source": "dane.gov.pl",
+      "dataset_id": 40593,
+      "kind": "metadata",
+      "url": "https://api.dane.gov.pl/1.4/datasets/40593",
+      "file": "dane_gov_pl/legionowo/dataset_metadata.json",
+      "bytes": 2749,
+      "sha256": "00c947b765b3f1660c2597998e10c5761d1f5281213f708b21a09181f0de1602",
+      "downloaded_at": "2026-11-21T14:36:29+00:00"
+    },
+    {
+      "source": "dane.gov.pl",
+      "dataset_id": 40593,
+      "dataset_title": "Zdrowie",
+      "resource_id": 2625221,
+      "resource_title": "Wykaz defibrylatorów AED wraz z ich lokalizacją w Legionowie.",
+      "data_date": "2026-09-14",
+      "license": "CC0 1.0",
+      "url": "https://api.dane.gov.pl/media/resources/20260914/aed.csv",
+      "file": "dane_gov_pl/legionowo/resource_2625221.csv",
+      "bytes": 2688,
+      "sha256": "a029cdc57fc4805ba6213ed34d008a7d84bb98bc512dab77ad894b5dc22ad3fd",
+      "downloaded_at": "2026-11-21T14:36:30+00:00"
+    },
+    {
+      "source": "openaedmap.org",
+      "url": "https://openaedmap.org/api/v1/countries/PL.geojson",
+      "license": "ODbL 1.0 (© OpenStreetMap contributors)",
+      "file": "openaedmap/PL.geojson",
+      "bytes": 7135370,
+      "sha256": "2367c58fbecf9ff29764e6eaacd78ce7e6d25103a61b437a0a8994a80dd65de2",
+      "downloaded_at": "2026-11-21T14:36:34+00:00"
+    },
+    {
+      "source": "dane.um.warszawa.pl",
+      "kind": "api documentation",
+      "url": "https://dane.um.warszawa.pl/files/scb_lokalizacja_defibrylatorow_pa.json",
+      "file": "warszawa_api/api_parametry.json",
+      "bytes": 3317,
+      "sha256": "aaeed6e209e18b46f6233924f3260219db531fda851d819157e67646757ad52a",
+      "downloaded_at": "2026-11-21T14:36:35+00:00"
+    },
+    {
+      "source": "dane.um.warszawa.pl",
+      "kind": "api documentation",
+      "url": "https://dane.um.warszawa.pl/files/scb_lokalizacja_defibrylatorow_pw.json",
+      "file": "warszawa_api/api_przyklady.json",
+      "bytes": 2658,
+      "sha256": "0f4cadf963d9f318f21b6d73ac2ef68d3efb8ab5bdad8fe87865cb3f6a31e98b",
+      "downloaded_at": "2026-11-21T14:36:36+00:00"
+    }
+  ],
+  "errors": [
+    "dane.gov.pl resource 2512040 (https://dane.um.warszawa.pl/pl/catalogue/7bc32ffc-c2ac-4d32-83c9-b6f7a0b38de8): link points to an HTML page, not data",
+    "Warsaw API: WARSAW_API_TOKEN not set, AED data skipped (register at dane.um.warszawa.pl)"
+  ]
+}
