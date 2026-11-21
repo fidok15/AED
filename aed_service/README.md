@@ -78,6 +78,14 @@ Przy pierwszym starcie (`AED_DEMO_SEED`, domyślnie włączone; `0` wyłącza) p
 
 Nazwy, e-maile (`@demo.example`) i numery seryjne (`DEMO-PUL-001`, ...) są fikcyjne. Rekordy demo mają w bazie flagę `demo = 1`: są widoczne w rejestrze, na mapie i w statystykach, ale **nie trafiają do eksportu `eksport/dane-gov-pl.csv`**. Dane demo nie powstają, gdy baza ma już jakiekolwiek zgłoszenia firm.
 
+## Naklejka QR
+
+`GET /urzadzenia/{id}/naklejka.svg`: szerokość 360 jednostek (viewBox), tytuł, kod QR ze strefą ciszy 4 moduły, identyfikator (20 px, pogrubiony) i dwuwierszowy podpis. Na górze jest puste, oznaczone miejsce na logo kampanii (`<g id="miejsce-na-logo">`, 50 jednostek wysokości). Jeśli istnieje plik SVG z ścieżki `STICKER_LOGO_PATH` (domyślnie `aed_service/naklejka-logo.svg`, zmiana: `AED_STICKER_LOGO`), jest wstawiany w to miejsce. Test pilnuje, by każdy wiersz tekstu spełniał regułę: liczba znaków x rozmiar czcionki x 0,75 <= szerokość - 40.
+
+## Znacznik demo
+
+Publiczny widok urządzenia, wiersze listy i `properties` w geojson mają pole `demo` (true dla fikcyjnych rekordów demo, patrz wyżej).
+
 ## Starsza baza
 
 Przy starcie schemat jest uzupełniany (`migrate`: kolumna `demo`, tabela `jobs`), więc baza z poprzedniej wersji działa bez resetu. Zmiany mapowania w `aed_standard` (np. Warszawa „Prywatny” -> `ograniczony`) trafią do starej bazy po uruchomieniu mappera.
