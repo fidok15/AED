@@ -382,7 +382,8 @@ class JobsAndDemoTest(unittest.TestCase):
             "dane.gov.pl resource 1 (https://x): <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed>",
             "Warsaw API: WARSAW_API_TOKEN is not set"]}
         c = self.client()
-        with mock.patch.object(svc, "RAW_DIR", raw), mock.patch.object(svc, "DOWNLOAD_SCRIPT", __file__):
+        with mock.patch.object(svc, "RAW_DIR", raw), mock.patch.object(svc, "SCRIPT_RAW_DIR", raw), \
+                mock.patch.object(svc, "DOWNLOAD_SCRIPT", __file__):
             for label, fake in (("subset", subset), ("crash", RuntimeError("secret detail")), ("garbage", "{not json")):
                 with mock.patch.object(svc.subprocess, "run", side_effect=fake_script(fake)):
                     job = svc.run_job(sqlite_conn(self.path), "harmonogram", "cykl")
@@ -441,6 +442,202 @@ class JobsAndDemoTest(unittest.TestCase):
         conn.commit()
         c = self.client()
         self.assertEqual(c.simulate_get("/api/aed/zadania", headers=self.ministry(c)).json["dane"], [])
+
+    # ---- helpers for the review-round tests (fresh database per test) ----
+    def seller(self, c):
+        r = c.simulate_post("/api/aed/sesja", json={"email": "pulsar@aed.example", "haslo": "pulsar-demo"})
+        return {"Authorization": "Bearer " + r.json["token"]}
+
+    def add_device(self, c, serial, **kw):
+        rec = dict({"producent": "Rytm", "model": "R2", "numer_seryjny": serial, "data_produkcji": "2025-02-01",
+                    "data_waznosci_elektrod": NEXT_YEAR, "data_waznosci_baterii": NEXT_YEAR,
+                    "dysponent_nazwa": "Gmina Test", "dysponent_email": "gmina@example.org"}, **kw)
+        item = c.simulate_post("/api/aed/urzadzenia", json=rec, headers=self.seller(c)).json["przyjete"][0]
+        item["t"] = item["link_aktywacyjny"].split("t=")[1]
+        return item
+
+    def confirm_body(self, item, **kw):
+        return dict({"t": item["t"], "nazwa": "Punkt testowy", "szerokosc_geograficzna": 50.5, "dlugosc_geograficzna": 19.5,
+                     "miejscowosc": "Kraków", "dostep": "publiczny", "godziny_dostepu": "24/7", "stan": "sprawny"}, **kw)
+
+    def imported(self, i, **kw):
+        base = {n: "" for n in aed_standard.field_names()}
+        base.update(id_aed="AED-REVTEST%04d" % i, nazwa="Import %d" % i, szerokosc_geograficzna="50.5",
+                   dlugosc_geograficzna="19.5", miejscowosc="Kraków", status="niepotwierdzony", zrodlo="test",
+                   zrodlo_id=str(i), licencja="CC BY 4.0", dostep="publiczny", kompletnosc="40")
+        base.update(kw)
+        return base
+
+    def mapper(self, c, recs, pairs=()):
+        with mock.patch.object(aed_standard, "build_registry", return_value=(recs, list(pairs), {"polaczenia": {"razem": 0}})):
+            return c.simulate_post("/api/aed/mapper/uruchom", headers=self.ministry(c))
+
+    def test_serial_never_in_public_output(self):
+        c = self.client()
+        serial = "LEAK-Serial-77x"
+        item = self.add_device(c, serial)
+        self.assertEqual(c.simulate_post("/api/aed/urzadzenia/%s/potwierdzenie" % item["id_aed"],
+                                         json=self.confirm_body(item)).status_code, 200)
+        c.simulate_post("/api/aed/urzadzenia/%s/sygnal" % item["id_aed"], json={"typ": "jest"})
+        outputs = [c.simulate_get(u).text for u in (
+            "/api/aed/urzadzenia/" + item["id_aed"], "/api/aed/urzadzenia", "/api/aed/urzadzenia.geojson",
+            "/api/aed/eksport/dane-gov-pl.csv", "/api/aed/sprzedawcy", "/api/aed/statystyki",
+            "/api/aed/urzadzenia/%s/naklejka.svg" % item["id_aed"])]
+        outputs.append(c.simulate_post("/api/aed/urzadzenia/%s/sygnal" % item["id_aed"], json={"typ": "brak"}).text)
+        self.assertIn(item["id_aed"], outputs[3])  # the export really contains the device
+        for text in outputs:
+            low = text.lower()
+            self.assertNotIn(serial.lower(), low)
+            self.assertNotIn("leakserial77x", low)
+        # the id is not derived from the serial any more
+        self.assertNotEqual(item["id_aed"], aed_standard.make_id("zgloszenie", "rytm|leakserial77x"))
+
+    def test_legacy_database_rows_are_migrated(self):
+        c = self.client()
+        item = self.add_device(c, "OLD-1")
+        conn = sqlite_conn(self.path)
+        row = conn.execute("SELECT data FROM devices WHERE id_aed=?", (item["id_aed"],)).fetchone()
+        rec = json.loads(row[0])
+        rec["zrodlo_id"] = "rytm|old1"  # what the previous version stored
+        conn.execute("UPDATE devices SET data=?, token_hash=? WHERE id_aed=?",
+                     (json.dumps(rec), svc.sha("legacy-token"), item["id_aed"]))
+        conn.execute("DELETE FROM tokens")
+        conn.commit()
+        c = self.client()
+        pub = c.simulate_get("/api/aed/urzadzenia/" + item["id_aed"]).json
+        self.assertNotIn("|", pub["zrodlo_id"])
+        self.assertNotIn("old1", json.dumps(pub).lower())
+        self.assertEqual(pub["id_aed"], item["id_aed"])  # issued ids are kept
+        self.assertEqual(c.simulate_get("/api/aed/urzadzenia/%s?t=legacy-token" % item["id_aed"]).status_code, 200)
+
+    def test_manager_links_are_independent(self):
+        c = self.client()
+        soon = (datetime.date.today() + datetime.timedelta(days=20)).isoformat()
+        item = self.add_device(c, "TOK-1", data_waznosci_baterii=soon, data_waznosci_elektrod=soon)
+        m = self.ministry(c)
+        self.assertEqual(c.simulate_post("/api/aed/przypomnienia/uruchom", headers=m).json["przypomnienia_terminow"], 2)
+        links = [x["link"] for x in c.simulate_get("/api/aed/wiadomosci", headers=m).json["dane"] if x["id_aed"] == item["id_aed"]]
+        self.assertEqual(len(links), 3)  # activation + two reminders
+        for link in links:
+            r = c.simulate_get("/api/aed/urzadzenia/%s?t=%s" % (item["id_aed"], link.split("t=")[1]))
+            self.assertEqual(r.status_code, 200, link)
+        self.assertIn(item["t"], "".join(links))  # the original activation link is among them and still works
+        # an expired link stops working
+        conn = sqlite_conn(self.path)
+        conn.execute("UPDATE tokens SET wygasa='2000-01-01T00:00:00' WHERE hash=?", (svc.sha(item["t"]),))
+        conn.commit()
+        self.assertEqual(c.simulate_get("/api/aed/urzadzenia/%s?t=%s" % (item["id_aed"], item["t"])).status_code, 403)
+
+    def test_manager_can_replace_battery_and_reminder_stops(self):
+        c = self.client()
+        soon = (datetime.date.today() + datetime.timedelta(days=20)).isoformat()
+        item = self.add_device(c, "BAT-1", data_waznosci_baterii=soon)
+        url = "/api/aed/urzadzenia/%s/potwierdzenie" % item["id_aed"]
+        bad = c.simulate_post(url, json=self.confirm_body(item, data_waznosci_baterii="jutro"))
+        self.assertEqual(bad.status_code, 422)
+        new = (datetime.date.today() + datetime.timedelta(days=900)).isoformat()
+        r = c.simulate_post(url, json=self.confirm_body(item, data_waznosci_baterii=new))
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json["rekord"]["data_waznosci_baterii"], new)
+        full = c.simulate_get("/api/aed/urzadzenia/%s?t=%s" % (item["id_aed"], item["t"])).json
+        self.assertEqual(full["data_waznosci_baterii"], new)
+        out = c.simulate_post("/api/aed/przypomnienia/uruchom", headers=self.ministry(c)).json
+        self.assertEqual(out["przypomnienia_terminow"], 0)
+
+    def test_problem_report_is_validated_but_may_be_incomplete(self):
+        c = self.client()
+        item = self.add_device(c, "PRB-1")
+        url = "/api/aed/urzadzenia/%s/potwierdzenie" % item["id_aed"]
+        for bad in ({"dostep": "PRIVATE"}, {"szerokosc_geograficzna": "abc", "dlugosc_geograficzna": 19.5},
+                    {"szerokosc_geograficzna": 10, "dlugosc_geograficzna": 10}):
+            r = c.simulate_post(url, json={"t": item["t"], "stan": "problem", "uwagi": "Brak elektrod", **bad})
+            self.assertEqual(r.status_code, 422, bad)
+            self.assertEqual(r.json["blad"]["kod"], "niepoprawne_dane")
+            self.assertTrue(r.json["blad"]["problemy"])
+        pub = c.simulate_get("/api/aed/urzadzenia/%s?t=%s" % (item["id_aed"], item["t"])).json
+        self.assertEqual((pub["dostep"], pub["status"]), ("", "zgloszony"))  # nothing was saved
+        ok = c.simulate_post(url, json={"t": item["t"], "stan": "problem", "uwagi": "Brak elektrod"})  # incomplete, valid
+        self.assertEqual(ok.status_code, 200, ok.text)
+
+    def test_confirmation_queues_spatial_match_with_imported_record(self):
+        c = self.client()
+        m = self.ministry(c)
+        near = self.imported(1, nazwa="Punkt testowy")
+        far = self.imported(2, szerokosc_geograficzna="50.6", dlugosc_geograficzna="19.6")
+        self.mapper(c, [near, far])
+        item = self.add_device(c, "SPA-1")
+        url = "/api/aed/urzadzenia/%s/potwierdzenie" % item["id_aed"]
+        self.assertEqual(c.simulate_post(url, json=self.confirm_body(item)).status_code, 200)
+        self.assertEqual(c.simulate_post(url, json=self.confirm_body(item)).status_code, 200)  # again: no second pair
+        queue = c.simulate_get("/api/aed/duplikaty", headers=m).json["dane"]
+        self.assertEqual(len(queue), 1)
+        pair = queue[0]
+        self.assertEqual((pair["rekord_a"]["id_aed"], pair["rekord_b"]["id_aed"]), (item["id_aed"], near["id_aed"]))
+        self.assertLessEqual(pair["odleglosc_m"], 1)
+        self.assertGreater(pair["podobienstwo"], 0.9)
+        self.assertEqual(c.simulate_post("/api/aed/duplikaty/%d" % pair["id"], json={"decyzja": "polacz"}, headers=m).status_code, 200)
+        self.assertEqual(c.simulate_get("/api/aed/urzadzenia/" + near["id_aed"]).json["status"], "wycofany")
+        kept = c.simulate_get("/api/aed/urzadzenia/" + item["id_aed"]).json
+        self.assertEqual(kept["status"], "aktywny")
+        self.assertIn(near["id_aed"], kept["powiazane_zrodla"])
+        self.assertEqual(c.simulate_post(url, json=self.confirm_body(item)).status_code, 200)  # decided: not re-queued
+        self.assertEqual(c.simulate_get("/api/aed/duplikaty", headers=m).json["razem"], 0)
+
+    def test_mapper_retires_vanished_import_records_and_restores_them(self):
+        c = self.client()
+        recs = [self.imported(i) for i in range(1, 5)]
+        item = self.add_device(c, "RET-1")  # a submission must never be retired
+        self.assertEqual(self.mapper(c, recs).json["wycofano"], 0)
+        self.assertEqual(self.mapper(c, recs[:3]).json["wycofano"], 1)
+        get = lambda r: c.simulate_get("/api/aed/urzadzenia/" + r["id_aed"]).json  # noqa: E731
+        self.assertEqual([get(r)["status"] for r in recs], ["niepotwierdzony"] * 3 + ["wycofany"])
+        self.assertEqual(get({"id_aed": item["id_aed"]})["status"], "zgloszony")
+        r = self.mapper(c, recs[:3]).json  # idempotent
+        self.assertEqual((r["wycofano"], r["zmieniono"]), (0, 0))
+        r = self.mapper(c, recs).json  # the record reappears
+        self.assertEqual(get(recs[3])["status"], "niepotwierdzony")
+        self.assertEqual(r["zmieniono"], 1)
+
+    def test_mapper_does_not_retire_on_a_broken_run(self):
+        c = self.client()
+        recs = [self.imported(i) for i in range(1, 7)]
+        self.mapper(c, recs)
+        for broken in ([], recs[:2]):  # empty output, drastically smaller output
+            r = self.mapper(c, broken)
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual(r.json["wycofano"], 0)
+        statuses = {x["status"] for x in c.simulate_get("/api/aed/urzadzenia").json["dane"]}
+        self.assertEqual(statuses, {"niepotwierdzony"})
+        jobs = c.simulate_get("/api/aed/zadania", headers=self.ministry(c)).json["dane"]
+        self.assertIn("podejrzanie mało", jobs[0]["bledy"][0])
+        self.assertNotIn("ostrzezenie", jobs[0]["mapper"])
+
+    def test_read_only_snapshot_is_not_fatal(self):
+        import shutil
+        if os.geteuid() == 0:
+            self.skipTest("root ignores file permissions")
+        raw = os.path.join(self.tmp.name, "raw")
+        shutil.copytree(svc.RAW_DIR, raw)
+        manifest = os.path.join(raw, "manifest.json")
+
+        def failing_download(*a, **kw):  # the script cannot write into the read-only snapshot
+            open(manifest, "w").write("{}")
+
+        c = self.client()
+        os.chmod(manifest, 0o444)
+        os.chmod(raw, 0o555)
+        try:
+            with mock.patch.object(svc, "RAW_DIR", raw), mock.patch.object(svc, "SCRIPT_RAW_DIR", raw), \
+                    mock.patch.object(svc, "DOWNLOAD_SCRIPT", __file__), \
+                    mock.patch.object(svc.subprocess, "run", side_effect=failing_download):
+                job = svc.run_job(sqlite_conn(self.path), "harmonogram", "cykl")
+        finally:
+            os.chmod(raw, 0o755)
+            os.chmod(manifest, 0o644)
+        self.assertIsNotNone(job["mapper"])  # mapper still ran on the readable snapshot
+        self.assertIsNotNone(job["przypomnienia"])
+        self.assertTrue(any("przywrócić" in e or "odświeżyć" in e for e in job["bledy"]), job["bledy"])
+        self.assertEqual(c.simulate_get("/api/aed/zadania", headers=self.ministry(c)).json["dane"][0]["id"], job["id"])
 
 
 def sqlite_conn(path):

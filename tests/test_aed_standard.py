@@ -156,6 +156,46 @@ class BuildTest(unittest.TestCase):
         _, pub = A.validate_csv(read(os.path.join(ROOT, "wzorzec", "przyklad-publikacja.csv")), "publikacja")
         self.assertTrue(pub["poprawny"], pub["problemy"])
 
+    def test_malformed_files_are_file_level_problems(self):
+        cases = {
+            b",,\n": "pusty_plik",
+            b"producent\n\"" + b"x" * 200000 + b"\"\n": "pole_za_dlugie",
+            b"producent,model,numer_seryjny\n": "brak_wierszy",
+            b"  \n\n\r\n \t\n": "pusty_plik",
+            b"producent,model\nab\x00c,d\n": "znak_nul",
+            "producent,model\nX,Y\n".encode("utf-16"): "kodowanie",
+        }
+        for data, code in cases.items():
+            records, report = A.validate_csv(data, "sprzedaz")
+            self.assertEqual(records, [], data[:20])
+            self.assertFalse(report["poprawny"])
+            self.assertIn(code, codes(report), data[:20])
+            for p in report["problemy"]:
+                self.assertEqual((p["wiersz"], p["poziom"]), (None, "blad"))
+                self.assertTrue(p["komunikat"])
+
+    def test_different_serials_never_merge_spatially(self):
+        a = rec("zgloszenie", "s1", 52.2, 21.0, producent="Philips", numer_seryjny="A-1", nazwa="Urząd")
+        b = rec("dane.gov.pl/1", "x", 52.2, 21.00001, producent="Philips", numer_seryjny="A-2", nazwa="Urząd")
+        o = rec(M.OSM, "node/1", 52.2, 21.000005, nazwa="Urząd")
+        merged, pairs, _ = deduplicate([a, b, o])
+        self.assertEqual(len(merged), 2)
+        self.assertEqual(sorted(m["numer_seryjny"] for m in merged), ["A-1", "A-2"])
+        self.assertEqual(sum(1 for m in merged if "openstreetmap:node/1" in m["powiazane_zrodla"]), 1)
+        serial_pair = {A.make_id("zgloszenie", "s1"), A.make_id("dane.gov.pl/1", "x")}
+        self.assertFalse([p for p in pairs if {p["id_aed_a"], p["id_aed_b"]} == serial_pair])
+        self.assertEqual(A.find_candidates(a, [b]), [])
+
+    def test_find_candidates_matches_batch(self):
+        pair = next(p for p in self.pairs if p["powod"] == "kandydat")
+        [c] = A.find_candidates(pair["rekord_a"], [pair["rekord_b"]])
+        self.assertEqual((c["id_aed"], c["odleglosc_m"], c["podobienstwo"], c["powod"], c["auto"]),
+                         (pair["rekord_b"]["id_aed"], pair["odleglosc_m"], pair["podobienstwo"], "kandydat", False))
+        a = rec("zgloszenie", "s1", 52.2, 21.0, producent="Philips", numer_seryjny="A-1")
+        near = rec(M.WARSAW, "9", 52.2, 21.0001)  # ~7 m
+        far = rec(M.WARSAW, "10", 52.3, 21.0)
+        self.assertEqual([(c["powod"], c["auto"]) for c in A.find_candidates(a, [near, far])], [("odleglosc", True)])
+
     def test_validate_records_does_not_mutate(self):
         rows = [{"producent": "X", "numer_seryjny": "1"}, {"producent": "x", "numer_seryjny": "1", "status": "aktywny"}]
         before = copy.deepcopy(rows)

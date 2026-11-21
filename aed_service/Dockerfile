@@ -14,7 +14,8 @@ COPY scripts scripts
 COPY datasets/raw datasets/raw
 
 # Run as a non-root user; the database lives on a volume.
-RUN useradd --system --create-home aed && mkdir /data && chown aed /data
+# The scheduled refresh rewrites the raw snapshot, so the service user must own it too.
+RUN useradd --system --create-home aed && mkdir /data && chown aed /data && chown -R aed /app/datasets
 USER aed
 
 ENV AED_PORT=8085 AED_DB=/data/aed_service.db PYTHONUNBUFFERED=1

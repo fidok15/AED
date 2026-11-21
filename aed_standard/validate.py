@@ -27,6 +27,7 @@ aed_service, the portal backend and the Angular frontend; also printed by `valid
 
 Row n is the n-th non-empty data row; validate_csv() returns records where records[n-1] is row n.
 """
+import codecs
 import csv
 import datetime
 import difflib
@@ -240,18 +241,31 @@ def validate_csv(data, profile, today=None):
     """
     if profile not in S.PROFILES:
         raise ValueError("unknown profile: %s" % profile)
-    issues = []
+    def fail(code, message):
+        return [], make_report([issue(None, None, ERROR, code, message)], 0, profile)
+
+    save_as = "W arkuszu wybierz „Zapisz jako” → „CSV UTF-8 (rozdzielany przecinkami)”."
+    if data.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
+        return fail("kodowanie", "Plik jest zapisany w kodowaniu UTF-16, a standard wymaga UTF-8. " + save_as)
     try:
         text = data.decode("utf-8-sig")
     except UnicodeDecodeError:
-        issues.append(issue(None, None, ERROR, "kodowanie",
-                            "Plik nie jest zapisany w kodowaniu UTF-8. W arkuszu wybierz „Zapisz jako” → „CSV UTF-8 (rozdzielany przecinkami)”."))
-        return [], make_report(issues, 0, profile)
-    if not text.strip():
-        issues.append(issue(None, None, ERROR, "pusty_plik", "Plik jest pusty. Dodaj wiersz nagłówka i co najmniej jeden wiersz danych."))
-        return [], make_report(issues, 0, profile)
-
-    raw = [r for r in csv.reader(io.StringIO(text, newline="")) if any(v.strip() for v in r)]
+        return fail("kodowanie", "Plik nie jest zapisany w kodowaniu UTF-8. " + save_as)
+    if "\x00" in text:
+        return fail("znak_nul", "Plik zawiera znak NUL (bajt zerowy), więc nie jest zwykłym plikiem tekstowym CSV. " + save_as)
+    try:
+        raw = [r for r in csv.reader(io.StringIO(text, newline="")) if any(v.strip() for v in r)]
+    except csv.Error as e:
+        # Field-size policy: one value may have at most csv.field_size_limit() characters (131072 by
+        # default). We do not raise it: the module runs inside the portal backend and the limit is
+        # process-wide. No real AED field comes near it; a larger value is almost always a missing quote.
+        if "field limit" in str(e):
+            return fail("pole_za_dlugie", "Jedna z wartości ma więcej niż %d znaków. Sprawdź, czy nie brakuje zamykającego "
+                                          "cudzysłowu – wtedy reszta pliku staje się jedną wartością." % csv.field_size_limit())
+        return fail("format_csv", "Pliku nie da się odczytać jako CSV (%s). " % e + save_as)
+    if not raw:
+        return fail("pusty_plik", "Plik nie zawiera żadnych wartości. Dodaj wiersz nagłówka i co najmniej jeden wiersz danych.")
+    issues = []
     header = [h.strip() for h in raw[0]]
     data_rows = raw[1:]
     first_line = text.lstrip().splitlines()[0]

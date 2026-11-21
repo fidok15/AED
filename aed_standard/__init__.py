@@ -6,10 +6,10 @@ import copy
 
 from . import schema as _schema
 from .build import build_registry, publication_export
-from .dedup import make_id
+from .dedup import find_candidates, make_id
 from .validate import completeness, validate_csv, validate_records
 
-__all__ = ["load_schema", "field_names", "validate_records", "validate_csv", "completeness", "make_id",
+__all__ = ["load_schema", "field_names", "validate_records", "validate_csv", "completeness", "make_id", "find_candidates",
            "build_registry", "publication_export"]
 
 
