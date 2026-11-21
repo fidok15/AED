@@ -50,6 +50,7 @@ services:
       COMPONENT: ${COMPONENT:-admin}
       PYTEST_MARKERS: "not depends_on_component"
     volumes:
+      - ../aed_standard:/usr/src/mcod_backend/aed_standard:ro  # AED data standard (wykaz AED, mcod/aed)
       - ./.coveragerc:/usr/src/mcod_backend/.coveragerc
       - ./.flake8:/usr/src/mcod_backend/.flake8
       - ./data:/usr/src/mcod_backend/data
@@ -107,6 +108,7 @@ services:
       # component specific
       COMPONENT: admin
     volumes:
+      - ../aed_standard:/usr/src/mcod_backend/aed_standard:ro  # AED data standard (wykaz AED, mcod/aed)
       - ./data:/usr/src/mcod_backend/data
       - ./database:/usr/src/mcod_backend/database
       - ./docker/nginx/certs/mcod.local.pem:/usr/src/mcod_backend/mcod.local.pem

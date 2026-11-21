@@ -17,6 +17,7 @@ import subprocess
 import sys
 import threading
 import traceback
+import xml.etree.ElementTree as ET
 
 import falcon
 import segno
@@ -48,7 +49,7 @@ RETIRE_MIN_SHARE = 0.5      # mapper output below this share of the current impo
 TOKEN_DAYS = 90           # every manager link stays valid this long; several links per device are valid at once
 RESEND_GAP_DAYS = 30       # do not repeat the same kind of message for a device within this gap
 
-HIDDEN_PUBLIC = ("dysponent_email", "dysponent_telefon", "numer_seryjny")
+HIDDEN_PUBLIC = aed_standard.build.HIDDEN_PUBLIC  # one rule for every public export
 CONFIRM_FIELDS = ("nazwa", "szerokosc_geograficzna", "dlugosc_geograficzna", "miejscowosc", "cecha_ulicy",
                   "nazwa_ulicy", "nr_budynku", "nr_lokalu", "kod_pocztowy", "opis_lokalizacji", "wewnatrz_budynku",
                   "dostep", "godziny_dostepu", "godziny_dostepu_opis", "data_waznosci_baterii", "data_waznosci_elektrod")
@@ -286,6 +287,7 @@ DEMO_ACCOUNTS = [  # email, password, name, role, type, city, lat, lon
 def seed(db, with_registry=True):
     if not db.execute("SELECT 1 FROM accounts LIMIT 1").fetchone():
         for email, pw, name, rola, typ, city, lat, lon in DEMO_ACCOUNTS:
+            pw = os.environ.get("AED_DEMO_PASSWORD") or pw  # public deployments: do not expose the well-known passwords
             salt = secrets.token_bytes(16)
             db.execute("INSERT INTO accounts(email,nazwa,rola,typ_podmiotu,miejscowosc,lat,lon,salt,pass_hash)"
                        " VALUES(?,?,?,?,?,?,?,?,?)", (email, name, rola, typ, city, lat, lon, salt, hash_password(pw, salt)))
@@ -716,17 +718,96 @@ def sellers(req, resp):
                                          "udzial_aktywnych": BADGE_MIN_ACTIVE_SHARE}}
 
 
-def export_csv(req, resp):
+def publication_csv(db):
+    """-> (CSV bytes, exported records). Deterministic: same registry, same bytes."""
     # Private and fictional demo devices are dropped here; ODbL, validation and the rest are aed_standard's job.
-    rows = req.context.db.execute("SELECT data FROM devices WHERE dostep != 'prywatny' AND demo=0 AND status != 'wycofany'")
-    exported = aed_standard.publication_export([json.loads(r[0]) for r in rows])
+    rows = db.execute("SELECT data FROM devices WHERE dostep != 'prywatny' AND demo=0 AND status != 'wycofany' ORDER BY id_aed")
+    exported = [r for r in aed_standard.publication_export([json.loads(r[0]) for r in rows]) if r.get("dostep") != "prywatny"]
     out = io.StringIO()
     w = csv.DictWriter(out, fieldnames=aed_standard.field_names(), extrasaction="ignore", lineterminator="\r\n")
     w.writeheader()
-    w.writerows(dict(r, **{k: "" for k in HIDDEN_PUBLIC}) for r in exported if r.get("dostep") != "prywatny")
+    w.writerows(exported)  # contacts and serial numbers are already blanked by publication_export
+    return out.getvalue().encode("utf-8"), exported
+
+
+def export_csv(req, resp):
     resp.content_type = "text/csv; charset=utf-8"
     resp.set_header("Content-Disposition", 'attachment; filename="aed_dane_gov_pl.csv"')
-    resp.data = out.getvalue().encode("utf-8")
+    resp.data = publication_csv(req.context.db)[0]
+
+
+# ---------- harvester feed for dane.gov.pl (backend/mcod/harvester, XSD 1.13) ----------
+
+HARVESTER_NS = "urn:otwarte-dane:harvester:1.13"
+FEED_DESCRIPTION = (
+    "Ogólnopolski zbiór defibrylatorów AED prowadzony przez Ministerstwo Cyfryzacji. Rekordy pochodzą od producentów "
+    "i sprzedawców (konta firm), od zarządców urządzeń (potwierdzenie przez kod QR na naklejce) oraz z otwartych zbiorów "
+    "samorządów, po ujednoliceniu do jednego standardu i deduplikacji. Jeden wiersz to jedno urządzenie; współrzędne "
+    "WGS84 w kolumnach szerokosc_geograficzna i dlugosc_geograficzna. Zbiór nie zawiera danych osobowych, numerów "
+    "seryjnych, urządzeń prywatnych ani rekordów znanych tylko z OpenStreetMap.")
+RESOURCE_DESCRIPTION = (
+    "Plik CSV (UTF-8, separator przecinek, daty RRRR-MM-DD) z rekordami spełniającymi profil publikacji standardu AED. "
+    "Kolumna status mówi, czy zarządca potwierdził urządzenie (aktywny), a kompletnosc - jak pełny jest rekord (0-100).")
+
+
+def harvester_xml_bytes(db):
+    """XML for the portal's XML harvester. Its only input is the publication CSV, so it changes only when that does."""
+    data, exported = publication_csv(db)
+    base = BASE_URL.rstrip("/")
+    # The portal re-downloads a resource file only when its link changes (resources/models.py:1287-1295, 1966),
+    # so the link carries the content version.
+    link = "%s/api/aed/eksport/dane-gov-pl.csv?wersja=%s" % (base, hashlib.md5(data).hexdigest()[:12])
+    changed = max([max(r.get("data_aktualizacji") or "", r.get("data_weryfikacji") or "") for r in exported] or [""])
+
+    def sub(parent, tag, text=None, **attrs):
+        el = ET.SubElement(parent, tag, attrs)
+        el.text = text
+        return el
+
+    def texts(parent, tag, pl, en=None):
+        el = sub(parent, tag)
+        sub(el, "polish", pl)
+        if en:
+            sub(el, "english", en)
+
+    root = ET.Element("{%s}datasets" % HARVESTER_NS)
+    ds = sub(root, "dataset", status="published")
+    sub(ds, "extIdent", "aed-krajowy-rejestr")  # stable: an extIdent missing from the feed is deleted by the portal
+    texts(ds, "title", "Krajowy rejestr AED", "National register of AED defibrillators")
+    texts(ds, "description", FEED_DESCRIPTION)
+    sub(ds, "url", base + "/aed")
+    sub(ds, "updateFrequency", "daily")
+    sub(sub(ds, "categories"), "category", "HEAL")
+    cond = sub(ds, "conditions")  # source/modification = CC BY 4.0 in the portal (datasets/models.py:568-583)
+    sub(cond, "source", "true")
+    sub(cond, "modification", "true")
+    res = sub(sub(ds, "resources"), "resource", status="published")
+    sub(res, "extIdent", "aed-krajowy-rejestr-csv")
+    sub(res, "url", link)
+    texts(res, "title", "Defibrylatory AED - zbiór krajowy (CSV)", "AED defibrillators - national dataset (CSV)")
+    texts(res, "description", RESOURCE_DESCRIPTION)
+    sub(res, "availability", "local")
+    if changed:
+        sub(res, "dataDate", changed)
+        sub(res, "lastUpdateDate", changed + "T00:00:00")
+        sub(ds, "lastUpdateDate", changed + "T00:00:00")
+    tags = sub(ds, "tags")
+    for lang, name in (("pl", "AED"), ("pl", "defibrylator"), ("pl", "pierwsza pomoc"), ("pl", "zdrowie"),
+                       ("en", "AED"), ("en", "defibrillator")):
+        sub(tags, "tag", name, lang=lang)
+    ET.register_namespace("p", HARVESTER_NS)
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def export_xml(req, resp):
+    resp.content_type = "application/xml; charset=utf-8"  # harvester/utils.py:191-197 needs text/xml or application/xml
+    resp.data = harvester_xml_bytes(req.context.db)
+
+
+def export_xml_md5(req, resp):
+    # harvester/utils.py:168-179: the sum lives at the XML address with .xml replaced by .md5, body = 32 hex digits
+    resp.content_type = "text/plain; charset=utf-8"
+    resp.text = hashlib.md5(harvester_xml_bytes(req.context.db)).hexdigest()
 
 
 # ---------- ministry panel ----------
@@ -1040,7 +1121,9 @@ def build_app(conn):
     route(app, "/urzadzenia/{id_aed}/sygnal", post=signal)
     route(app, "/statystyki", get=stats)
     route(app, "/sprzedawcy", get=sellers)
-    route(app, "/eksport/dane-gov-pl.csv", get=export_csv)
+    route(app, "/eksport/dane-gov-pl.csv", get=export_csv, head=export_csv)
+    route(app, "/eksport/dane-gov-pl.xml", get=export_xml, head=export_xml)  # the harvester sends HEAD first
+    route(app, "/eksport/dane-gov-pl.md5", get=export_xml_md5, head=export_xml_md5)
     route(app, "/duplikaty", get=list_duplicates)
     route(app, "/duplikaty/{dup_id:int}", post=decide_duplicate)
     route(app, "/wiadomosci", get=list_messages)

@@ -22,8 +22,13 @@ def publication_reasons(record):
     return reasons + ["profil publikacja – " + c for c in codes]
 
 
+# Never in the open dataset: the portal cannot tell an institutional contact from a personal one (hard rule 6),
+# and publishing serial numbers is an open decision.
+HIDDEN_PUBLIC = ("dysponent_email", "dysponent_telefon", "numer_seryjny")
+
+
 def publication_export(records):
-    return [r for r in records if not publication_reasons(r)]
+    return [dict(r, **{k: "" for k in HIDDEN_PUBLIC}) for r in records if not publication_reasons(r)]
 
 
 def build_registry(raw_dir, registry_path=None):

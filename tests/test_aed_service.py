@@ -3,12 +3,15 @@ import contextlib
 import csv
 import datetime
 import gc
+import hashlib
 import io
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 import warnings
+import xml.etree.ElementTree as ET
 from unittest import mock
 
 import aed_standard
@@ -719,6 +722,91 @@ class JobsAndDemoTest(unittest.TestCase):
         self.assertIsNotNone(job["przypomnienia"])
         self.assertTrue(any("przywrócić" in e or "odświeżyć" in e for e in job["bledy"]), job["bledy"])
         self.assertEqual(c.simulate_get("/api/aed/zadania", headers=self.ministry(c)).json["dane"][0]["id"], job["id"])
+
+
+XSD = os.path.join(ROOT, "backend", "data", "harvester", "xml_import_otwarte_dane_1_13.xsd")
+XMLLINT = "/usr/bin/xmllint"
+
+
+class HarvesterFeedTest(unittest.TestCase):
+    """XML feed for the dane.gov.pl harvester (backend/mcod/harvester/utils.py:validate_xml_url)."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.tmp = tmp.name
+        db = svc.open_db(os.path.join(tmp.name, "t.db"), with_registry=False)
+        self.addCleanup(db.close)
+        self.client = testing.TestClient(svc.build_app(db))
+        base = mock.patch.object(svc, "BASE_URL", "https://aed.example.gov.pl/")
+        base.start()
+        self.addCleanup(base.stop)
+
+    def run_mapper(self, recs):
+        r = self.client.simulate_post("/api/aed/sesja", json={"email": "ministerstwo@aed.example", "haslo": "ministerstwo-demo"})
+        with mock.patch.object(aed_standard, "build_registry", return_value=(recs, [], {"polaczenia": {"razem": 0}})):
+            out = self.client.simulate_post("/api/aed/mapper/uruchom", headers={"Authorization": "Bearer " + r.json["token"]})
+        self.assertEqual(out.status_code, 200, out.text)
+
+    def rec(self, i, **kw):
+        base = {n: "" for n in aed_standard.field_names()}
+        base.update(id_aed="AED-FEEDTEST%04d" % i, nazwa="Punkt %d" % i, szerokosc_geograficzna="52.1",
+                    dlugosc_geograficzna="21.0", miejscowosc="Warszawa", status="niepotwierdzony", zrodlo="test",
+                    zrodlo_id=str(i), licencja="CC BY 4.0", dostep="publiczny", kompletnosc="40",
+                    data_aktualizacji="2026-11-0%d" % i)
+        base.update(kw)
+        return base
+
+    def feed(self):
+        xml = self.client.simulate_get("/api/aed/eksport/dane-gov-pl.xml")
+        md5 = self.client.simulate_get("/api/aed/eksport/dane-gov-pl.md5")
+        self.assertEqual((xml.status_code, md5.status_code), (200, 200))
+        self.assertIn("application/xml", xml.headers["content-type"])
+        self.assertEqual(md5.text, hashlib.md5(xml.content).hexdigest())
+        return xml.content, md5.text
+
+    def test_feed_valid_stable_and_versioned(self):
+        osm = self.rec(3, licencja="ODbL 1.0", zrodlo="openstreetmap", nazwa="Tylko OSM")
+        self.run_mapper([self.rec(1), self.rec(2), osm, self.rec(4, dostep="prywatny", nazwa="Prywatny")])
+        head = self.client.simulate_head("/api/aed/eksport/dane-gov-pl.xml")
+        self.assertEqual(head.status_code, 200)  # the harvester checks headers with HEAD first
+        self.assertIn("application/xml", head.headers["content-type"])
+        xml, md5 = self.feed()
+        self.assertEqual(self.feed(), (xml, md5))  # unchanged registry -> identical bytes and sum
+
+        root = ET.fromstring(xml)
+        self.assertEqual(root.tag, "{urn:otwarte-dane:harvester:1.13}datasets")  # version read from the namespace
+        self.assertEqual([e.text for e in root.iter("extIdent")], ["aed-krajowy-rejestr", "aed-krajowy-rejestr-csv"])
+        self.assertEqual(root.find("dataset/lastUpdateDate").text, "2026-11-02T00:00:00")  # newest exported record
+        link = root.find("dataset/resources/resource/url").text
+        self.assertTrue(link.startswith("https://aed.example.gov.pl/api/aed/eksport/dane-gov-pl.csv?wersja="), link)
+        csv_text = self.client.simulate_get(link.split("gov.pl", 1)[1].split("?")[0]).text
+        self.assertIn("Punkt 1", csv_text)
+        self.assertNotIn("Tylko OSM", csv_text)  # ODbL and private records never reach the linked file
+        self.assertNotIn("Prywatny", csv_text)
+
+        if os.path.exists(XMLLINT) and os.path.exists(XSD):
+            path = os.path.join(self.tmp, "feed.xml")
+            with open(path, "wb") as f:
+                f.write(xml)
+            check = subprocess.run([XMLLINT, "--noout", "--schema", XSD, path], capture_output=True, text=True)
+            self.assertEqual(check.returncode, 0, check.stderr)
+
+        self.run_mapper([self.rec(1), self.rec(2, nazwa="Punkt 2 po zmianie"), osm])
+        xml2, md5_2 = self.feed()
+        self.assertNotEqual(md5_2, md5)
+        self.assertNotEqual(ET.fromstring(xml2).find("dataset/resources/resource/url").text, link)  # new link -> re-download
+
+    @unittest.skipUnless(os.path.exists(XMLLINT), "xmllint not available")
+    def test_xsd_rejects_http_resource_link(self):
+        """Why AED_BASE_URL must be https: XSD 1.13 restricts resource/url to https://.* (line 578-588)."""
+        self.run_mapper([self.rec(1)])
+        with mock.patch.object(svc, "BASE_URL", "http://localhost:8080"):
+            xml = self.client.simulate_get("/api/aed/eksport/dane-gov-pl.xml").content
+        path = os.path.join(self.tmp, "feed.xml")
+        with open(path, "wb") as f:
+            f.write(xml)
+        self.assertNotEqual(subprocess.run([XMLLINT, "--noout", "--schema", XSD, path], capture_output=True).returncode, 0)
 
 
 def sqlite_conn(test, path):
