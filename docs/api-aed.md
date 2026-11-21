@@ -102,7 +102,17 @@ Sygnał (żądanie): `{"typ": "jest" | "brak" | "uszkodzony" | "zamkniety", "sze
 | `GET /api/aed/urzadzenia.geojson` | każdy | punkty do mapy: `id_aed`, `nazwa`, `status`, `dostep`, `godziny_dostepu`, `kompletnosc`, `zrodlo`; parametr `bbox=minLon,minLat,maxLon,maxLat` |
 | `GET /api/aed/statystyki` | każdy | `razem`, `srednia_kompletnosc`, `wg_statusu`, `wg_zrodla`, `dostawcy`, `potwierdzone_90_dni`, `ostatnie_uruchomienia: {mapper, przypomnienia}` (czas ostatniego udanego uruchomienia albo `null`) |
 | `GET /api/aed/sprzedawcy` | każdy | `{"dane": [...], "progi": {...}}`; firma: nazwa, `typ_podmiotu`, miejscowość, współrzędne siedziby, `liczba_urzadzen`, `srednia_kompletnosc`, `udzial_aktywnych`, `odznaka` |
-| `GET /api/aed/eksport/dane-gov-pl.csv` | każdy | eksport publikacyjny (profil `publikacja`, bez ODbL, bez `dostep = prywatny`, bez rekordów wycofanych i demonstracyjnych; kolumny kontaktu i numeru seryjnego puste) |
+| `GET /api/aed/eksport/dane-gov-pl.csv` | każdy | eksport publikacyjny (profil `publikacja`, bez ODbL, bez `dostep = prywatny`, bez rekordów wycofanych i demonstracyjnych; kolumny kontaktu i numeru seryjnego puste). Parametr `wersja` jest ignorowany (patrz niżej) |
+| `GET`, `HEAD /api/aed/eksport/dane-gov-pl.xml` | każdy | zasilanie harvestera XML dane.gov.pl (schemat 1.13, `application/xml`): jeden zbiór `aed-krajowy-rejestr` z jednym zasobem `aed-krajowy-rejestr-csv`, który wskazuje na eksport publikacyjny CSV |
+| `GET /api/aed/eksport/dane-gov-pl.md5` | każdy | suma MD5 pliku XML (32 znaki szesnastkowe, `text/plain`) |
+
+Zasilanie XML a harvester portalu (`backend/mcod/harvester/utils.py:168-255`):
+
+- portal szuka sumy pod adresem XML z końcówką `.xml` zamienioną na `.md5` (stąd `dane-gov-pl.md5`, nie `dane-gov-pl.xml.md5`), najpierw wysyła `HEAD` i sprawdza typ treści;
+- XML zależy tylko od zawartości eksportu CSV, więc przy niezmienionym rejestrze ma te same bajty i tę samą sumę; daty `lastUpdateDate` i `dataDate` to najnowsza `data_aktualizacji` lub `data_weryfikacji` wśród eksportowanych rekordów;
+- link do CSV ma parametr `wersja` (12 znaków MD5 pliku CSV): portal pobiera plik zasobu ponownie tylko wtedy, gdy zmieni się jego link (`backend/mcod/resources/models.py:1287-1295`, `1966`);
+- linki budowane są z `AED_BASE_URL` (ten sam adres co w kodach QR). Schemat 1.13 wymaga, by adres zasobu zaczynał się od `https://`, więc przy adresie `http://` XML nie przejdzie walidacji portalu;
+- GeoJSON nie jest w zasilaniu: `GET /urzadzenia.geojson` zawiera też rekordy z OSM (ODbL) i demonstracyjne.
 
 Lista stronicowana: `{"dane": [...], "razem": 19000, "strona": 1, "na_stronie": 50}`.
 

@@ -264,6 +264,18 @@ class ResourceForm(forms.ModelForm, HighValueDataFormValidatorMixin):
         ),
         widget=CheckboxSelect(attrs={"class": "inline"}),
     )
+    contains_aed_list = forms.ChoiceField(
+        required=False,
+        initial=False,
+        label="Wykaz AED",
+        choices=[(True, _("Yes")), (False, _("No"))],
+        help_text=(
+            "Wskazanie TAK dla opublikowanego zasobu oznacza, że zasób jest wykazem defibrylatorów AED tej "
+            "instytucji w strukturze standardu AED (CSV UTF-8, przecinek, nazwy kolumn ze standardu). Portal "
+            "sprawdza plik przy zapisie i codziennie włącza wszystkie wykazy AED do Krajowego wykazu AED."
+        ),
+        widget=CheckboxSelect(attrs={"class": "inline"}),
+    )
     confirm_save = forms.CharField(required=False, widget=forms.HiddenInput())
 
     def __init__(self, *args, **kwargs):
@@ -333,10 +345,33 @@ class ResourceForm(forms.ModelForm, HighValueDataFormValidatorMixin):
             if not is_main_dga_resource and organization:
                 self._remove_dga_flag_from_current_dga_resource_if_needed(data, organization)
 
+        self._validate_aed_list_file(data, dataset)
+
         self.validate_high_value_data_flags_conflict(data)
         if organization:
             self._validate_high_value_data_from_ec_list_organization(data, organization)
         return data
+
+    def clean_contains_aed_list(self) -> bool:
+        return self.cleaned_data.get("contains_aed_list") in (True, "True")
+
+    def _validate_aed_list_file(self, data: dict, dataset: Optional[Dataset]) -> None:
+        """AED list check with aed_standard (mcod/aed). XLSX and links are checked when lists are merged."""
+        from mcod.aed.aed_utils import validate_aed_list_file
+
+        if not (data.get("contains_aed_list") and dataset):
+            return
+        file = data.get("file")
+        if file and file.name.lower().endswith(".csv"):
+            content = file.read()
+            file.seek(0)
+        elif not file and self.instance.pk and self.instance.format == "csv" and self.instance.main_file:
+            with self.instance.main_file.open("rb") as f:
+                content = f.read()
+        else:
+            return
+        for message in validate_aed_list_file(content, self.instance, dataset):
+            self.add_error("contains_aed_list", message)
 
     def _validate_data_date(self, data: dict) -> None:
         data_date_err = Resource.get_auto_data_date_errors(data)

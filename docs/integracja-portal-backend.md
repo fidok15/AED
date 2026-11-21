@@ -43,6 +43,8 @@ Minimalna zmiana dla nowego typu: stała i wybór w `organizations/models.py`, d
 
 ## Rekomendowany kształt integracji
 
+Stan na 22.11: krok 0 zrobiony (wolumen `../aed_standard` w obu kotwicach `docker-compose.local.yml`). Wykaz AED – zgłaszanie i scalanie wykazów jako zasobów portalu, wzorem wykazu DGA – jest w `mcod/aed/`; instrukcja: `docs/wykaz-aed-w-portalu.md`, analiza: `docs/wykaz-dga-analiza.md`. Kod Django nie był jeszcze uruchomiony w portalu.
+
 Wszystko w nowej aplikacji `mcod/aed`, żeby zmianę dało się pokazać jako łatkę.
 
 | Krok | Zmiana | Pliki | Szac. godz. |
@@ -65,8 +67,8 @@ Razem ok. 20 godzin dla osoby znającej Django – więcej, niż mamy. Dlatego k
 - **Uwierzytelnienie API:** `mcod/core/api/hooks.py:53` – `login_required` czyta `Authorization: Bearer <JWT>`; role `editor`, `admin`, `agent`, `official`. Logowanie: `POST /auth/login`.
 - **Trasy API:** płaska lista w `mcod/routes.py`; aplikację rejestruje `mcod/api.py:106-117`.
 - **Ścieżka pliku CSV:** `ResourceFile` → `process_created_file` (`resources/models.py:2019`) → walidacja typu pliku → walidacja tabelaryczna goodtables 2.1.4 (`indexed_data.py:610-641`: struktura, schemat, zero wierszy, limit 10 błędów) → ocena otwartości → indeks.
-- **Mapa:** znaczniki w `Resource.tabular_data_schema["fields"][i]["geo"]`; dozwolone zestawy: `{label, b, l}`, `{label, uaddress}`, `{label, place, postal_code[, house_number[, street]]}`; `l` i `b` muszą być liczbowe (`resources/forms.py:83-168`). Automatycznego znakowania nie ma.
-- **Harvester XML:** uruchamiany codziennie o 03:00; wymaga adresu HTTPS kończącego się na `.xml`, pliku `.md5` obok, typu treści XML i zgodności z XSD (najnowszy: 1.13 w `data/harvester/`). `extIdent` (1–36 znaków) jest kluczem; obiekt, który zniknie z pliku, jest usuwany. Przykłady: `statics/harvester/otwarte_dane_sample_{min,max}.xml`.
+- **Mapa:** znaczniki w `Resource.tabular_data_schema["fields"][i]["geo"]`; dozwolone zestawy: `{label, b, l}`, `{label, uaddress}`, `{label, place, postal_code[, house_number[, street]]}`; `l` i `b` muszą być liczbowe (`resources/forms.py:83-168`). Automatycznego znakowania nie ma. Nasz CSV bez poprawki typów nie przechodzi walidacji danych (`nr_budynku`, `zrodlo_id`, `kod_terc`, `kod_simc` trzeba ustawić na tekst) – szczegóły i kroki: `docs/panel-portalu-krok-po-kroku.md`.
+- **Harvester XML:** uruchamiany codziennie o 03:00; adres XML kończy się na `.xml` (może być `http`), suma leży pod tym adresem z `.xml` zamienionym na `.md5`, typ treści XML, zgodność z XSD (najnowszy: 1.13 w `data/harvester/`). HTTPS jest wymagany dla adresów **zasobów** w pliku (XSD 1.13 i `harvester/serializers.py:133-141`), certyfikat nie jest sprawdzany. `extIdent` (1–36 znaków) jest kluczem; obiekt, który zniknie z pliku, jest usuwany. Przykłady: `statics/harvester/otwarte_dane_sample_{min,max}.xml`. Usługa wystawia zasilanie pod `/api/aed/eksport/dane-gov-pl.xml` (`docs/api-aed.md`); konfiguracja źródła w panelu, obejście HTTPS lokalnie i ręczne uruchomienie importu: `docs/panel-portalu-krok-po-kroku.md`.
 - **Poczta:** wzorzec przypomnień w `datasets/models.py:829-849` i `datasets/tasks.py:136`; szablony w `mcod/templates/mails/`.
 
 ## Licencja kodu

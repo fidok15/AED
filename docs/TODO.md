@@ -39,7 +39,35 @@ Agent frontendowy został przerwany limitem przed raportem; jego praca jest w co
 - [ ] Zrzuty: widok tabeli, mapa, API zasobu, poziom otwartości → do prezentacji i `docs/instrukcja-dla-jury.md`.
 - [ ] Plan B, jeśli portal nie wstanie: `docs/integracja-portal-backend.md` jako plan wdrożenia i wpis w ograniczeniach.
 
-## 5. Kampania – 25% oceny (zespół)
+Zrobione 22.11 (PR `feat/zasilanie-xml-i-panel-portalu`), **w portalu jeszcze nieuruchomione**:
+
+- [x] Zasilanie XML dla harvestera: `/api/aed/eksport/dane-gov-pl.xml` i `.md5`, zgodne z XSD 1.13.
+- [x] Wykaz AED w forku portalu wzorem wykazu DGA (`backend/mcod/aed/`, `aed_standard/wykaz.py`, pole `contains_aed_list`), publiczny odczyt `GET /aed-aggregated`.
+- [x] Przegląd Codexem: 5 znalezisk, wszystkie poprawione (kontakty i numer seryjny wycinane z każdego eksportu, licencja CC BY 4.0 zbioru zbiorczego, unikalność identyfikatorów, weryfikacja certyfikatu przy pobieraniu wykazu, hasło kont demo z `AED_DEMO_PASSWORD`).
+- [x] Wdrożenie pod domeną: `docker-compose.prod.yml` + `.env.example` (Caddy, automatyczny HTTPS).
+
+Do zrobienia przez osobę z działającym portalem (`localhost:8001`, `admin@mcod.local`):
+
+- [ ] Migracje i przejście `docs/wykaz-aed-w-portalu.md`: oznaczyć zasoby jako wykaz AED, uruchomić `manage.py create_main_aed_resource`, sprawdzić `/aed-aggregated`, tabelę i mapę. Kod Django był tylko kompilowany.
+- [ ] Przejść `docs/panel-portalu-krok-po-kroku.md` (zasób CSV, typy kolumn, źródło harvestera) i zrobić zrzuty.
+- [ ] Testy Django `backend/mcod/aed/tests/` – nieuruchomione.
+
+Decyzje do podjęcia:
+
+- [ ] Wykaz AED: kilka wykazów na instytucję i każdy typ instytucji (dziś tak) czy jak DGA – jeden, tylko `local`/`state`?
+- [ ] Czy wymagać `id_aed` albo `zrodlo_id` w wykazie (bez nich identyfikator zależy od kolejności wierszy)?
+- [ ] Czy dodać `containsAedList` do XSD harvestera (wersja 1.14), żeby wykaz z harvestera oznaczał się sam?
+- [ ] Hasło kont demo na serwerze publicznym: ustawić `AED_DEMO_PASSWORD` (jury dostaje hasło osobno) czy zostawić znane hasła demo?
+- [ ] Wdrożenie pod domeną sprawdzone tylko jako poprawna konfiguracja compose – uruchomić na serwerze.
+
+Odłożone – pomysły z przeglądu projektu (22.11), na razie nie ruszamy:
+
+- [ ] Kreator źródła w panelu ministerstwa: wgranie pliku, podpowiedź mapowania kolumn po nagłówkach, podgląd, zapis do `aed_standard/sources.json` (dziś nowe źródło wymaga ręcznej edycji JSON).
+- [ ] Uzupełnianie `kod_terc` i `kod_simc` ze współrzędnych – puste w trzech z czterech zbiorów miejskich; podnosi kompletność bez udziału właściciela.
+- [ ] „Przejmij punkt": zarządca potwierdza rekord istniejący tylko w OSM, dane stają się jego i wchodzą do eksportu. Najpierw sprawdzić, ile z tej ścieżki obsługuje już ekran QR.
+- [ ] Słabość do pokazania na slajdzie ograniczeń: eksport to 781 rekordów, z czego 708 z Warszawy; wszystkie rekordy rejestru mają status `niepotwierdzony`; średnia kompletność 39,2.
+
+## 5. Kampania – 25% oceny (kolega z zespołu, w toku)
 
 - [ ] Wybrać nazwę i hasło akcji (kandydaci: `kampania/nazwa-i-haslo.md`); sprawdzić domenę i rejestry znaków.
 - [ ] Narysować logo; eksport do `.svg`, `.png`, `.jpg`, `.pdf`; warianty kolorowy, monochromatyczny, negatyw (`kampania/brief-logo.md`).
