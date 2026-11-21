@@ -3,7 +3,8 @@
 Sources:
 - dane.gov.pl: every resource of the known AED datasets (via API 1.4),
 - OpenAEDMap (OpenStreetMap data, ODbL): country export for Poland,
-- Warsaw open data API (requires a free token in WARSAW_API_TOKEN; without it only the API docs are saved).
+- Warsaw open data API (requires a free token in WARSAW_API_TOKEN, read from the environment or the .env file
+  in the repository root; without it only the API docs are saved).
 
 Files land in datasets/raw/<source>/ and datasets/raw/manifest.json describes each download.
 
@@ -38,6 +39,15 @@ WARSAW_DOC_URLS = {
     "api_parametry.json": "https://dane.um.warszawa.pl/files/scb_lokalizacja_defibrylatorow_pa.json",
     "api_przyklady.json": "https://dane.um.warszawa.pl/files/scb_lokalizacja_defibrylatorow_pw.json",
 }
+
+
+def load_dotenv(path=ROOT / ".env"):
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        key, separator, value = line.partition("=")
+        if separator and not key.strip().startswith("#"):
+            os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
 
 
 def fetch(url, data=None, headers=None):
@@ -145,6 +155,7 @@ def download_warsaw(manifest, errors):
 
 
 def main():
+    load_dotenv()
     manifest, errors = [], []
     download_dane_gov(manifest, errors)
     download_openaedmap(manifest, errors)
