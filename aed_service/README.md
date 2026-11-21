@@ -47,6 +47,41 @@ Stałe są na górze `aed_service/app.py`; progi zwraca też `GET /api/aed/sprze
 
 Stałe w `app.py`: prośba o potwierdzenie po 183 dniach bez weryfikacji, przypomnienie 60 dni przed końcem ważności baterii lub elektrod, `nieaktualny` po 365 dniach. Ten sam rodzaj wiadomości dla urządzenia nie jest powtarzany przez 30 dni (więc ponowne uruchomienie tego samego dnia niczego nie dubluje).
 
+## Harmonogram zadań cyklicznych
+
+Przy starcie (`python -m aed_service`) działa wątek-demon, który co `AED_CYCLE_HOURS` godzin (domyślnie 24, `0` wyłącza; w testach nie startuje) wykonuje cykl:
+
+1. odświeżenie źródeł: `scripts/download_aed_data.py` jako podproces (o ile plik istnieje); brak sieci lub tokenu Warszawy nie przerywa cyklu, używana jest migawka z `datasets/raw`,
+2. mapper (upsert rekordów z importu; rekordy ze zgłoszeń, potwierdzone przez zarządcę i scalone nie są ruszane),
+3. przypomnienia.
+
+Każde uruchomienie (także ręczne przyciski ministerstwa) trafia do historii: `GET /api/aed/zadania` (ministerstwo, 20 ostatnich, najnowsze pierwsze):
+
+```json
+{"dane": [{"id": 3, "start": "2026-11-21T18:00:00", "koniec": "2026-11-21T18:00:09",
+  "wyzwalacz": "harmonogram", "rodzaj": "cykl", "odswiezono": "Pobrano źródła z sieci",
+  "mapper": {"dodano": 0, "zmieniono": 2, "polaczono": 266, "do_przegladu": 214},
+  "przypomnienia": {"nieaktualne": 0, "prosby_o_potwierdzenie": 1, "przypomnienia_terminow": 1},
+  "bledy": ["Źródło niedostępne: ... Użyto zapisanej migawki."]}]}
+```
+
+Odświeżenie jest bezpieczne: wpisy starego `datasets/raw/manifest.json`, których skrypt nie pobrał ponownie, są zachowywane (ich pliki zostają na dysku), a po awarii skryptu manifest jest przywracany. `odswiezono` mówi, co faktycznie się udało, np. „Odświeżono 1 z 18 plików źródłowych; pozostałe z zapisanej migawki”, a `bledy` zawiera krótkie komunikaty bez szczegółów wyjątków. **Uwaga:** przy uruchomieniu lokalnym (poza Dockerem) odświeżenie nadpisuje pliki w `datasets/raw/`, które są śledzone przez git; `AED_CYCLE_HOURS=0` temu zapobiega.
+
+`wyzwalacz`: `harmonogram` | `ministerstwo`; `rodzaj`: `cykl` | `mapper` | `przypomnienia`; `odswiezono` jest `null`, gdy nie pobierano źródeł; `mapper` lub `przypomnienia` jest `null`, gdy nie były częścią uruchomienia albo się nie udały (wtedy jest wpis w `bledy`). Jedno zadanie naraz: ręczne uruchomienie w trakcie innego zwraca 409 `zadanie_trwa`. `GET /api/aed/statystyki` ma też `ostatnie_uruchomienia: {"mapper": "<czas>"|null, "przypomnienia": "<czas>"|null}` (ostatnie udane).
+
+## Dane demonstracyjne
+
+Przy pierwszym starcie (`AED_DEMO_SEED`, domyślnie włączone; `0` wyłącza) powstają fikcyjne urządzenia, tą samą ścieżką co prawdziwe zgłoszenia i potwierdzenia (walidacja `aed_standard`, tokeny, skrzynka):
+
+- Pulsar Medical: 12 urządzeń, 10 potwierdzonych w różnych miastach (odznaka: tak), 2 w statusie `zgloszony` (czekają na aktywację, link jest w skrzynce ministerstwa); jedno ma baterię ważną jeszcze ok. 30 dni, jedno ostatnie potwierdzenie sprzed 200 dni, więc `POST /przypomnienia/uruchom` wygeneruje prawdziwe wiadomości,
+- Serwis Rytm: 6 urządzeń, 2 potwierdzone, 4 `zgloszony` (odznaka: nie).
+
+Nazwy, e-maile (`@demo.example`) i numery seryjne (`DEMO-PUL-001`, ...) są fikcyjne. Rekordy demo mają w bazie flagę `demo = 1`: są widoczne w rejestrze, na mapie i w statystykach, ale **nie trafiają do eksportu `eksport/dane-gov-pl.csv`**. Dane demo nie powstają, gdy baza ma już jakiekolwiek zgłoszenia firm.
+
+## Starsza baza
+
+Przy starcie schemat jest uzupełniany (`migrate`: kolumna `demo`, tabela `jobs`), więc baza z poprzedniej wersji działa bez resetu. Zmiany mapowania w `aed_standard` (np. Warszawa „Prywatny” -> `ograniczony`) trafią do starej bazy po uruchomieniu mappera.
+
 ## Reset bazy
 
 Zatrzymaj usługę i usuń plik: `rm aed_service/aed_service.db` (kolejny start zasieje dane od nowa). Przykładowy plik `wzorzec/przyklad-sprzedawca.csv` można wgrać raz; powtórne wgranie zgłosi duplikaty.
@@ -60,5 +95,5 @@ uv run --python 3.13 --with-requirements aed_service/requirements.txt python -m 
 ## Uwagi prototypu
 
 - Wiadomości nie są wysyłane; trafiają do skrzynki (`GET /api/aed/wiadomosci`, konto ministerstwa). Zawierają link z tokenem zarządcy (w bazie tylko hash tokenu).
-- Eksport i widok publiczny nie zawierają `numer_seryjny`, `dysponent_email` i `dysponent_telefon`.
+- Eksport (bez rekordów `prywatny` i demo) i widok publiczny nie zawierają `numer_seryjny`, `dysponent_email` i `dysponent_telefon`.
 - Brak limitu prób logowania i serwer jednowątkowy (`wsgiref`) – do demonstracji, nie do produkcji.

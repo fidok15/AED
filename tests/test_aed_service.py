@@ -237,5 +237,140 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual(self.client.simulate_get("/api/aed/duplikaty", headers=m).json["razem"], 0)
 
 
+class JobsAndDemoTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.path = os.path.join(self.tmp.name, "t.db")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def client(self, **kw):
+        return testing.TestClient(svc.create_app(self.path, with_registry=False, **kw))
+
+    def ministry(self, c):
+        r = c.simulate_post("/api/aed/sesja", json={"email": "ministerstwo@aed.example", "haslo": "ministerstwo-demo"})
+        return {"Authorization": "Bearer " + r.json["token"]}
+
+    def test_job_history_and_failure_tolerance(self):
+        c = self.client()
+        m = self.ministry(c)
+        self.assertEqual(c.simulate_get("/api/aed/zadania").status_code, 401)
+        self.assertIsNone(c.simulate_get("/api/aed/statystyki").json["ostatnie_uruchomienia"]["mapper"])
+        c.simulate_post("/api/aed/przypomnienia/uruchom", headers=m)
+        empty = ([], [], {"polaczenia": {"razem": 0}})
+        with mock.patch.object(aed_standard, "build_registry", return_value=empty):
+            self.assertEqual(c.simulate_post("/api/aed/mapper/uruchom", headers=m).status_code, 200)
+            # scheduled cycle: download fails, the cycle carries on with the snapshot on disk
+            with mock.patch.object(svc, "refresh_sources", return_value=(None, ["Nie udało się pobrać źródeł (test)."])):
+                job = svc.run_job(sqlite_conn(self.path), "harmonogram", "cykl")
+        self.assertEqual((job["wyzwalacz"], job["rodzaj"]), ("harmonogram", "cykl"))
+        self.assertEqual(job["bledy"], ["Nie udało się pobrać źródeł (test)."])
+        self.assertIsNotNone(job["mapper"])
+        self.assertIsNotNone(job["przypomnienia"])
+        hist = c.simulate_get("/api/aed/zadania", headers=m).json["dane"]
+        self.assertEqual([j["rodzaj"] for j in hist], ["cykl", "mapper", "przypomnienia"])
+        self.assertEqual(hist[2]["wyzwalacz"], "ministerstwo")
+        last = c.simulate_get("/api/aed/statystyki").json["ostatnie_uruchomienia"]
+        self.assertTrue(last["mapper"] and last["przypomnienia"])
+        # a mapper crash is recorded in Polish, not leaked
+        with mock.patch.object(aed_standard, "build_registry", side_effect=RuntimeError("boom")), \
+                mock.patch.object(svc, "refresh_sources", return_value=(None, [])):
+            job = svc.run_job(sqlite_conn(self.path), "harmonogram", "cykl")
+        self.assertIsNone(job["mapper"])
+        self.assertIn("Mapper", job["bledy"][0])
+        self.assertNotIn("boom", job["bledy"][0])
+
+    def test_jobs_do_not_overlap(self):
+        c = self.client()
+        m = self.ministry(c)
+        with svc.JOB_LOCK:
+            r = c.simulate_post("/api/aed/mapper/uruchom", headers=m)
+        self.assertEqual((r.status_code, r.json["blad"]["kod"]), (409, "zadanie_trwa"))
+
+    def test_failed_refresh_keeps_snapshot_and_mapper_works(self):
+        import shutil
+        raw = os.path.join(self.tmp.name, "raw")  # temporary copy, never the real datasets/raw
+        shutil.copytree(svc.RAW_DIR, raw)
+        manifest = os.path.join(raw, "manifest.json")
+        original = json.load(open(manifest, encoding="utf-8"))
+        files = [e["file"] for e in original["files"]]
+
+        def fake_script(new_manifest):  # what a half-failed download leaves behind
+            def run(*a, **kw):
+                if isinstance(new_manifest, Exception):
+                    raise new_manifest
+                with open(manifest, "w", encoding="utf-8") as f:
+                    f.write(new_manifest if isinstance(new_manifest, str) else json.dumps(new_manifest))
+                return mock.Mock(returncode=0)
+            return run
+
+        subset = {"files": original["files"][:1], "errors": [
+            "dane.gov.pl resource 1 (https://x): <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed>",
+            "Warsaw API: WARSAW_API_TOKEN is not set"]}
+        c = self.client()
+        with mock.patch.object(svc, "RAW_DIR", raw), mock.patch.object(svc, "DOWNLOAD_SCRIPT", __file__):
+            for label, fake in (("subset", subset), ("crash", RuntimeError("secret detail")), ("garbage", "{not json")):
+                with mock.patch.object(svc.subprocess, "run", side_effect=fake_script(fake)):
+                    job = svc.run_job(sqlite_conn(self.path), "harmonogram", "cykl")
+                on_disk = [e["file"] for e in json.load(open(manifest, encoding="utf-8"))["files"]]
+                self.assertEqual(sorted(on_disk), sorted(files), label)
+                self.assertIsNotNone(job["mapper"], (label, job["bledy"]))  # mapper step completed
+                self.assertIsNotNone(job["przypomnienia"], label)
+                self.assertNotIn("secret detail", json.dumps(job["bledy"]))
+                self.assertNotIn("Traceback", json.dumps(job["bledy"]))
+                if label == "subset":
+                    self.assertTrue(job["odswiezono"].startswith("Odświeżono 1 z %d" % len(files)), job["odswiezono"])
+                    self.assertIn("brak połączenia lub błąd certyfikatu", job["bledy"][0])
+                    self.assertNotIn("CERTIFICATE", json.dumps(job["bledy"]))
+                    self.assertIn("brak tokenu", job["bledy"][1])
+                else:
+                    self.assertIsNone(job["odswiezono"], label)
+                    self.assertTrue(job["bledy"], label)
+
+    def test_refresh_sources_survives_failures(self):
+        with mock.patch.object(svc.subprocess, "run", side_effect=OSError("no network")):
+            done, errors = svc.refresh_sources()
+        self.assertIsNone(done)
+        self.assertIn("migawki", errors[0])
+        with mock.patch.object(svc.subprocess, "run", return_value=mock.Mock(returncode=1)):
+            self.assertIn("kod 1", svc.refresh_sources()[1][0])
+        self.assertIsNone(svc.start_scheduler(self.path, 0))
+
+    def test_demo_seed_story(self):
+        c = self.client(demo=True)
+        m = self.ministry(c)
+        sel = {s["typ_podmiotu"]: s for s in c.simulate_get("/api/aed/sprzedawcy").json["dane"]}
+        self.assertEqual((sel["producent"]["liczba_urzadzen"], sel["producent"]["odznaka"]), (12, "tak"))
+        self.assertEqual((sel["sprzedawca"]["liczba_urzadzen"], sel["sprzedawca"]["odznaka"]), (6, "nie"))
+        # visible in the registry, absent from the publication export
+        self.assertEqual(c.simulate_get("/api/aed/urzadzenia").json["razem"], 18)
+        self.assertEqual(len(list(csv.DictReader(io.StringIO(c.simulate_get("/api/aed/eksport/dane-gov-pl.csv").text)))), 0)
+        # waiting activation links and real reminders
+        msgs = c.simulate_get("/api/aed/wiadomosci", headers=m).json["dane"]
+        self.assertEqual(sum(1 for x in msgs if x["rodzaj"] == "aktywacja"), 18)
+        out = c.simulate_post("/api/aed/przypomnienia/uruchom", headers=m).json
+        self.assertGreaterEqual(out["przypomnienia_terminow"], 1)
+        self.assertGreaterEqual(out["prosby_o_potwierdzenie"], 1)
+        # restarting does not seed twice
+        self.assertEqual(self.client(demo=True).simulate_get("/api/aed/urzadzenia").json["razem"], 18)
+
+    def test_old_database_is_upgraded(self):
+        self.client()
+        conn = sqlite_conn(self.path)
+        conn.execute("ALTER TABLE devices DROP COLUMN demo")
+        conn.execute("DROP TABLE jobs")
+        conn.commit()
+        c = self.client()
+        self.assertEqual(c.simulate_get("/api/aed/zadania", headers=self.ministry(c)).json["dane"], [])
+
+
+def sqlite_conn(path):
+    import sqlite3
+    conn = sqlite3.connect(path)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
 if __name__ == "__main__":
     unittest.main()
