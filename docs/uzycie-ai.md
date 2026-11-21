@@ -39,3 +39,4 @@ Claude Code (model Claude firmy Anthropic) w roli asystenta programisty: sesja p
 | Data | Co zrobiono z AI | Kto odebrał |
 |---|---|---|
 | 2026-11-21 | research; plan; standard danych; walidator, mapper i deduplikacja; usługa API; pierwsza wersja modułu AED we frontendzie; Docker; szkice materiałów kampanii i prezentacji | fidok15 |
+| 2026-11-21 | przegląd stanu aplikacji i jej uruchomienie; zamykanie połączeń SQLite w usłudze i testach (koniec `ResourceWarning`) | Jakub Zawadzki |

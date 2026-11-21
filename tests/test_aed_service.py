@@ -1,11 +1,14 @@
 """End-to-end tests of aed_service on a temporary database (Falcon testing client, real aed_standard)."""
+import contextlib
 import csv
 import datetime
+import gc
 import io
 import json
 import os
 import tempfile
 import unittest
+import warnings
 from unittest import mock
 
 import aed_standard
@@ -32,6 +35,11 @@ def seller_csv(serials, bad_row=False):
     return out.getvalue().encode("utf-8")
 
 
+def read_bytes(path):
+    with open(path, "rb") as f:
+        return f.read()
+
+
 def multipart(data, filename="zgloszenie.csv"):
     b = "XXBOUNDARYXX"
     body = ('--%s\r\nContent-Disposition: form-data; name="plik"; filename="%s"\r\nContent-Type: text/csv\r\n\r\n'
@@ -39,14 +47,28 @@ def multipart(data, filename="zgloszenie.csv"):
     return {"body": body, "headers": {"Content-Type": "multipart/form-data; boundary=" + b}}
 
 
+class DbLifecycleTest(unittest.TestCase):
+    def test_closed_app_leaves_no_open_database(self):
+        with tempfile.TemporaryDirectory() as tmp, warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            conn = svc.open_db(os.path.join(tmp, "t.db"), with_registry=False)
+            testing.TestClient(svc.build_app(conn)).simulate_get("/api/aed/statystyki")
+            conn.close()
+            del conn
+            gc.collect()
+        self.assertEqual([str(w.message) for w in caught if issubclass(w.category, ResourceWarning)], [])
+
+
 class ServiceTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.TemporaryDirectory()
-        cls.client = testing.TestClient(svc.create_app(os.path.join(cls.tmp.name, "t.db"), with_registry=False))
+        cls.db = svc.open_db(os.path.join(cls.tmp.name, "t.db"), with_registry=False)
+        cls.client = testing.TestClient(svc.build_app(cls.db))
 
     @classmethod
     def tearDownClass(cls):
+        cls.db.close()
         cls.tmp.cleanup()
 
     def login(self, email, password):
@@ -74,7 +96,7 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual(c.simulate_post("/api/aed/sesja", json={"email": "pulsar@aed.example", "haslo": "x"}).status_code, 401)
         h = self.firma()
         self.assertEqual(c.simulate_get("/api/aed/sesja", headers=h).json["rola"], "firma")
-        data = open(SAMPLE, "rb").read() if os.path.exists(SAMPLE) else seller_csv(["S-100", "S-101"], bad_row=True)
+        data = read_bytes(SAMPLE) if os.path.exists(SAMPLE) else seller_csv(["S-100", "S-101"], bad_row=True)
         # dry run does not store anything
         dry = self.submit(data, "/api/aed/zgloszenia/sprawdz").json
         self.assertGreater(dry["podsumowanie"]["przyjete"], 0)
@@ -151,7 +173,8 @@ class ServiceTest(unittest.TestCase):
         slot = [g for g in root.iter(ns + "g") if g.get("id") == "miejsce-na-logo"][0]
         self.assertEqual(len(slot), 0)
         logo = os.path.join(self.tmp.name, "logo.svg")
-        open(logo, "w").write('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"/>')
+        with open(logo, "w") as f:
+            f.write('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"/>')
         with mock.patch.object(svc, "STICKER_LOGO_PATH", logo):
             root = ET.fromstring(c.simulate_get(url).text)
         slot = [g for g in root.iter(ns + "g") if g.get("id") == "miejsce-na-logo"][0]
@@ -319,7 +342,9 @@ class JobsAndDemoTest(unittest.TestCase):
         self.tmp.cleanup()
 
     def client(self, **kw):
-        return testing.TestClient(svc.create_app(self.path, with_registry=False, **kw))
+        db = svc.open_db(self.path, with_registry=False, **kw)
+        self.addCleanup(db.close)
+        return testing.TestClient(svc.build_app(db))
 
     def ministry(self, c):
         r = c.simulate_post("/api/aed/sesja", json={"email": "ministerstwo@aed.example", "haslo": "ministerstwo-demo"})
@@ -336,7 +361,7 @@ class JobsAndDemoTest(unittest.TestCase):
             self.assertEqual(c.simulate_post("/api/aed/mapper/uruchom", headers=m).status_code, 200)
             # scheduled cycle: download fails, the cycle carries on with the snapshot on disk
             with mock.patch.object(svc, "refresh_sources", return_value=(None, ["Nie udało się pobrać źródeł (test)."])):
-                job = svc.run_job(sqlite_conn(self.path), "harmonogram", "cykl")
+                job = svc.run_job(sqlite_conn(self, self.path), "harmonogram", "cykl")
         self.assertEqual((job["wyzwalacz"], job["rodzaj"]), ("harmonogram", "cykl"))
         self.assertEqual(job["bledy"], ["Nie udało się pobrać źródeł (test)."])
         self.assertIsNotNone(job["mapper"])
@@ -348,8 +373,10 @@ class JobsAndDemoTest(unittest.TestCase):
         self.assertTrue(last["mapper"] and last["przypomnienia"])
         # a mapper crash is recorded in Polish, not leaked
         with mock.patch.object(aed_standard, "build_registry", side_effect=RuntimeError("boom")), \
-                mock.patch.object(svc, "refresh_sources", return_value=(None, [])):
-            job = svc.run_job(sqlite_conn(self.path), "harmonogram", "cykl")
+                mock.patch.object(svc, "refresh_sources", return_value=(None, [])), \
+                contextlib.redirect_stderr(io.StringIO()) as log:  # the traceback goes to the log only
+            job = svc.run_job(sqlite_conn(self, self.path), "harmonogram", "cykl")
+        self.assertIn("boom", log.getvalue())
         self.assertIsNone(job["mapper"])
         self.assertIn("Mapper", job["bledy"][0])
         self.assertNotIn("boom", job["bledy"][0])
@@ -366,7 +393,8 @@ class JobsAndDemoTest(unittest.TestCase):
         raw = os.path.join(self.tmp.name, "raw")  # temporary copy, never the real datasets/raw
         shutil.copytree(svc.RAW_DIR, raw)
         manifest = os.path.join(raw, "manifest.json")
-        original = json.load(open(manifest, encoding="utf-8"))
+        with open(manifest, encoding="utf-8") as f:
+            original = json.load(f)
         files = [e["file"] for e in original["files"]]
 
         def fake_script(new_manifest):  # what a half-failed download leaves behind
@@ -386,8 +414,9 @@ class JobsAndDemoTest(unittest.TestCase):
                 mock.patch.object(svc, "DOWNLOAD_SCRIPT", __file__):
             for label, fake in (("subset", subset), ("crash", RuntimeError("secret detail")), ("garbage", "{not json")):
                 with mock.patch.object(svc.subprocess, "run", side_effect=fake_script(fake)):
-                    job = svc.run_job(sqlite_conn(self.path), "harmonogram", "cykl")
-                on_disk = [e["file"] for e in json.load(open(manifest, encoding="utf-8"))["files"]]
+                    job = svc.run_job(sqlite_conn(self, self.path), "harmonogram", "cykl")
+                with open(manifest, encoding="utf-8") as f:
+                    on_disk = [e["file"] for e in json.load(f)["files"]]
                 self.assertEqual(sorted(on_disk), sorted(files), label)
                 self.assertIsNotNone(job["mapper"], (label, job["bledy"]))  # mapper step completed
                 self.assertIsNotNone(job["przypomnienia"], label)
@@ -436,7 +465,7 @@ class JobsAndDemoTest(unittest.TestCase):
 
     def test_old_database_is_upgraded(self):
         self.client()
-        conn = sqlite_conn(self.path)
+        conn = sqlite_conn(self, self.path)
         conn.execute("ALTER TABLE devices DROP COLUMN demo")
         conn.execute("DROP TABLE jobs")
         conn.commit()
@@ -495,7 +524,7 @@ class JobsAndDemoTest(unittest.TestCase):
     def test_legacy_database_rows_are_migrated(self):
         c = self.client()
         item = self.add_device(c, "OLD-1")
-        conn = sqlite_conn(self.path)
+        conn = sqlite_conn(self, self.path)
         row = conn.execute("SELECT data FROM devices WHERE id_aed=?", (item["id_aed"],)).fetchone()
         rec = json.loads(row[0])
         rec["zrodlo_id"] = "rytm|old1"  # what the previous version stored
@@ -523,7 +552,7 @@ class JobsAndDemoTest(unittest.TestCase):
             self.assertEqual(r.status_code, 200, link)
         self.assertIn(item["t"], "".join(links))  # the original activation link is among them and still works
         # an expired link stops working
-        conn = sqlite_conn(self.path)
+        conn = sqlite_conn(self, self.path)
         conn.execute("UPDATE tokens SET wygasa='2000-01-01T00:00:00' WHERE hash=?", (svc.sha(item["t"]),))
         conn.commit()
         self.assertEqual(c.simulate_get("/api/aed/urzadzenia/%s?t=%s" % (item["id_aed"], item["t"])).status_code, 403)
@@ -621,7 +650,8 @@ class JobsAndDemoTest(unittest.TestCase):
         manifest = os.path.join(raw, "manifest.json")
 
         def failing_download(*a, **kw):  # the script cannot write into the read-only snapshot
-            open(manifest, "w").write("{}")
+            with open(manifest, "w") as f:
+                f.write("{}")
 
         c = self.client()
         os.chmod(manifest, 0o444)
@@ -630,7 +660,7 @@ class JobsAndDemoTest(unittest.TestCase):
             with mock.patch.object(svc, "RAW_DIR", raw), mock.patch.object(svc, "SCRIPT_RAW_DIR", raw), \
                     mock.patch.object(svc, "DOWNLOAD_SCRIPT", __file__), \
                     mock.patch.object(svc.subprocess, "run", side_effect=failing_download):
-                job = svc.run_job(sqlite_conn(self.path), "harmonogram", "cykl")
+                job = svc.run_job(sqlite_conn(self, self.path), "harmonogram", "cykl")
         finally:
             os.chmod(raw, 0o755)
             os.chmod(manifest, 0o644)
@@ -640,10 +670,12 @@ class JobsAndDemoTest(unittest.TestCase):
         self.assertEqual(c.simulate_get("/api/aed/zadania", headers=self.ministry(c)).json["dane"][0]["id"], job["id"])
 
 
-def sqlite_conn(path):
+def sqlite_conn(test, path):
+    """Direct connection to the service database, closed when the test ends."""
     import sqlite3
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
+    test.addCleanup(conn.close)
     return conn
 
 
