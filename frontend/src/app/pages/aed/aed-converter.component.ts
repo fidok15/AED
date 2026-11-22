@@ -23,7 +23,10 @@ export interface AedConverterColumn {
 
 export interface AedConverterAnalysis {
   plik: string;
-  format: 'csv' | 'xlsx' | 'geojson';
+  /** csv, xlsx, ods, json, geojson, arcgis, kml, kmz, gpx, gml, html, docx – recognised by content. */
+  format: string;
+  /** Polish sentence naming the recognised format. */
+  format_opis: string;
   kodowanie: string;
   separator: string | null;
   wiersze: number;
@@ -61,6 +64,9 @@ export interface AedConverterResult {
     /** Fields emptied in the public file (contact, serial number) and the message saying so. */
     ukryte_pola: string[];
     ukryte_komunikat: string;
+    /** Rows with an address but no position: kept in the file to complete, rejected from the list. */
+    bez_wspolrzednych: number;
+    bez_wspolrzednych_komunikat: string;
   };
 }
 
@@ -103,8 +109,6 @@ export class AedConverterComponent implements OnInit {
   protected readonly targetTitle = (name: string) =>
     this.analysis()?.pola.find((field) => field.pole === name)?.tytul ?? name;
   protected readonly number = (value: number) => value.toLocaleString('pl-PL');
-  protected readonly formatName = (format: AedConverterAnalysis['format']) =>
-    ({ csv: 'CSV', xlsx: 'XLSX', geojson: 'GeoJSON' })[format];
 
   /** "3 z 5 wierszy przeszły sprawdzenie. Plik zawiera 2 odrzucone wiersze – nie trafią do wykazu." */
   protected readonly verdict = computed(() => {

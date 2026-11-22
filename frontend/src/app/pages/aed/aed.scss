@@ -1650,3 +1650,56 @@ html:has(.aed--app) {
     }
   }
 }
+
+// Converter mapping table on a narrow screen (UI review A8): below 640 px each column of the file is one block –
+// its name, the field select and the sample values folded in <details>; nothing wider than the screen.
+.aed .aed-conv-map__narrow {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .aed .aed-conv-map {
+    overflow-x: visible;
+  }
+
+  .aed .aed-conv-map table,
+  .aed .aed-conv-map tbody,
+  .aed .aed-conv-map tr,
+  .aed .aed-conv-map th,
+  .aed .aed-conv-map td {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .aed .aed-conv-map thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .aed .aed-conv-map tr {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid currentcolor;
+  }
+
+  .aed .aed-conv-map th,
+  .aed .aed-conv-map td {
+    padding: 0.25rem 0;
+    overflow-wrap: anywhere;
+  }
+
+  .aed .aed-conv-map select {
+    max-width: 100%;
+  }
+
+  .aed .aed-conv-map__wide {
+    display: none;
+  }
+
+  .aed .aed-conv-map__narrow {
+    display: block;
+  }
+}

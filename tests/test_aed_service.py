@@ -173,8 +173,16 @@ class ServiceTest(unittest.TestCase):
         mp = multipart(krosno, "krosno.csv", {"mapowanie": json.dumps({"Nazwa": "nazwa", "Lokalizacja": "nazwa"})})
         bad = c.simulate_post("/api/aed/konwerter/konwersja", headers=mp["headers"], body=mp["body"])
         self.assertEqual((bad.status_code, bad.json["blad"]["kod"]), (422, "zle_mapowanie"))
-        mp = multipart(b"x", "a.xls")
+        mp = multipart(b"x", "a.exe")
         self.assertEqual(c.simulate_post("/api/aed/konwerter/analiza", headers=mp["headers"], body=mp["body"]).status_code, 415)
+        # Old XLS and PDF are accepted only to explain in Polish what to do; KML is read by content.
+        for data, name in ((b"\xd0\xcf\x11\xe0" + b"\0" * 60, "a.xls"), (b"%PDF-1.4", "a.pdf")):
+            bad = c.simulate_post("/api/aed/konwerter/analiza", **{k: v for k, v in multipart(data, name).items()})
+            self.assertEqual((bad.status_code, bad.json["blad"]["kod"]), (422, "plik_nieczytelny"))
+        kml = read_bytes(os.path.join(ROOT, "datasets", "probki-formatow", "koszalin-mymaps.kml"))
+        a = c.simulate_post("/api/aed/konwerter/analiza", **multipart(kml, "mapa.kml"))
+        self.assertEqual((a.status_code, a.json["format"], a.json["wiersze"]), (200, "kml", 35), a.text)
+        self.assertIn("KML", a.json["format_opis"])
         # XLSX is accepted; a file that is not a zip is a readable Polish 422, not a crash.
         mp = multipart(b"x", "a.xlsx")
         bad = c.simulate_post("/api/aed/konwerter/analiza", headers=mp["headers"], body=mp["body"])

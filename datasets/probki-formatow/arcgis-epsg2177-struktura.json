@@ -1,0 +1,15 @@
+{"objectIdFieldName": "OBJECTID", "geometryType": "esriGeometryPoint",
+ "spatialReference": {"wkid": 2177, "latestWkid": 2177},
+ "fields": [
+  {"name": "OBJECTID", "alias": "OBJECTID", "type": "esriFieldTypeOID"},
+  {"name": "Lokalizacja", "alias": "Lokalizacja", "type": "esriFieldTypeString"},
+  {"name": "adres", "alias": "Adres", "type": "esriFieldTypeString"},
+  {"name": "Pietro", "alias": "Piętro budynku", "type": "esriFieldTypeString"},
+  {"name": "Położenie", "alias": "Położenie", "type": "esriFieldTypeString"}],
+ "features": [
+  {"attributes": {"OBJECTID": 1, "Lokalizacja": "Przykładowy sklep", "adres": "Mikołów, Przykładowa 3", "Pietro": "0", "Położenie": "Na zewnątrz, przy wejściu"},
+   "geometry": {"x": 6563331.2889, "y": 5560706.8423999995}},
+  {"attributes": {"OBJECTID": 2, "Lokalizacja": "Przykładowy urząd", "adres": "Mikołów, Przykładowa 28", "Pietro": "0", "Położenie": "Wewnątrz budynku, przy recepcji"},
+   "geometry": {"x": 6563212.6745, "y": 5561037.432499999}},
+  {"attributes": {"OBJECTID": 3, "Lokalizacja": "Przykładowa szkoła", "adres": "Mikołów, Przykładowa 1", "Pietro": "0", "Położenie": "Wewnątrz budynku, hol"},
+   "geometry": {"x": 6563915.0452, "y": 5560026.421700001}}]}
