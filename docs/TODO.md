@@ -1,19 +1,38 @@
 # Do zrobienia
 
-Stan na 21.11.2026, 22:48, `main` = `4bbe408`. Testy backendu: 61 przechodzi; zbiór krajowy: 18 814 rekordów, eksport 781.
+Stan na 22.11.2026, 01:45, gałąź `feat/nocna-runda` (niezmergowana). Testy: 85 przechodzi (usługa, standard, wykaz, konwerter); frontend AED: 16 testów, linter i build OK. Zbiór krajowy: 18 814 rekordów, eksport 781.
 
 Plan i zasady: `CLAUDE.md` w katalogu głównym. Kontrakt API: `docs/api-aed.md`.
+
+## 0. Noc 21/22.11 – co doszło i co z tego wynika
+
+Zrobione na `feat/nocna-runda`: poprawki w `aed_standard` po przeglądzie kodu zespołu, przejęcie punktu z OSM (usługa + ekran), konwerter dowolnego pliku do standardu (`/pl/aed/konwerter`), dostosowanie frontendu do kontraktu, przejście ścieżek jury w przeglądarce z poprawkami, axe (0 naruszeń w module AED), plik prezentacji (`docs/prezentacja/`), opis projektu, wdrożenie pełnego forka pod domenę (`docs/wdrozenie-serwer.md`), dwa przeglądy Codexa z poprawkami (`docs/przeglad-codex.md`).
+
+Do zrobienia przez człowieka:
+
+- [ ] Otworzyć `docs/prezentacja/misja-aed.pptx` w PowerPoincie albo Keynote i obejrzeć wszystkie slajdy (nie była renderowana). Tekst, nazwa akcji, hasło, logo: `docs/prezentacja/slajdy.json`, potem `uv run --with python-pptx python scripts/build_presentation.py`.
+- [ ] Dodać 9 brakujących zrzutów do `docs/zrzuty/` (8 z portalu `portal-01…08`, 1 z `wzorzec-aed.xlsx`: `wzorzec-slownik-pol.png`) i przebudować prezentację.
+- [ ] Serwer: architektura (amd64/ARM), RAM, dysk, wolne porty 80/443; domena i rekordy `api.`, `admin.`, `cms.`; potem kroki z `docs/wdrozenie-serwer.md` (konfiguracja sprawdzona tylko składniowo).
+- [ ] Konto dla jury w panelu portalu: redaktor jednej instytucji demo czy sam odczyt?
+
+Decyzje do podjęcia:
+
+- [ ] Kto wystawia linki przejęcia punktu: dziś tylko ministerstwo; czy także firmy dla własnych urządzeń?
+- [ ] Mapper ignoruje `id_aed` z plików źródłowych, a wykaz w portalu zachowuje identyfikator dostawcy – czy ta różnica ma zostać?
+- [ ] Zgłoszenie „problem" dla punktu z OSM nie uruchamia przejęcia (rekord zostaje ODbL, poza eksportem).
+- [ ] Zaproszenie z podanym e-mailem nie wpisuje go do pola „E-mail dysponenta" na ekranie QR – czy ma wpisywać?
+- [ ] Pliki zasobów w wersji roboczej są na serwerze demo publiczne (`/media/resources/`); nie wgrywać tam niczego, co nie ma być jawne.
 
 ## 1. Frontend – wstrzymane do sygnału
 
 Agent frontendowy został przerwany limitem przed raportem; jego praca jest w commicie `6b7dcda` (`fix: frontend`), nieodebrana.
 
-- [ ] Sprawdzić znalezisko 12 z przeglądu Codexa: wyczyszczenie pola opcjonalnego na ekranie QR ma usuwać starą wartość (dziś niepotwierdzone).
-- [ ] Uruchomić testy i linter frontendu po commicie `6b7dcda` (`npm test`, `npm run lint`, `npm run build:aed`).
-- [ ] Przejść w przeglądarce trzy poprawki z przeglądu: skrzynka ministerstwa z wiadomością bez linku, ekran po zgłoszeniu problemu, krok „bateria i elektrody” – na usłudze z poprawkami z PR #14.
-- [ ] Dostosować frontend do zmian kontraktu z PR #14: licznik `wycofano` w wynikach mappera i historii zadań, błąd 422 także przy `stan = problem`, kilka ważnych linków dysponenta.
-- [ ] Pokazać w panelu ministerstwa źródła pominięte i błędy źródeł (dane dodane przez Jakuba w historii zadań i `raport.json`).
-- [ ] Filtr „dostępny teraz” na liście rejestru (dziś tylko na mapie) – wymaga parametru w `GET /urzadzenia`.
+- [x] Sprawdzić znalezisko 12 z przeglądu Codexa: wyczyszczenie pola opcjonalnego na ekranie QR ma usuwać starą wartość (dziś niepotwierdzone).
+- [x] Uruchomić testy i linter frontendu po commicie `6b7dcda` (`npm test`, `npm run lint`, `npm run build:aed`).
+- [x] Przejść w przeglądarce trzy poprawki z przeglądu: skrzynka ministerstwa z wiadomością bez linku, ekran po zgłoszeniu problemu, krok „bateria i elektrody” – na usłudze z poprawkami z PR #14.
+- [x] Dostosować frontend do zmian kontraktu z PR #14: licznik `wycofano` w wynikach mappera i historii zadań, błąd 422 także przy `stan = problem`, kilka ważnych linków dysponenta.
+- [x] Pokazać w panelu ministerstwa źródła pominięte i błędy źródeł (dane dodane przez Jakuba w historii zadań i `raport.json`).
+- [ ] Filtr „dostępny teraz” na liście rejestru (dziś tylko na mapie) – lista jest stronicowana po stronie serwera, więc wymaga parametru w `GET /urzadzenia` i parsera godzin w Pythonie (dziś jest tylko w TypeScripcie).
 - [ ] Nowe zrzuty do prezentacji po zakończeniu poprawek (dopiero wtedy).
 
 ## 2. Docker i uruchomienie
@@ -26,10 +45,10 @@ Agent frontendowy został przerwany limitem przed raportem; jego praca jest w co
 ## 3. Usługa i standard danych
 
 - [ ] Druga runda przeglądu Codexa po poprawkach (pierwsza: FAIL, 1 krytyczne + 11 poważnych; 9 naprawionych w PR #14, 3 frontendowe do potwierdzenia).
-- [ ] Przejrzeć zmiany zespołu w `aed_standard` (rejestr źródeł `sources.json`, `registry.py`, zmiany w `dedup.py`) pod kątem zgodności z poprawkami z PR #14 – testy przechodzą, przegląd kodu nie był robiony.
-- [ ] Zgodność `aed_service/app.py` z Pythonem 3.8 (operator `|` na słownikach, `traceback.print_exception` z jednym argumentem) – potrzebne tylko przy przenoszeniu do backendu portalu.
-- [ ] Usługa korzysta z funkcji `aed_standard` spoza publicznego API (`dedup.CANDIDATE_M`, `similarity`, `haversine_m`) – przepiąć na `find_candidates`.
-- [ ] Nowy rekord z importu obok już potwierdzonego urządzenia nie trafia do kolejki duplikatów (dopasowanie działa tylko w chwili potwierdzenia).
+- [x] Przejrzeć zmiany zespołu w `aed_standard` (rejestr źródeł `sources.json`, `registry.py`, zmiany w `dedup.py`) pod kątem zgodności z poprawkami z PR #14 – testy przechodzą, przegląd kodu nie był robiony.
+- [x] Zgodność `aed_service/app.py` z Pythonem 3.8 (operator `|` na słownikach, `traceback.print_exception` z jednym argumentem) – potrzebne tylko przy przenoszeniu do backendu portalu.
+- [x] Usługa korzysta z funkcji `aed_standard` spoza publicznego API (`dedup.CANDIDATE_M`, `similarity`, `haversine_m`) – przepiąć na `find_candidates`.
+- [x] Nowy rekord z importu obok już potwierdzonego urządzenia nie trafia do kolejki duplikatów (dopasowanie działa tylko w chwili potwierdzenia).
 - [ ] Decyzja: czy numer seryjny jest publikowany w zbiorze otwartym (dziś kolumna w eksporcie jest pusta).
 
 ## 4. Portal dane.gov.pl (Jakub, Hubert)
@@ -64,7 +83,7 @@ Odłożone – pomysły z przeglądu projektu (22.11), na razie nie ruszamy:
 
 - [ ] Kreator źródła w panelu ministerstwa: wgranie pliku, podpowiedź mapowania kolumn po nagłówkach, podgląd, zapis do `aed_standard/sources.json` (dziś nowe źródło wymaga ręcznej edycji JSON).
 - [ ] Uzupełnianie `kod_terc` i `kod_simc` ze współrzędnych – puste w trzech z czterech zbiorów miejskich; podnosi kompletność bez udziału właściciela.
-- [ ] „Przejmij punkt": zarządca potwierdza rekord istniejący tylko w OSM, dane stają się jego i wchodzą do eksportu. Najpierw sprawdzić, ile z tej ścieżki obsługuje już ekran QR.
+- [x] „Przejmij punkt": zarządca potwierdza rekord istniejący tylko w OSM, dane stają się jego i wchodzą do eksportu. Najpierw sprawdzić, ile z tej ścieżki obsługuje już ekran QR.
 - [ ] Słabość do pokazania na slajdzie ograniczeń: eksport to 781 rekordów, z czego 708 z Warszawy; wszystkie rekordy rejestru mają status `niepotwierdzony`; średnia kompletność 39,2.
 
 ## 5. Kampania – 25% oceny (kolega z zespołu, w toku)
@@ -79,10 +98,10 @@ Odłożone – pomysły z przeglądu projektu (22.11), na razie nie ruszamy:
 
 - [ ] Zaktualizować `docs/instrukcja-dla-jury.md` o zmiany z wieczora (rejestr źródeł, daty baterii i elektrod, strona startowa `/pl/aed`) i usunąć znaczniki `[do sprawdzenia]` po przejściu w przeglądarce.
 - [ ] Zaktualizować `docs/prezentacja-konspekt.md` i zrobić plik prezentacji (min. 5 slajdów ze zrzutami, kroki użytkownika, ograniczenia, zakres użycia AI).
-- [ ] Zapisać raport z przeglądu Codexa z wynikami poprawek w `docs/`.
-- [ ] Uzupełnić dziennik w `docs/uzycie-ai.md` o wieczorną sesję.
-- [ ] Zaktualizować `CLAUDE.md` (stan, decyzje, rejestr źródeł jest już dopisany przez zespół).
-- [ ] Tytuł i szczegółowy opis projektu do formularza zgłoszeniowego.
+- [x] Zapisać raport z przeglądu Codexa z wynikami poprawek w `docs/`.
+- [x] Uzupełnić dziennik w `docs/uzycie-ai.md` o wieczorną sesję.
+- [x] Zaktualizować `CLAUDE.md` (stan, decyzje, rejestr źródeł jest już dopisany przez zespół).
+- [x] Tytuł i szczegółowy opis projektu do formularza zgłoszeniowego.
 - [ ] Potwierdzić u organizatora godzinę i sposób oddania.
 
 ## 7. Testy ręczne, których nikt nie zrobił
