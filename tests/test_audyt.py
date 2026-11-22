@@ -187,3 +187,16 @@ class AuditServiceTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HardeningTest(unittest.TestCase):
+    def test_sticker_cannot_run_as_a_page_and_responses_are_not_sniffed(self):
+        import aed_service.app as svc
+        from falcon import testing
+        tmp = tempfile.TemporaryDirectory()
+        db = svc.open_db(os.path.join(tmp.name, "t.db"), with_registry=False)
+        self.addCleanup(tmp.cleanup)
+        self.addCleanup(db.close)
+        client = testing.TestClient(svc.build_app(db))
+        self.assertEqual(client.simulate_get("/api/aed/statystyki").headers.get("x-content-type-options"), "nosniff")
+        self.assertEqual(client.simulate_get("/api/aed/urzadzenia/%3Csvg%20onload%3D1%3E/naklejka.svg").status_code, 404)

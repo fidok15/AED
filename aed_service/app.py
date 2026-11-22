@@ -22,6 +22,8 @@ import xml.etree.ElementTree as ET
 import falcon
 import segno
 
+from xml.sax.saxutils import escape as xml_escape  # noqa: E402
+
 import aed_standard
 from aed_standard import konwerter
 from aed_standard.sources import OSM_ROW_MESSAGE, from_osm, haversine_m
@@ -626,6 +628,7 @@ FONT = 'font-family="Arial,sans-serif" text-anchor="middle"'
 
 def sticker(req, resp, id_aed):
     get_device(req.context.db, id_aed)
+    id_aed = xml_escape(id_aed, {'"': "&quot;"})  # the id goes into SVG text and an attribute
     qr = segno.make("%s/aed/qr/%s" % (BASE_URL.rstrip("/"), id_aed), error="m")
     scale = 7
     qr_w = qr.symbol_size(scale=scale, border=4)[0]  # border=4 modules is the quiet zone the QR spec requires
@@ -655,6 +658,8 @@ def sticker(req, resp, id_aed):
            '<text x="%s" y="%d" %s font-size="20" font-weight="700" fill="#000">%s</text>%s</svg>'
            % (w, h, w, h, id_aed, w - 6, h - 6, logo, cx, top + 30, FONT, inner, cx, id_y, FONT, id_aed, caption))
     resp.content_type = "image/svg+xml"
+    # Opened directly, an SVG is a document of this origin: no scripts, no external loads.
+    resp.set_header("Content-Security-Policy", "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:")
     resp.text = svg
 
 
@@ -1310,6 +1315,7 @@ class Db:
         req.context.db = self.conn
 
     def process_response(self, req, resp, resource, req_succeeded):
+        resp.set_header("X-Content-Type-Options", "nosniff")
         # One transaction per request: an error (500 included) never leaves a half-written one for the next request.
         if self.conn.in_transaction:
             self.conn.commit() if req_succeeded else self.conn.rollback()

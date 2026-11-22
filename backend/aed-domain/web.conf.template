@@ -44,6 +44,9 @@ server {
     }
     location ~ ^/media/(resources|images|showcases|academy|newsletter|lab_reports|datasets|dcat)/ {
         root /srv;
+        # Editors upload these files (the portal accepts HTML and SVG): never let one run as a page of this origin.
+        add_header Content-Security-Policy "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:" always;
+        add_header X-Content-Type-Options nosniff always;
     }
     location /media/ {
         return 403;
