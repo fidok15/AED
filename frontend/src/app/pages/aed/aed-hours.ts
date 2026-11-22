@@ -14,7 +14,7 @@ export const AED_OPEN_LABELS: Record<AedOpenState, string> = {
 export const AED_SCHEDULE_LABELS: Record<AedOpenState, string> = {
   dostepny: 'Według harmonogramu: dostępny teraz',
   zamkniety: 'Według harmonogramu: teraz zamknięty',
-  nieznane: 'Dostępność nieznana',
+  nieznane: 'Nie wiadomo, czy AED jest teraz dostępny',
 };
 
 const DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];

@@ -63,7 +63,7 @@ export class AedSellersComponent implements OnInit, AfterViewInit, OnDestroy {
           // A company is a white square with its initial – unlike the navy discs and status symbols of devices;
           // a badge adds a green check mark, not only a colour.
           const initial = seller.nazwa.charAt(0).replace(/[<>&]/, '');
-          L.marker([seller.szerokosc_geograficzna, seller.dlugosc_geograficzna], {
+          const marker = L.marker([seller.szerokosc_geograficzna, seller.dlugosc_geograficzna], {
             title: label,
             alt: label,
             icon: L.divIcon({
@@ -74,6 +74,7 @@ export class AedSellersComponent implements OnInit, AfterViewInit, OnDestroy {
           })
             .bindPopup(() => {
               const box = document.createElement('div');
+              box.tabIndex = -1;
               for (const [tag, text] of [
                 ['strong', seller.nazwa],
                 ['p', seller.miejscowosc],
@@ -85,6 +86,12 @@ export class AedSellersComponent implements OnInit, AfterViewInit, OnDestroy {
                 box.append(element);
               }
               return box;
+            })
+            // Click or Enter on the marker opens the name; focus goes into it and, on Escape or ×, back to the marker.
+            .on('popupopen', (event) => (event.popup.getElement()?.querySelector('[tabindex]') as HTMLElement)?.focus())
+            .on('popupclose', (event) => {
+              const active = document.activeElement;
+              if (active === document.body || event.popup.getElement()?.contains(active)) marker.getElement()?.focus();
             })
             .addTo(this.map);
         }

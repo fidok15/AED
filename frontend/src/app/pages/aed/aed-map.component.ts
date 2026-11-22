@@ -44,13 +44,15 @@ export const aedDistanceText = (metres: number): string =>
     ? `${Math.round(metres)} m`
     : `${(metres / 1000).toLocaleString('pl-PL', { maximumFractionDigits: 1 })} km`) + ' w linii prostej';
 
-/** "1 urządzenie", "3 urządzenia", "12 urządzeń". */
-export function aedDevices(count: number): string {
-  const n = count.toLocaleString('pl-PL');
-  if (count === 1) return `${n} urządzenie`;
-  const few = count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 12 || count % 100 > 14);
-  return `${n} ${few ? 'urządzenia' : 'urządzeń'}`;
+/** Polish plural form: aedPlural(3, 'wiersz', 'wiersze', 'wierszy') is 'wiersze'. */
+export function aedPlural(count: number, one: string, few: string, many: string): string {
+  if (count === 1) return one;
+  return count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 12 || count % 100 > 14) ? few : many;
 }
+
+/** "1 urządzenie", "3 urządzenia", "12 urządzeń". */
+export const aedDevices = (count: number): string =>
+  `${count.toLocaleString('pl-PL')} ${aedPlural(count, 'urządzenie', 'urządzenia', 'urządzeń')}`;
 
 /** Heading of a device: its name, else where it is, a placeholder only when nothing is known. */
 export const aedPlaceTitle = (name: unknown, ...where: unknown[]): string =>
@@ -438,7 +440,7 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
     }
 
     const origin = this.origin() ? ` Środek mapy: ${aedOriginName(this.origin()).toLowerCase()}.` : '';
-    this.summary.set(`Urządzenia w widocznym obszarze mapy: ${count.toLocaleString('pl-PL')}.${origin}`);
+    this.summary.set(`W tym obszarze mapy: ${aedDevices(count)}.${origin}`);
 
     if (this.pending && this.groupOf.has(this.pending)) {
       const id = this.pending;

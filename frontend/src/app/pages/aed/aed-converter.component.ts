@@ -4,6 +4,7 @@ import { Subscription } from 'rxjs';
 
 import { SeoService } from '@app/services/seo.service';
 import { aedErrorMessage, aedFileTooLarge, aedFocusFactory, AedProblem } from './aed-api.service';
+import { aedPlural } from './aed-map.component';
 import { aedField } from './aed-schema';
 
 // Public converter of a provider's own file to the AED standard (docs/api-aed.md, "Konwerter do standardu").
@@ -104,6 +105,18 @@ export class AedConverterComponent implements OnInit {
   protected readonly number = (value: number) => value.toLocaleString('pl-PL');
   protected readonly formatName = (format: AedConverterAnalysis['format']) =>
     ({ csv: 'CSV', xlsx: 'XLSX', geojson: 'GeoJSON' })[format];
+
+  /** "3 z 5 wierszy przeszły sprawdzenie. Plik zawiera 2 odrzucone wiersze – nie trafią do wykazu." */
+  protected readonly verdict = computed(() => {
+    const report = this.result()?.raport;
+    if (!report) return '';
+    const { poprawne: ok, wiersze: all, odrzucone: bad } = report;
+    const rows = all === 1 ? 'wiersza' : 'wierszy';
+    const passed = `${this.number(ok)} z ${this.number(all)} ${rows} ${aedPlural(ok, 'przeszedł', 'przeszły', 'przeszło')} sprawdzenie.`;
+    if (!bad) return passed;
+    const rejected = aedPlural(bad, 'odrzucony wiersz', 'odrzucone wiersze', 'odrzuconych wierszy');
+    return `${passed} Plik zawiera ${this.number(bad)} ${rejected} – nie trafią do wykazu.`;
+  });
 
   ngOnInit(): void {
     this.seo.setPageTitle(['Konwerter do standardu AED', 'Rejestr AED']);
