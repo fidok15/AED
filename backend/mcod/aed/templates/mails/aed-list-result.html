@@ -30,7 +30,7 @@
                             <p>Przy ostatnim scalaniu krajowego wykazu AED portal przyjął wszystkie wiersze Twojego wykazu ({{ entry.przyjete }} z {{ entry.wiersze }}). Dziękujemy za poprawienie danych.</p>
                             {% else %}
                             <p>Przy ostatnim scalaniu krajowego wykazu AED portal przyjął <strong>{{ entry.przyjete }} z {{ entry.wiersze }}</strong> wierszy Twojego wykazu, odrzucił <strong>{{ rejected_rows }}</strong>.
-                            {% if entry.status == "czesciowo" %}Poprawne wiersze trafiły do krajowego wykazu AED; odrzucone wiersze nie są publikowane, dopóki ich nie poprawisz.{% else %}Żadne urządzenie z tego wykazu nie trafiło do krajowego wykazu AED.{% endif %}</p>
+                            {% if entry.status == "czesciowo" %}Poprawne wiersze przeszły sprawdzenie i biorą udział w scalaniu krajowego wykazu AED (urządzenia prywatne i powtórzenia nie są publikowane); odrzucone wiersze nie są brane pod uwagę, dopóki ich nie poprawisz.{% else %}Żadne urządzenie z tego wykazu nie trafiło do krajowego wykazu AED.{% endif %}</p>
                             <p><strong>Problemy{% if more_problems %} (pierwsze {{ problems|length }} z {{ entry.problemy_razem }}){% endif %}:</strong></p>
                             <table border="0" cellspacing="0" cellpadding="4" style="width:100%;border-collapse:collapse;font-size:14px;">
                                 <tr><th align="left" scope="col" style="border-bottom:1px solid #dadada;">Wiersz</th><th align="left" scope="col" style="border-bottom:1px solid #dadada;">Pole</th><th align="left" scope="col" style="border-bottom:1px solid #dadada;">Komunikat</th></tr>

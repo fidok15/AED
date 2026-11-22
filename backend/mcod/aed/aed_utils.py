@@ -26,7 +26,7 @@ from aed_standard.build import to_csv
 from aed_standard.validate import ERROR, LAT, LON
 from aed_standard.wykaz import merge_wykazy, read_wykaz
 from mcod.aed import constants as C
-from mcod.aed.notifications import notify_aed_list_providers
+from mcod.aed.notifications import PENDING_KEY, notify_aed_list_providers
 
 if TYPE_CHECKING:
     from mcod.datasets.models import Dataset
@@ -272,6 +272,8 @@ def update_or_create_aggr_aed_info_and_delete_old_main_aed(new_resource: "Resour
             old.delete()
             logger.info("Previous main AED resource %s deleted.", old.pk)
     notify_aed_list_providers(old_report, report)  # never raises
+    if any(w.get(PENDING_KEY) for w in report.get("wykazy", [])):  # undelivered messages are retried next time
+        AggregatedAEDInfo.objects.filter(resource=new_resource).update(report=report)
 
 
 def clean_up_after_main_aed_resource_creation(exception_occurred: bool) -> None:
