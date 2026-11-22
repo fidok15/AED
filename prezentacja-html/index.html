@@ -709,9 +709,7 @@ function buildNodes() {
   const svg = document.querySelector('[data-scene="process"] .art');
   let lines = "";
   for (let i = 0; i < 4; i++) lines += `<path class="draw d${4 + i * 2}" d="M${cx(i) + 118} 450 L${cx(i + 1) - 118} 450" stroke="${NAVY}" stroke-width="5" stroke-dasharray="3000" fill="none"/><path class="pop d${5 + i * 2}" d="M${cx(i + 1) - 132} 440 l12 10 l-12 10" fill="none" stroke="${NAVY}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>`;
-  lines += `<path class="draw d12" d="M${cx(3)} 700 C${cx(3)} 800 ${cx(2)} 800 ${cx(2)} 700" fill="none" stroke="${AMBER}" stroke-width="5" stroke-dasharray="3000"/>
-    <text class="fade d12" x="${(cx(2) + cx(3)) / 2}" y="830" text-anchor="middle" font-family="Atkinson Hyperlegible" font-size="21" fill="${NAVY}">prośba o potwierdzenie po 183 dniach</text>
-    <path class="draw d13" d="M${cx(3)} 860 L${cx(3)} 740" stroke="${GREY}" stroke-width="4" stroke-dasharray="3000" fill="none"/>`;
+  lines += `<path class="draw d13" d="M${cx(3)} 860 L${cx(3)} 740" stroke="${GREY}" stroke-width="4" stroke-dasharray="3000" fill="none"/>`;
   svg.innerHTML = lines;
 }
 function buildStates() {
@@ -724,10 +722,8 @@ function buildStates() {
       <div class="in d${4 + i * 2}" style="position:absolute;left:${cx(i) - 160}px;top:${Y + 96}px;width:320px;text-align:center"><b style="font:600 32px Lexend">${name}</b><p class="small" style="font-size:21px;margin-top:6px">${d}</p></div>`;
     if (i < 3) svg += `<path class="draw d${4 + i * 2}" d="M${cx(i) + 86} ${Y} L${cx(i + 1) - 86} ${Y}" stroke="${NAVY}" stroke-width="5" fill="none" stroke-dasharray="3000"/><path class="pop d${5 + i * 2}" d="M${cx(i + 1) - 100} ${Y - 10} l12 10 l-12 10" fill="none" stroke="${NAVY}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>`;
   });
-  // reminder at 183 days, re-confirmation loop, mapper branch
-  svg += `<g class="pop d10"><circle cx="${(cx(1) + cx(2)) / 2}" cy="${Y}" r="16" fill="${AMBER}"/></g>
-    <text class="fade d10" x="${(cx(1) + cx(2)) / 2}" y="${Y + 48}" text-anchor="middle" font-family="Lexend" font-weight="600" font-size="20" fill="${NAVY}"><tspan>183 dni:</tspan><tspan x="${(cx(1) + cx(2)) / 2}" dy="24">prośba o potwierdzenie</tspan></text>
-    <path class="draw d11" d="M${cx(2)} ${Y - 80} C${cx(2)} ${Y - 200} ${cx(1)} ${Y - 200} ${cx(1)} ${Y - 80}" fill="none" stroke="${BLUE}" stroke-width="5" stroke-dasharray="3000"/>
+  // re-confirmation loop, mapper branch
+  svg += `<path class="draw d11" d="M${cx(2)} ${Y - 80} C${cx(2)} ${Y - 200} ${cx(1)} ${Y - 200} ${cx(1)} ${Y - 80}" fill="none" stroke="${BLUE}" stroke-width="5" stroke-dasharray="3000"/>
     <text class="fade d11" x="${(cx(1) + cx(2)) / 2}" y="${Y - 190}" text-anchor="middle" font-family="Atkinson Hyperlegible" font-size="21" fill="${BLUE}">dysponent potwierdza ponownie</text>`;
   h += `<div class="chip pop d12" style="left:${cx(0) - 130}px;top:840px"><span class="sq u"></span><span>niepotwierdzony<small>rekord z mappera, nikt go nie potwierdził – poza eksportem</small></span></div>`;
   svg += `<path class="draw d12" d="M${cx(0) + 380} 880 C${cx(1)} 880 ${cx(1)} 760 ${cx(1)} 730" fill="none" stroke="${GREY}" stroke-width="4" stroke-dasharray="3000"/>
