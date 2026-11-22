@@ -90,4 +90,14 @@ describe('HeaderComponent', () => {
 
     expect(component.currentLang).toEqual('pl');
   }));
+
+  it('links the national AED list in the main menu, right after the DGA information point', () => {
+    const items: HTMLAnchorElement[] = Array.from(fixture.nativeElement.querySelectorAll('a[role="menuitem"]'));
+    const labels = items.map((link) => link.textContent.trim());
+    const aedList = items[labels.indexOf('Menu.AedList')];
+
+    expect(aedList).toBeDefined();
+    expect(aedList.getAttribute('href')).toMatch(/wykaz-aed$/);
+    expect(labels.indexOf('Menu.AedList')).toBe(labels.indexOf('Menu.DGAInformationPoint') + 1);
+  });
 });
