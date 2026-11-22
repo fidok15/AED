@@ -382,6 +382,12 @@ class ServiceTest(unittest.TestCase):
         self.assertNotIn("odleglosc_m", self.client.simulate_get("/api/aed/urzadzenia?zrodlo=blisko").json["dane"][0])
         for bad in ("lat=95&lon=21", "lat=52", "lat=abc&lon=21", "lat=nan&lon=21"):
             self.assertEqual(self.client.simulate_get("/api/aed/urzadzenia?" + bad).status_code, 422, bad)
+        # the nearest device is withdrawn: it must not be offered
+        self.db.execute("UPDATE devices SET status='wycofany' WHERE id_aed='AED-NEARTEST0002'")
+        self.db.commit()
+        self.assertEqual([r["id_aed"][-1] for r in self.client.simulate_get(base).json["dane"]], ["3", "1"])
+        asked = self.client.simulate_get(base + "&status=wycofany").json
+        self.assertEqual([r["id_aed"][-1] for r in asked["dane"]], ["2"])
         by_id = self.client.simulate_get("/api/aed/urzadzenia?q=aed-neartest0003").json
         self.assertEqual([r["id_aed"] for r in by_id["dane"]], ["AED-NEARTEST0003"])
 

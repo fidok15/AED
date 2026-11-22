@@ -138,12 +138,14 @@ def _separator(text):
         try:
             sample = [r for r in itertools.islice(csv.reader(io.StringIO(text, newline=""), delimiter=sep), 20) if any(r)]
         except csv.Error:
-            return (False, 0)
-        return (bool(sample) and all(len(r) == len(sample[0]) for r in sample), len(sample[0]) if sample else 0)
+            return (False, False, 0)
+        width = len(sample[0]) if sample else 0
+        # A parse into several columns beats a one-column parse even when a data row is short.
+        return (width > 1, all(len(r) == width for r in sample), width)
 
     candidates = (",", ";", "\t")
     best = max(candidates, key=score)
-    if score(best)[1] > 1:
+    if score(best)[0]:
         return best
     first = text.splitlines()[0] if text else ""
     return max(candidates, key=first.count)
@@ -485,18 +487,19 @@ def convert(data, filename, mapping, constants=None, today=None):
     normalized = normalize_rows(t["rows"], mapping)
     osm = _osm_rows(t["columns"], t["rows"])
     records, notes = map_rows(t["rows"], t["columns"], {"resource_id": "plik"}, entry, "")
-    hidden = [f for f in HIDDEN_PUBLIC if any(r[f] for r in records)]
+    # Mapped columns and constants both count: a constant must not put a hidden value back into the public file.
+    hidden = [f for f in HIDDEN_PUBLIC if constants.get(f) or any(r[f] for r in records)]
     for (n, _, _), rec in zip(t["rows"], records):
         # System columns stay empty: the portal fills them from the dataset when it reads the list. A row the file
         # itself marks as OpenStreetMap / ODbL keeps the mark, so the list check rejects it (CLAUDE.md, rule 3).
         rec.update(zrodlo=OSM if n in osm else "", licencja=ODBL if n in osm else "", status="", wprowadzajacy_typ="",
                    data_aktualizacji="")
-        # The file is meant for dane.gov.pl: the same columns stay empty as in every public export.
-        rec.update({f: "" for f in HIDDEN_PUBLIC})
         if "row_number" in entry["record_id"]:
             rec["zrodlo_id"] = ""
         for k, v in constants.items():
             rec[k] = rec[k] or v
+        # The file is meant for dane.gov.pl: the same columns stay empty as in every public export.
+        rec.update({f: "" for f in HIDDEN_PUBLIC})
     text = to_csv(records)
     accepted, rep = read_wykaz(text.encode("utf-8"), {"zrodlo": "konwerter", "zasob": "plik", "tytul": filename,
                                                       "instytucja": "", "licencja": "CC0 1.0", "priority": 1}, today)

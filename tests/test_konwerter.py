@@ -12,7 +12,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from aed_standard import schema as S  # noqa: E402
-from aed_standard.konwerter import ADDRESS, ConverterError, analyze, convert  # noqa: E402
+from aed_standard.konwerter import CONSTANT_TARGETS, ADDRESS, ConverterError, analyze, convert  # noqa: E402
 from aed_standard.wykaz import read_wykaz  # noqa: E402
 
 RAW = os.path.join(ROOT, "datasets", "raw", "dane_gov_pl")
@@ -145,6 +145,13 @@ class CodexReviewTest(unittest.TestCase):
         self.assertEqual((row["dysponent_email"], row["numer_seryjny"], row["nazwa"]), ("", "", "Urząd"))
         self.assertEqual(set(rep["ukryte_pola"]), {"dysponent_email", "numer_seryjny"})
         self.assertEqual(rep["status"], "przyjety")
+        # a constant for a hidden field must not put the value back
+        mapping = {c["kolumna"]: c["pole"] for c in a["kolumny"] if c["pole"] not in ("dysponent_email", "numer_seryjny")}
+        constants = {k: "x@um.example.pl" for k in ("dysponent_email",) if k in CONSTANT_TARGETS}
+        if constants:
+            text, rep = convert(data, "w.csv", mapping, constants)
+            self.assertEqual(next(csv.DictReader(io.StringIO(text)))["dysponent_email"], "")
+            self.assertIn("dysponent_email", rep["ukryte_pola"])
 
     def test_rows_marked_as_osm_are_rejected(self):
         data = ("nazwa,szerokosc_geograficzna,dlugosc_geograficzna,miejscowosc,zrodlo,licencja\n"
@@ -173,6 +180,9 @@ class CodexReviewTest(unittest.TestCase):
         data = '"Nazwa, opis, piętro, uwagi";lat;lon\n"Urząd, parter, , -";52.2;21.0\n"Szkoła, hol, 1, -";52.3;21.1\n'.encode("utf-8")
         a = analyze(data, "s.csv")
         self.assertEqual((a["separator"], [c["kolumna"] for c in a["kolumny"]]), ("średnik", ["Nazwa, opis, piętro, uwagi", "lat", "lon"]))
+        short = "\n".join(['"Nazwa, opis, uwagi, kontakt";lat;lon', '"Urząd, parter, -, -";52.2;21.0',
+                           '"Szkoła, hol, -, -";52.3', ""]).encode("utf-8")
+        self.assertEqual(analyze(short, "s.csv")["separator"], "średnik")  # a short row must not hand the win to ','
 
     def test_truncated_utf16_is_a_polish_error(self):
         data = "nazwa,lat\nUrząd,52.2\n".encode("utf-16")[:-1]
