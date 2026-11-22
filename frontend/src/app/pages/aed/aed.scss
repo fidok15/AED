@@ -182,44 +182,25 @@
     }
   }
 
-  // Readiness indicator: a small window with a mark, as on a real device.
+  // Status label: the map symbol (AED_MARKS, styled by .aed-mark below) followed by the status name.
   .aed-status {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
     font-weight: 700;
 
-    &__window {
-      flex: none;
+    .aed-mark {
+      display: grid;
       width: 1.5rem;
-      height: 1.5rem;
-      border: 2px solid currentColor;
-      border-radius: 2px;
-      color: var(--aed-muted);
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 2.5;
-      stroke-linecap: round;
-      stroke-linejoin: round;
+      flex: none;
+      place-items: center;
+
+      svg {
+        width: auto;
+        height: 1.375rem;
+        filter: none;
+      }
     }
-  }
-
-  .aed-status--aktywny .aed-status__window {
-    border-color: var(--aed-ok);
-    background: var(--aed-ok);
-    color: var(--aed-paper);
-  }
-
-  .aed-status--zgloszony .aed-status__window {
-    color: var(--aed-blue);
-  }
-
-  .aed-status--nieaktualny .aed-status__window {
-    color: var(--aed-warn);
-  }
-
-  .aed-status--wycofany .aed-status__window {
-    color: var(--aed-error);
   }
 
   details.aed-details {
@@ -572,7 +553,7 @@
 
   .aed-row {
     display: grid;
-    grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.3fr) minmax(0, 1.5fr) minmax(0, 1.1fr);
+    grid-template-columns: minmax(0, 2.6fr) minmax(0, 1.4fr) minmax(0, 1.1fr);
     gap: 0.75rem 1.5rem;
     max-width: none;
     padding: 1rem 0;
@@ -616,7 +597,7 @@
       overflow-wrap: anywhere;
     }
 
-    &__access dl > div {
+    &__access > div {
       display: flex;
       flex-wrap: wrap;
       gap: 0 0.5rem;
@@ -773,7 +754,7 @@
     }
   }
 
-  // Map symbols (aed-map.component.ts AED_MARKS): shape and inner mark per status, white edge for any ground.
+  // Map symbols (aed-status.component.ts AED_MARKS): shape and inner mark per status, white edge for any ground.
   .aed-mark {
     --mark: var(--aed-muted);
 
@@ -914,8 +895,15 @@
 
     li {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
+      gap: 0.25rem 0.625rem;
+    }
+
+    // Symbols at their map size, so the legend matches the markers.
+    .aed-status {
       gap: 0.625rem;
+      font-weight: 400;
     }
 
     .aed-mark {
@@ -923,17 +911,45 @@
       width: 2rem;
       flex: none;
       place-items: center;
+
+      svg {
+        height: auto;
+        filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.45));
+      }
     }
   }
 
   .aed-near {
     margin: 1.5rem 0;
 
+    &__locate {
+      display: block;
+      min-height: 3rem;
+      margin-bottom: 0.75rem;
+
+      @media (max-width: 575.98px) {
+        width: 100%;
+      }
+    }
+
+    &__open {
+      font-weight: 700;
+    }
+
+    &__from {
+      margin: 0.5rem 0 0;
+      font-weight: 700;
+    }
+
+    &__how {
+      margin: 0.5rem 0 0;
+    }
+
     &__actions {
       display: flex;
       flex-wrap: wrap;
       gap: 0.5rem 0.75rem;
-      margin-top: 0.75rem;
+      margin: 0.75rem 0 1.5rem;
 
       .btn-link {
         padding-inline: 0;
@@ -942,6 +958,50 @@
   }
 
   .aed-row__distance {
+    font-weight: 700;
+  }
+
+  .aed-row__access {
+    margin: 0 0 0.5rem;
+  }
+
+  // "Według harmonogramu: …": a mark and the text; the mark differs per state, colour only repeats it.
+  .aed-open {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.25rem 0;
+    font-weight: 700;
+
+    &::before {
+      display: grid;
+      width: 1.25rem;
+      height: 1.25rem;
+      flex: none;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--aed-muted);
+      color: var(--aed-paper);
+      font-size: 0.8125rem;
+      line-height: 1;
+      content: '?';
+    }
+
+    &--dostepny::before {
+      background: var(--aed-ok);
+      content: '✓';
+    }
+
+    &--zamkniety::before {
+      content: '–';
+    }
+  }
+
+  .aed-route {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    margin-right: 1rem;
     font-weight: 700;
   }
 
@@ -1367,6 +1427,14 @@
     .aed-status {
       margin-top: 0.5rem;
     }
+
+    // One line per date that is close or past; the date fields themselves are the last card of the form.
+    &__expiry {
+      margin-top: 0.5rem;
+      padding-left: 0.75rem;
+      border-left: 4px solid var(--aed-warn);
+      font-weight: 700;
+    }
   }
 
   .aed-button {
@@ -1451,8 +1519,11 @@
 }
 
 // Keep the focused field clear of the sticky action bar (WCAG 2.4.11).
+// The bar is 1.5rem padding + 3.5rem button + 1px line + the safe area; a field brought into view by Tab
+// (or a hint under it) lands above the bar with 1rem to spare.
 html:has(.aed--app) {
-  scroll-padding-bottom: 6rem;
+  scroll-padding-top: 1rem;
+  scroll-padding-bottom: calc(6.25rem + env(safe-area-inset-bottom));
 }
 
 // Printing the sticker sheet: only the sheet, in three columns, without the portal around it.

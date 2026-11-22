@@ -25,6 +25,14 @@
         <p class="aed-device__place">{{ record['nazwa'] }}, {{ record['miejscowosc'] }}</p>
       }
       <app-aed-status [status]="record.status" />
+      @if (!done() && t()) {
+        @for (field of expiring(); track field.name) {
+          <p class="aed-device__expiry">
+            <span class="visually-hidden">Uwaga: </span>{{ field.title }}: {{ record[field.name] }} – termin mija lub minął
+            (nowa data: na końcu formularza).
+          </p>
+        }
+      }
     </section>
 
     @if (done() === 'problem') {
@@ -80,7 +88,7 @@
       }
 
       <form [formGroup]="form" appScrollToFirstError novalidate (ngSubmit)="confirm()">
-        <!-- Battery and electrodes: at the top when a date is close or past (the manager came from a reminder). -->
+        <!-- Battery and electrodes: optional, so after the three required steps; a close date is flagged in the device card. -->
         <ng-template #expiryStep>
           <section class="aed-card" aria-labelledby="aed-step-expiry">
             <p class="aed-step">Nieobowiązkowe</p>
@@ -99,10 +107,6 @@
             }
           </section>
         </ng-template>
-
-        @if (expiring().length) {
-          <ng-container [ngTemplateOutlet]="expiryStep" />
-        }
 
         <section class="aed-card" aria-labelledby="aed-step-1">
           <p class="aed-step">Krok 1 z 3</p>
@@ -216,9 +220,7 @@
           }
         </section>
 
-        @if (!expiring().length) {
-          <ng-container [ngTemplateOutlet]="expiryStep" />
-        }
+        <ng-container [ngTemplateOutlet]="expiryStep" />
 
         @if (sendError()) {
           <p class="aed-message aed-message--error" role="alert">{{ sendError() }}</p>

@@ -3,6 +3,52 @@
   Jeden zbiór dla całej Polski. Urządzenie jest aktywne, gdy jego dysponent potwierdził miejsce, dostęp i stan.
 </p>
 
+<!-- Nearest device first: on a phone the location button and the open-now switch are the first controls. -->
+<section class="aed-near" aria-labelledby="aed-near-heading">
+  <h2 class="aed-h2" id="aed-near-heading">Najbliższe urządzenia</h2>
+  <button class="btn btn-primary aed-near__locate" type="button" (click)="locate()" [disabled]="locating()">
+    {{ locating() ? 'Ustalam lokalizację…' : 'Użyj mojej lokalizacji' }}
+  </button>
+  <label class="aed-filter__option aed-near__open">
+    <input
+      type="checkbox"
+      [checked]="openNowOnly()"
+      (change)="filter({ openNow: $any($event.target).checked })"
+      aria-describedby="aed-open-note" />
+    <span>Dostępny teraz według rejestru</span>
+  </label>
+  @if (nearError()) {
+    <p class="aed-message aed-message--warn" role="alert">{{ nearError() }}</p>
+  }
+  @if (origin(); as from) {
+    <p class="aed-near__from">Odległość liczona od: {{ fromText(from) }} (w linii prostej, nie wzdłuż drogi).</p>
+  }
+  <details class="aed-details aed-near__how">
+    <summary>Jak używamy lokalizacji i godzin</summary>
+    <p class="aed-note">
+      Lista ułoży się od najbliższego urządzenia; odległość liczymy w linii prostej, nie wzdłuż drogi. Położenie trafia
+      tylko do zapytania o listę – usługa go nie przechowuje i nie zapisuje w dzienniku.
+    </p>
+    <p class="aed-note" id="aed-open-note">
+      „Dostępny teraz” wynika z godzin podanych w rejestrze i z bieżącej godziny w Polsce. Urządzenia bez godzin albo z
+      godzinami, których nie da się jednoznacznie odczytać, nie przechodzą tego filtra; lista podaje, ile ich jest.
+    </p>
+  </details>
+</section>
+
+@if (origin()) {
+  <ng-container *ngTemplateOutlet="list" />
+}
+
+<div class="aed-near__actions">
+  <button class="btn btn-outline-primary" type="button" (click)="picking.set(!picking())" [attr.aria-pressed]="picking()">
+    Wskaż punkt na mapie
+  </button>
+  @if (origin()) {
+    <button class="btn btn-link" type="button" (click)="setOrigin(null)">Nie sortuj po odległości</button>
+  }
+</div>
+
 @if (stats(); as stats) {
   <dl class="aed-facts">
     <div>
@@ -52,49 +98,6 @@
   </fieldset>
 }
 
-<fieldset class="aed-filter">
-  <legend class="aed-filter__legend">Dostępność teraz</legend>
-  <label class="aed-filter__option">
-    <input
-      type="checkbox"
-      [checked]="openNowOnly()"
-      (change)="filter({ openNow: $any($event.target).checked })"
-      aria-describedby="aed-open-note" />
-    <span>{{ openLabel }}</span>
-  </label>
-</fieldset>
-<p class="aed-note" id="aed-open-note">
-  Dostępność wynika z godzin podanych w rejestrze i z bieżącej godziny w Polsce. Urządzenia bez godzin albo z godzinami,
-  których nie da się jednoznacznie odczytać, nie przechodzą tego filtra; lista podaje, ile ich jest.
-</p>
-
-<section class="aed-near" aria-labelledby="aed-near-heading">
-  <h2 class="aed-h2" id="aed-near-heading">Najbliższe urządzenia</h2>
-  <p class="aed-note" id="aed-near-note">
-    Lista ułoży się od najbliższego urządzenia; odległość liczymy w linii prostej, nie wzdłuż drogi. Położenie trafia
-    tylko do zapytania o listę – usługa go nie przechowuje i nie zapisuje w dzienniku.
-  </p>
-  <div class="aed-near__actions">
-    <button
-      class="btn btn-primary"
-      type="button"
-      (click)="locate()"
-      [disabled]="locating()"
-      aria-describedby="aed-near-note">
-      {{ locating() ? 'Ustalam lokalizację…' : 'Użyj mojej lokalizacji' }}
-    </button>
-    <button class="btn btn-outline-primary" type="button" (click)="picking.set(!picking())" [attr.aria-pressed]="picking()">
-      Wskaż punkt na mapie
-    </button>
-    @if (origin()) {
-      <button class="btn btn-link" type="button" (click)="setOrigin(null)">Nie sortuj po odległości</button>
-    }
-  </div>
-  @if (nearError()) {
-    <p class="aed-message aed-message--warn" role="alert">{{ nearError() }}</p>
-  }
-</section>
-
 <form class="aed-search" role="search" (submit)="$event.preventDefault(); filter({ query: search.value })">
   <label class="aed-field__label" for="aed-search">Szukaj po nazwie miejsca lub miejscowości</label>
   <div class="aed-search__row">
@@ -103,6 +106,11 @@
   </div>
 </form>
 
+@if (!origin()) {
+  <ng-container *ngTemplateOutlet="list" />
+}
+
+<ng-template #list>
 @if (error()) {
   <p class="aed-message aed-message--error" role="alert">{{ error() }}</p>
 }
@@ -114,30 +122,15 @@
   @for (record of records(); track record.id_aed) {
     <li class="aed-row">
       <div class="aed-row__main">
-        <h3 class="aed-row__name" id="aed-row-{{ record.id_aed }}" tabindex="-1">
-          {{ record['nazwa'] || 'Miejsce bez nazwy' }}
-        </h3>
+        @let heading = placeTitle(record['nazwa'], address(record), record['opis_lokalizacji']);
+        @let where = address(record) || record['opis_lokalizacji'] || record['dysponent_nazwa'];
+        <h3 class="aed-row__name" id="aed-row-{{ record.id_aed }}" tabindex="-1">{{ heading }}</h3>
         @if (record['odleglosc_m'] !== undefined) {
           <p class="aed-row__distance">{{ distanceText(+record['odleglosc_m']) }}</p>
         }
-        <app-aed-status [status]="record.status" />
-        <p class="aed-row__address">
-          {{ address(record) || record['opis_lokalizacji'] || record['dysponent_nazwa'] }}
-        </p>
-        <p class="aed-row__id">{{ record.id_aed }}</p>
-      </div>
-      <div class="aed-row__status">
-        @if (hasPoint(record)) {
-          <button class="btn btn-link aed-row__map" type="button" (click)="showOnMap(record)">
-            Pokaż na mapie<span class="visually-hidden">: {{ record['nazwa'] || record.id_aed }}</span>
-          </button>
-        }
-        @if (record['data_weryfikacji']) {
-          <p class="aed-row__note">{{ title('data_weryfikacji') }}: {{ record['data_weryfikacji'] }}</p>
-        }
-      </div>
-      <div class="aed-row__access">
-        <dl>
+        @let open = openState(record);
+        <p class="aed-open aed-open--{{ open }}">{{ schedule[open] }}</p>
+        <dl class="aed-row__access">
           <div>
             <dt>{{ title('dostep') }}</dt>
             <dd>{{ record['dostep'] || 'brak danych' }}</dd>
@@ -147,8 +140,27 @@
             <dd>{{ record['godziny_dostepu'] || 'brak danych' }}</dd>
           </div>
         </dl>
-        @if (record['godziny_dostepu']) {
-          <p class="aed-row__note">{{ openNow(record) }}</p>
+        <app-aed-status [status]="record.status" />
+        @if (where && where !== heading) {
+          <p class="aed-row__address">{{ where }}</p>
+        }
+        <p class="aed-row__id">{{ record.id_aed }}</p>
+      </div>
+      <div class="aed-row__status">
+        @if (hasPoint(record)) {
+          <a
+            class="aed-route"
+            [href]="routeUrl(record['szerokosc_geograficzna'], record['dlugosc_geograficzna'])"
+            target="_blank"
+            rel="noopener">
+            Wyznacz trasę<span class="visually-hidden">: {{ record['nazwa'] || record.id_aed }} (Mapy Google, nowa karta)</span>
+          </a>
+          <button class="btn btn-link aed-row__map" type="button" (click)="showOnMap(record)">
+            Pokaż na mapie<span class="visually-hidden">: {{ record['nazwa'] || record.id_aed }}</span>
+          </button>
+        }
+        @if (record['data_weryfikacji']) {
+          <p class="aed-row__note">{{ title('data_weryfikacji') }}: {{ record['data_weryfikacji'] }}</p>
         }
       </div>
       <p class="aed-row__gauge">
@@ -164,6 +176,7 @@
 @if (total() > perPage) {
   <app-pagination [itemsPerPage]="perPage" [totalItems]="total()" [page]="page()" (pageChange)="load($event)" />
 }
+</ng-template>
 
 <section class="aed-map" aria-labelledby="aed-map-heading">
   <h2 class="aed-h2" id="aed-map-heading">Mapa</h2>
