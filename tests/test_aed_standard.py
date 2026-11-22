@@ -421,6 +421,8 @@ class AuditTest(unittest.TestCase):
     def test_osm_rule_is_shared(self):  # finding 6
         self.assertTrue(M.from_osm({"zrodlo": "OpenStreetMap"}))
         self.assertTrue(M.from_osm({"licencja": "ODbL 1.0"}))
+        self.assertTrue(M.from_osm({"zrodlo": "OSM"}))  # short spelling, blank row licence
+        self.assertTrue(M.from_osm({"licencja": "odbl"}))
         self.assertFalse(M.from_osm({"zrodlo": "zgloszenie", "licencja": "CC0 1.0", "powiazane_zrodla": "openstreetmap:node/1"}))
 
     def test_formulas_are_neutralised_in_csv(self):  # finding 7

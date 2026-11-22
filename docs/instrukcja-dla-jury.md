@@ -6,18 +6,18 @@ Stan zgodny z repozytorium na dzień 22.11.2026. Rzeczy, które jeszcze nie istn
 
 ## 0. Adres publiczny (bez instalacji)
 
-Dziś pełny fork portalu z usługą AED działa tylko lokalnie (także próbnie pod domeną testową `aed.localhost`, `docs/wdrozenie-serwer.md`, rozdz. 11). Adres publiczny zostanie podany po wdrożeniu na serwer zespołu: [do uzupełnienia po wdrożeniu]. Do tego czasu: sekcja 1 (uruchomienie lokalne).
+Pełny fork portalu z usługą AED działa na serwerze zespołu pod adresami z tabeli (sprawdzone 22.11 ok. 09:00: strony odpowiadają, `/aed-aggregated` podaje 805 rekordów z wykazów i 781 po deduplikacji, logowanie konta jury działa). Uruchomienie lokalne: sekcja 1.
 
 | Co | Adres | Konto |
 |---|---|---|
-| prototyp AED | `https://<domena>/pl/aed` | konta demo z tabeli w sekcji 1 (hasła demo są celowo jawne na czas pokazu) |
-| portal z forka: zbiory, zbiór zbiorczy AED, tabela, mapa | `https://<domena>/pl` | bez logowania |
-| wykaz AED do odczytu | `https://api.<domena>/aed-aggregated` | bez logowania |
-| panel administracyjny portalu | `https://admin.<domena>` | konto dla jury – niżej |
+| prototyp AED | <https://aed.heckyeah.pl/pl/aed> | konta demo z tabeli w sekcji 1 (hasła demo są celowo jawne na czas pokazu) |
+| portal z forka: zbiory, zbiór zbiorczy AED, tabela, mapa | <https://aed.heckyeah.pl/pl> | bez logowania |
+| wykaz AED do odczytu | <https://aed-api.heckyeah.pl/aed-aggregated> | bez logowania |
+| panel administracyjny portalu | <https://aed-admin.heckyeah.pl/> | konto dla jury – niżej |
 
 Bez logowania można odczytać wynik wykazu (zbiór zbiorczy, tabela, mapa, API, `/aed-aggregated`) i przejrzeć rejestr urządzeń. Dodanie wykazu wymaga konta w panelu portalu (ścieżka W), a zgłoszenie sprzedaży, przypomnienia i panel ministerstwa – kont demo usługi AED (ścieżki A–D).
 
-**Konto dla jury w panelu portalu (ścieżka dostawcy wykazu).** Panel: `http://localhost:8001` (na serwerze `https://admin.<domena>`), login `jury@aed.example`, hasło `jury-demo-2026` – redaktor instytucji „Gmina Demo (konto jury)”; konto zakłada komenda `manage.py seed_aed_demo`. 1) Zasoby → Dodaj zasób, zbiór „Defibrylatory AED – Gmina Demo”. 2) Plik `datasets/raw/dane_gov_pl/krosno/resource_54632.csv`, „Wykaz AED: TAK”, Zapisz – formularz odrzuca plik i pokazuje błędy po polsku przy polu „Wykaz AED”. 3) Plik `datasets/raw/dane_gov_pl/legionowo/resource_2625221.csv`, „Wykaz AED: TAK” – zasób zapisuje się i trafi do najbliższego scalania krajowego wykazu (`GET /aed-aggregated`). Sprawdzone lokalnie 22.11 (logowanie, zakres uprawnień, oba pliki); pod domeną publiczną – [do sprawdzenia]. Hasła kont demonstracyjnych są jawne celowo, na czas pokazu.
+**Konto dla jury w panelu portalu (ścieżka dostawcy wykazu).** Panel: `http://localhost:8001` (na serwerze <https://aed-admin.heckyeah.pl/>), login `jury@aed.example`, hasło `jury-demo-2026` – redaktor instytucji „Gmina Demo (konto jury)”; konto zakłada komenda `manage.py seed_aed_demo`. 1) Zasoby → Dodaj zasób, zbiór „Defibrylatory AED – Gmina Demo”. 2) Plik `datasets/raw/dane_gov_pl/krosno/resource_54632.csv`, „Wykaz AED: TAK”, Zapisz – formularz odrzuca plik i pokazuje błędy po polsku przy polu „Wykaz AED”. 3) Plik `datasets/raw/dane_gov_pl/legionowo/resource_2625221.csv`, „Wykaz AED: TAK” – zasób zapisuje się i trafi do najbliższego scalania krajowego wykazu (`GET /aed-aggregated`). Sprawdzone lokalnie 22.11 (logowanie, zakres uprawnień, oba pliki); pod domeną publiczną – [do sprawdzenia]. Hasła kont demonstracyjnych są jawne celowo, na czas pokazu.
 
 ## 1. Uruchomienie lokalne (jedna komenda)
 
@@ -52,7 +52,7 @@ Wymaga portalu z forka: adres z sekcji 0 albo lokalny stos według `docs/wykaz-a
 Bez logowania (odczyt):
 
 1. Otwórz `https://api.<domena>/aed-aggregated`. Odpowiedź zawiera identyfikatory zbioru i zasobu zbiorczego oraz raport: które wykazy przyjęto, które odrzucono i dlaczego. Sprawdzone 22.11 w przeglądarce na lokalnym stosie (`http://localhost:8000/aed-aggregated`, zrzut `docs/zrzuty/portal-10-aed-aggregated-przegladarka.png`).
-2. W portalu otwórz zbiór „Krajowy wykaz defibrylatorów AED – wykaz zbiorczy” (dostawca: Ministerstwo Cyfryzacji) i zasób „Krajowy wykaz AED”. Sprawdź poziom otwartości (3 gwiazdki), widok tabeli (781 rekordów, 40 stron po 20) i zakładkę „Mapa” (współrzędne i nazwa mają znaczniki mapy ustawione już przy tworzeniu zasobu). Strona zbioru, tabela i mapa sprawdzone 22.11 w przeglądarce na lokalnym stosie (zrzuty `portal-01`, `-06`, `-07`, `-08`); okno „Polityka prywatności i RODO” zamknij przyciskiem „Zamknij”. Pobrania CSV z karty zasobu nie sprawdzono (lokalnie odnośnik prowadzi pod `https://api.mcod.local`) [do sprawdzenia].
+2. W portalu otwórz zbiór „Krajowy wykaz defibrylatorów AED – wykaz zbiorczy” (dostawca: Ministerstwo Cyfryzacji) i zasób „Krajowy wykaz AED”. Sprawdź poziom otwartości (lokalnie 3 gwiazdki, na serwerze 4), widok tabeli (781 rekordów, 40 stron po 20) i zakładkę „Mapa” (współrzędne i nazwa mają znaczniki mapy ustawione już przy tworzeniu zasobu). Strona zbioru, tabela i mapa sprawdzone 22.11 w przeglądarce na lokalnym stosie (zrzuty `portal-01`, `-06`, `-07`, `-08`); okno „Polityka prywatności i RODO” zamknij przyciskiem „Zamknij”. Pobrania CSV z karty zasobu nie sprawdzono (lokalnie odnośnik prowadzi pod `https://api.mcod.local`) [do sprawdzenia].
 3. `https://api.<domena>/resources/<id zasobu>/data` – te same dane przez API portalu. [do sprawdzenia]
 4. W pliku sprawdź: kolumny standardu, brak rekordów z OpenStreetMap (ODbL) i z dostępem prywatnym, puste `numer_seryjny`, `dysponent_email`, `dysponent_telefon`.
 

@@ -141,12 +141,12 @@ Panel → Źródła danych (`/harvester/datasource/`) → Dodaj. Pola (`harveste
 | E-mail | adres redaktora (wymagany, `models.py:142`) |
 
 1. Kliknij **„Sprawdź poprawność pliku”**. Uruchamia to zadanie Celery `validate_xml_url_task` (`harvester/tasks.py:42-69`, `harvester/views.py:28-39`), które przechodzi 7 kroków walidacji i wpisuje „hash źródła” (`templates/admin/harvester/datasource/change_form.html:39-45`). Zrzut okna z wynikiem.
-2. Zapisz. **Import rusza od razu**: zapis ze zmianą statusu na „aktywny” uruchamia `import_data_task(force=True)` i pokazuje komunikat „Zadanie importu danych zostało uruchomione!” (`harvester/admin.py:227-236`). Że to działa także przy tworzeniu nowego źródła, wnioskujemy z działania `FieldTracker`; nie było to uruchamiane.
+2. Zapisz. **Import rusza od razu**: zapis ze zmianą statusu na „aktywny” uruchamia `import_data_task(force=True)` i pokazuje komunikat „Zadanie importu danych zostało uruchomione!” (`harvester/admin.py:227-236`). Działa także przy tworzeniu nowego źródła ze statusem „aktywny” (sprawdzone 22.11). Uwaga: w nowym źródle przyciski zapisu są wyłączone, dopóki „Sprawdź poprawność pliku” nie przejdzie (skrypt w `change_form.html`); pole „Typ instytucji” jest dla XML ukryte.
 3. Ponowny import bez czekania do 03:00 (harmonogram `celeryapp.py:78-82`; lokalnie Celery beat i tak jest wyłączony, `backend/docker-compose.local.yml:197-199`):
    - w panelu: status „nieaktywny” → Zapisz → „aktywny” → Zapisz, albo
    - z konsoli: `docker exec mcod-admin python manage.py shell -c "from mcod.harvester.models import DataSource; from mcod.harvester.tasks import import_data_task; import_data_task.delay(DataSource.objects.get(name='Krajowy rejestr AED – zasilanie XML').id, force=True)"` (`harvester/tasks.py:22-28`).
 4. Zakładka „Importy” źródła pokaże wynik: liczbę zbiorów i zasobów utworzonych, zmienionych i usuniętych oraz opis błędu (`harvester/models.py:1197-1230`).
-5. Powstały zbiór i zasób trzeba raz poprawić ręcznie jak w wariancie A (kroki 3–4: typy kolumn i mapa). Harvester nie ustawia typów ani mapy. Przy kolejnych importach zapisany schemat powinien zostać zachowany, bo `_resolve_tabular_data_schema` wylicza go od nowa tylko przy zmianie znaków umownych (`resources/tasks/process_resource_file_data.py:24-36`) – wniosek z kodu, nie sprawdzony.
+5. Powstały zbiór i zasób trzeba raz poprawić ręcznie jak w wariancie A (kroki 3–4: typy kolumn i mapa). Harvester nie ustawia typów ani mapy. Sprawdzone 22.11: po imporcie walidacja danych zasobu kończy się FAILURE (`nr_budynku`, `kod_terc`, `kod_simc`, `zrodlo_id`, `kompletnosc` wykryte jako liczby całkowite, puste komórki), po zmianie tych pięciu kolumn na tekst – SUCCESS. Ponowny import **niezmienionego** pliku zachował ręczne typy; przy zmienionym pliku (nowy link) zachowanie wynika tylko z kodu (`_resolve_tabular_data_schema` wylicza schemat od nowa tylko przy zmianie znaków umownych, `resources/tasks/process_resource_file_data.py:24-36`) – niesprawdzone.
 
 ## 4. Zrzuty do prezentacji
 
@@ -182,10 +182,11 @@ Uruchomione (na tej maszynie, bez portalu):
 
 Uruchomione później w lokalnym pełnym stosie forka (22.11, `docs/wykaz-aed-w-portalu.md`): formularz zasobu w panelu (dodanie i edycja, pole „Wykaz AED”), przetwarzanie pliku przez Celery, walidacja danych, ocena otwartości, tabela i mapa zasobu we frontendzie, zmiana typów kolumn w zakładce „Zmiana typu” (po zmianie `nr_budynku`, `kod_terc`, `kod_simc`, `zrodlo_id`, `kompletnosc` na tekst walidacja danych wykazu ministerstwa przeszła).
 
+Uruchomione 22.11 (ok. 07:15) w lokalnym pełnym stosie, szczegóły i liczby w `docs/wykaz-aed-w-portalu.md` („Harvester XML na zasilaniu usługi”): formularz źródła danych XML w panelu, `validate_xml_url_task` („Walidacja XML zakończona sukcesem!”), `import_data_task` przy zapisie i z konsoli, serializer zbioru i zasobu (kategoria `HEAL` → Zdrowie, `conditions`, tagi, częstotliwość), pobranie pliku zasobu z `https://host.docker.internal:8443` przez kontener Celery (Docker Desktop, Mac), zachowanie ręcznych typów kolumn przy ponownym imporcie niezmienionego pliku. Zasilanie szło z kopii bazy prototypu przez tymczasową usługę i serwer TLS (lekki prototyp działa po HTTP).
+
 Tylko w kodzie, nieuruchomione:
 
-- formularze panelu dla instytucji i źródła danych (harvester) i ich komunikaty;
-- zadania Celery harvestera: `validate_xml_url_task`, `import_data_task`;
-- serializer `XMLDatasetSchema` (`harvester/serializers.py:680-796`) w całości, w tym zamiana `conditions` na licencję i dopasowanie kategorii `HEAL`;
-- że kontener portalu u kolegi dosięgnie `host.docker.internal` – na Docker Desktop to standard, na Linuksie wymaga `extra_hosts`;
-- zachowanie ręcznie ustawionych typów kolumn przy kolejnych importach harvestera.
+- formularz instytucji w panelu i jego komunikaty;
+- import po zmianie pliku (nowy parametr `wersja`) i usuwanie obiektów, których `extIdent` zniknął z pliku;
+- dostęp do `host.docker.internal` na Linuksie (wymaga `extra_hosts`);
+- czy redaktor instytucji (konto jury) może dodać źródło i uruchomić „Sprawdź poprawność pliku”.

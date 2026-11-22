@@ -25,7 +25,8 @@ MAX_PROBLEMS = 20  # per list in the public report; the count of all problems is
 
 
 def _source_report(source, status, rows=0, accepted=0, problems=()):
-    problems = sorted(problems, key=lambda p: (p["wiersz"] is not None, p["wiersz"] or 0, p["pole"] or ""))
+    # Errors first: the list is cut at MAX_PROBLEMS, and the portal form decides from it whether a list can be saved.
+    problems = sorted(problems, key=lambda p: (p["poziom"] != ERROR, p["wiersz"] is not None, p["wiersz"] or 0, p["pole"] or ""))
     return {
         "zasob": source.get("zasob"),
         "tytul": source.get("tytul", ""),
