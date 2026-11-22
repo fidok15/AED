@@ -16,13 +16,16 @@ import { Subscription } from 'rxjs';
 
 import { SeoService } from '@app/services/seo.service';
 import { PaginationComponent } from '@app/shared/pagination/pagination.component';
-import { AedApiService, aedErrorMessage, AedRecord, AedStatus } from './aed-api.service';
+import { AedApiService, aedErrorMessage, AedFilters, AedRecord, AedStatus } from './aed-api.service';
 import { AED_SCHEDULE_LABELS, aedOpenNow, AedOpenState } from './aed-hours';
 import { AedMapComponent, aedDistanceText, AedOrigin, aedPlaceTitle, aedRouteUrl } from './aed-map.component';
-import { aedField, aedOptions } from './aed-schema';
+import { aedField, aedLabel, aedOptions } from './aed-schema';
 import { AED_STATUS_LABELS, AedStatusComponent } from './aed-status.component';
 
-/** National registry: an accessible list first, the map second. */
+/** Extra filters of the registry, folded under "Dodatkowe filtry". */
+type AedExtraFilters = Omit<AedFilters, 'status' | 'dostepny_teraz'>;
+
+/** National registry: the map on top, the accessible list with every device below it (a skip link leads there). */
 @Component({
   selector: 'app-aed-registry',
   standalone: true,
@@ -47,6 +50,31 @@ export class AedRegistryComponent implements OnInit {
   protected readonly distanceText = aedDistanceText;
 
   protected readonly stats = toSignal(this.api.stats());
+  protected readonly options = toSignal(this.api.filterOptions());
+  /** Public access values of the schema; `prywatny` devices are never listed. */
+  protected readonly access = aedOptions(aedField('dostep')).filter((value) => value !== 'prywatny');
+  /** Short label: the schema label up to its explanation ("Publiczny – każdy …" -> "Publiczny"). */
+  protected readonly accessLabel = (value: string) => aedLabel(aedField('dostep'), value).split(' – ')[0];
+  protected readonly inside = [
+    { value: 'tak', label: 'W budynku' },
+    { value: 'nie', label: 'Na zewnątrz' },
+  ];
+  protected readonly extra = signal<AedExtraFilters>({});
+  protected readonly extraCount = computed(() => Object.values(this.extra()).filter(Boolean).length);
+  /** The one set of filters: the list request and the map points both use it. */
+  protected readonly filters = computed<AedFilters>(() => ({
+    status: this.status() || undefined,
+    dostepny_teraz: this.openNowOnly() ? 1 : undefined,
+    ...this.extra(),
+  }));
+  /** Models of the chosen producer (letter case ignored, as the service compares), else all of them. */
+  protected readonly models = computed(() => {
+    const producer = this.extra().producent?.toLowerCase();
+    return (this.options()?.model ?? []).filter((item) => !producer || item.producent.toLowerCase() === producer);
+  });
+  protected readonly withProducer = computed(() => this.sum(this.options()?.producent));
+  protected readonly withModel = computed(() => this.sum(this.options()?.model));
+  protected readonly withTown = computed(() => this.sum(this.options()?.miejscowosc));
   protected readonly status = signal<AedStatus | ''>('');
   protected readonly query = signal('');
   protected readonly openNowOnly = signal(false);
@@ -74,10 +102,11 @@ export class AedRegistryComponent implements OnInit {
     const query = this.query() ? `, szukane: „${this.query()}”` : '';
     const open = this.openNowOnly() ? ', tylko dostępne teraz według harmonogramu' : '';
     const near = this.origin() ? ', od najbliższego (odległość w linii prostej)' : '';
+    const extra = this.extraCount() ? `, dodatkowe filtry: ${this.extraCount()}` : '';
     const unknown = this.withoutHours()
       ? ` Dla ${this.number(this.withoutHours())} urządzeń godziny dostępu nie są znane, więc nie ma ich na liście.`
       : '';
-    return `Pokazano ${range} z ${this.number(this.total())}${status}${query}${open}${near}.${unknown}`;
+    return `Pokazano ${range} z ${this.number(this.total())}${status}${query}${open}${extra}${near}.${unknown}`;
   });
 
   ngOnInit(): void {
@@ -97,6 +126,32 @@ export class AedRegistryComponent implements OnInit {
     this.load();
   }
 
+  /** One extra filter changed; a model of another producer no longer applies. */
+  protected setExtra(name: keyof AedExtraFilters, value: string | 1 | undefined): void {
+    const next: AedExtraFilters = { ...this.extra(), [name]: value || undefined };
+    this.extra.set(next);
+    if (name === 'producent' && next.model && !this.models().some((item) => item.wartosc === next.model)) {
+      this.extra.set({ ...next, model: undefined });
+    }
+    this.load();
+  }
+
+  protected clearExtra(): void {
+    if (!this.extraCount()) return;
+    this.extra.set({});
+    this.load();
+  }
+
+  protected check(event: Event): 1 | undefined {
+    return (event.target as HTMLInputElement).checked ? 1 : undefined;
+  }
+
+  /** "Przejdź do listy urządzeń": focus the list heading, as the portal's own skip links do. */
+  protected skipToList(event: Event): void {
+    event.preventDefault();
+    document.getElementById('aed-list-heading')?.focus();
+  }
+
   protected load(page = 1, focusId = ''): void {
     this.page.set(page);
     const origin = this.origin();
@@ -104,9 +159,8 @@ export class AedRegistryComponent implements OnInit {
     this.listRequest?.unsubscribe();
     this.listRequest = this.api
       .devices({
-        status: this.status() || undefined,
+        ...this.filters(),
         q: this.query(),
-        dostepny_teraz: this.openNowOnly() ? 1 : undefined,
         lat: origin ? +origin.lat.toFixed(5) : undefined,
         lon: origin ? +origin.lon.toFixed(5) : undefined,
         strona: page,
@@ -170,6 +224,10 @@ export class AedRegistryComponent implements OnInit {
 
   protected showOnMap(record: AedRecord): void {
     this.map()?.showDevice(record.id_aed, +record['szerokosc_geograficzna'], +record['dlugosc_geograficzna']);
+  }
+
+  private sum(items: { liczba: number }[] | undefined): number {
+    return (items ?? []).reduce((total, item) => total + item.liczba, 0);
   }
 
   protected hasPoint(record: AedRecord): boolean {

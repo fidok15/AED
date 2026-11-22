@@ -25,7 +25,7 @@
             <dd>{{ number(score.srednia_kompletnosc) }}%</dd>
           </div>
           <div>
-            <dt>Potwierdzone przez dysponentów</dt>
+            <dt>Zweryfikowane przez dysponentów</dt>
             <dd>{{ number(score.udzial_aktywnych * 100) }}%</dd>
           </div>
           <div>
@@ -43,9 +43,9 @@
         Kompletność to wynik od 0 do 100 liczony z pól standardu – im ważniejsze pole, tym więcej punktów. Odznakę
         @if (thresholds(); as thresholds) {
           dostaje firma ze średnią kompletnością co najmniej {{ thresholds.srednia_kompletnosc }}% i z co najmniej
-          {{ number(thresholds.udzial_aktywnych * 100) }}% urządzeń potwierdzonych przez dysponenta.
+          {{ number(thresholds.udzial_aktywnych * 100) }}% urządzeń zweryfikowanych przez dysponenta.
         } @else {
-          dostaje firma z wysoką średnią kompletnością i dużym udziałem potwierdzonych urządzeń.
+          dostaje firma z wysoką średnią kompletnością i dużym udziałem urządzeń zweryfikowanych.
         }
       </p>
       <p>W zgłoszeniu podaj komplet danych o urządzeniu i dysponencie. Punkty dają:</p>

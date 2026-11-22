@@ -30,6 +30,45 @@ export interface AedPage<T> {
   bez_godzin?: number;
 }
 
+/**
+ * Filters of GET /urzadzenia and /urzadzenia.geojson: the list and the map get the same object,
+ * so they always show the same devices (`q`, `lat`/`lon` and paging are list-only).
+ */
+export interface AedFilters {
+  status?: AedStatus;
+  dostepny_teraz?: 1;
+  dostep?: string;
+  calodobowo?: 1;
+  z_godzinami?: 1;
+  wewnatrz_budynku?: string;
+  producent?: string;
+  model?: string;
+  miejscowosc?: string;
+  zrodlo?: string;
+}
+
+export interface AedCount {
+  wartosc: string;
+  liczba: number;
+}
+
+/** GET /filtry: values of the extra filters with counts of public devices that are not withdrawn. */
+export interface AedFilterOptions {
+  razem: number;
+  producent: AedCount[];
+  model: (AedCount & { producent: string })[];
+  miejscowosc: AedCount[];
+  zrodlo: (AedCount & { etykieta: string })[];
+  dostep: Record<string, number>;
+  wewnatrz_budynku: Record<string, number>;
+  z_godzinami: number;
+  calodobowo: number;
+}
+
+/** Request parameters without empty values. */
+const params = (values: object) =>
+  Object.fromEntries(Object.entries(values).filter(([, value]) => value != null && value !== ''));
+
 export interface AedStats {
   razem: number;
   srednia_kompletnosc: number;
@@ -263,18 +302,22 @@ export class AedApiService {
   }
 
   // GET /urzadzenia
-  devices(params: {
-    status?: AedStatus;
-    q?: string;
-    dostepny_teraz?: 1;
-    /** Both or none: sorts by distance from this point and adds `odleglosc_m` to every record. */
-    lat?: number;
-    lon?: number;
-    strona?: number;
-    na_stronie?: number;
-  }): Observable<AedPage<AedRecord>> {
-    const set = Object.fromEntries(Object.entries(params).filter(([, value]) => value != null && value !== ''));
-    return this.http.get<AedPage<AedRecord>>(`${API}/urzadzenia`, { params: set });
+  devices(
+    query: AedFilters & {
+      q?: string;
+      /** Both or none: sorts by distance from this point and adds `odleglosc_m` to every record. */
+      lat?: number;
+      lon?: number;
+      strona?: number;
+      na_stronie?: number;
+    },
+  ): Observable<AedPage<AedRecord>> {
+    return this.http.get<AedPage<AedRecord>>(`${API}/urzadzenia`, { params: params(query) });
+  }
+
+  // GET /filtry
+  filterOptions(): Observable<AedFilterOptions> {
+    return this.http.get<AedFilterOptions>(`${API}/filtry`);
   }
 
   // GET /statystyki
@@ -314,10 +357,10 @@ export class AedApiService {
     return this.http.post(`${API}/urzadzenia/${encodeURIComponent(id)}/sygnal`, body);
   }
 
-  // GET /urzadzenia.geojson?bbox=minLon,minLat,maxLon,maxLat
-  mapPoints(bbox: string): Observable<AedMapFeature[]> {
+  // GET /urzadzenia.geojson?bbox=minLon,minLat,maxLon,maxLat plus the filters of the list
+  mapPoints(bbox: string, filters: AedFilters = {}): Observable<AedMapFeature[]> {
     return this.http
-      .get<{ features: AedMapFeature[] }>(`${API}/urzadzenia.geojson`, { params: { bbox } })
+      .get<{ features: AedMapFeature[] }>(`${API}/urzadzenia.geojson`, { params: params({ ...filters, bbox }) })
       .pipe(map((collection) => collection.features));
   }
 
