@@ -210,7 +210,7 @@ def read_table(data, filename=""):
         raise ConverterError("Pliku nie da się odczytać – ma uszkodzoną albo nietypową budowę. Zapisz go ponownie "
                              "jako CSV albo XLSX.")
     # A file exported from OpenStreetMap as a whole (CLAUDE.md, rule 3): every row gets the OSM mark in convert().
-    t["osm"], t["osm_rows"] = formaty.osm_origin(t["format"], raw.get("text"), t["columns"], t["rows"])
+    t["osm"], t["osm_rows"] = formaty.osm_origin(raw, t["columns"], t["rows"])
     if t["osm"]:
         t["notes"].append("Plik rozpoznano jako eksport z OpenStreetMap (%s) – wszystkie wiersze mają licencję ODbL "
                           "i nie trafią do wykazu." % t["osm"])
@@ -236,14 +236,15 @@ def _read(fmt, data, notes, raw):
         notes.extend(more)
         encoding = "nie dotyczy (DOCX)"
     elif fmt in ("kmz", "kml", "gpx", "gml"):
-        columns, rows, more, raw["text"] = formaty.read_xml_format(fmt, data)
+        columns, rows, more, meta = formaty.read_xml_format(fmt, data)
+        raw.update(meta)
         notes.extend(more)
         return _finish(fmt, "UTF-8 (XML)", None, columns, rows, notes)
     else:
         text, encoding = _decode(data)
-        raw["text"] = text
         if fmt == "json":
-            fmt, columns, rows, more = formaty.read_json(text.lstrip())
+            fmt, columns, rows, more, meta = formaty.read_json(text.lstrip())
+            raw.update(meta)
             notes.extend(more)
             return _finish(fmt, encoding, None, columns, rows, notes)
         if fmt == "html":

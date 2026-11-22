@@ -277,6 +277,93 @@ class ReviewFixesTest(unittest.TestCase):
                 analyze(data, "plik.json")
 
 
+def _osm_matrix():
+    """(format, variant, file bytes, filename): two devices; the OSM mark on the document, on object 1 only (every
+    place where an object can carry it) or nowhere. Values are invented; structures are those of real exports."""
+    import json
+    pts = [(52.2, 21.0), (52.3, 21.1)]
+    out = []
+
+    def add(fmt, variant, doc, name):
+        out.append((fmt, variant, doc if isinstance(doc, bytes) else json.dumps(doc).encode(), name))
+
+    def geojson(doc_extra=None, feat_extra=None, prop_extra=None):
+        feats = [{"type": "Feature", "properties": {"name": "AED %d" % i}, "geometry": {"type": "Point", "coordinates": [lon, lat]}}
+                 for i, (lat, lon) in enumerate(pts)]
+        feats[0].update(feat_extra or {})
+        feats[0]["properties"].update(prop_extra or {})
+        return dict({"type": "FeatureCollection", "features": feats}, **(doc_extra or {}))
+    add("geojson", "doc", geojson({"license": "ODbL 1.0"}), "a.geojson")
+    for where, extra in (("feature @id", {"feat_extra": {"@id": "node/7"}}), ("feature id", {"feat_extra": {"id": "node/7"}}),
+                         ("feature osm_type", {"feat_extra": {"osm_type": "node"}}),
+                         ("properties osm_id", {"prop_extra": {"osm_id": 7}}),
+                         ("properties ODbL", {"prop_extra": {"license": "ODbL"}})):
+        add("geojson", "object: " + where, geojson(**extra), "a.geojson")
+    add("geojson", "none", geojson(), "a.geojson")
+
+    def records(extra=None):
+        recs = [{"nazwa": "AED %d" % i, "lat": lat, "lon": lon} for i, (lat, lon) in enumerate(pts)]
+        recs[0].update(extra or {})
+        return recs
+    for fmt, wrap, doc_mark in (("json top", lambda r: {"data": r}, lambda d: dict(d, license="ODbL")),
+                                ("json nested", lambda r: {"success": True, "result": {"records": r}},
+                                 lambda d: dict(d, result=dict(d["result"], attribution="© OpenStreetMap contributors")))):
+        add(fmt, "doc", doc_mark(wrap(records())), "a.json")
+        for where, extra in (("@id", {"@id": "node/7"}), ("license", {"license": "ODbL"}),
+                             ("tags", {"tags": {"osm_type": "node"}})):
+            add(fmt, "object: " + where, wrap(records(extra)), "a.json")
+        add(fmt, "none", wrap(records()), "a.json")
+
+    def arcgis(doc_extra=None, attr_extra=None):
+        feats = [{"attributes": {"nazwa": "AED %d" % i}, "geometry": {"x": lon, "y": lat}} for i, (lat, lon) in enumerate(pts)]
+        feats[0]["attributes"].update(attr_extra or {})
+        return dict({"spatialReference": {"wkid": 4326}, "features": feats}, **(doc_extra or {}))
+    add("arcgis", "doc", arcgis({"copyrightText": "© OpenStreetMap contributors"}), "a.json")
+    add("arcgis", "object: attributes osm_id", arcgis(attr_extra={"osm_id": 7}), "a.json")
+    add("arcgis", "object: attributes ODbL", arcgis(attr_extra={"zrodlo_danych": "OSM, ODbL"}), "a.json")
+    add("arcgis", "none", arcgis(), "a.json")
+
+    def overpass(doc=False, first=None):
+        els = [{"lat": lat, "lon": lon, "tags": {"name": "AED %d" % i}} for i, (lat, lon) in enumerate(pts)]
+        els[0].update(first or {})
+        d = {"version": 0.6, "elements": els}
+        return dict(d, generator="Overpass API 0.7.62", osm3s={"copyright": "ODbL"}) if doc else d
+    add("overpass", "doc", overpass(doc=True), "a.json")
+    add("overpass", "object: element", overpass(first={"type": "node", "id": 7}), "a.json")
+    add("overpass", "object: tags", overpass(first={"tags": {"name": "AED 0", "@id": "node/7"}}), "a.json")
+    add("overpass", "none", overpass(), "a.json")
+
+    def kml(doc="", first=""):
+        marks = ["", ""]
+        marks[0] = first
+        pms = "".join('<Placemark><name>AED %d</name>%s<Point><coordinates>%s,%s</coordinates></Point></Placemark>'
+                      % (i, marks[i], lon, lat) for i, (lat, lon) in enumerate(pts))
+        return ('<kml xmlns="http://www.opengis.net/kml/2.2"><Document>%s%s</Document></kml>' % (doc, pms)).encode()
+    add("kml", "doc", kml(doc="<description>© OpenStreetMap contributors</description>"), "a.kml")
+    add("kml", "object: ExtendedData osm_id", kml(first='<ExtendedData><Data name="osm_id"><value>7</value></Data></ExtendedData>'), "a.kml")
+    add("kml", "object: ExtendedData @id", kml(first='<ExtendedData><Data name="@id"><value>node/7</value></Data></ExtendedData>'), "a.kml")
+    add("kml", "object: description", kml(first="<description>Dane: © OpenStreetMap</description>"), "a.kml")
+    add("kml", "none", kml(), "a.kml")
+    return out
+
+
+class OsmOriginMatrixTest(unittest.TestCase):
+    """Rule 3 on both levels, for every format with objects (Codex review 10)."""
+
+    def test_matrix(self):
+        constants = {"miejscowosc": "Warszawa", "nazwa": "AED"}
+        for fmt, variant, data, name in _osm_matrix():
+            with self.subTest(fmt=fmt, variant=variant):
+                a, text, rep, (records, report) = auto(data, name, constants)
+                osm_rows = {p["wiersz"] for p in rep["problemy"] if p["kod"] == "dane_osm"}
+                if variant == "doc":
+                    self.assertEqual((rep["poprawne"], osm_rows), (0, {1, 2}))
+                elif variant == "none":
+                    self.assertEqual((rep["poprawne"], osm_rows), (2, set()), rep["problemy"])
+                else:
+                    self.assertEqual((rep["poprawne"], osm_rows), (1, {1}), rep["problemy"])
+
+
 MALFORMED = (
     b'{"features": [{"attributes": {"a": 1}, "geometry": {"x": 1, "y": 2}}, null]}',
     b'{"features": [{"attributes": {"a": 1}}, {"attributes": "x"}]}',
