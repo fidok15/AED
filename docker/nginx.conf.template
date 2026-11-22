@@ -1,5 +1,13 @@
+# Access log without query strings: the point of "najbliższy AED" (lat, lon) and QR tokens are not logged.
+log_format path_only '$remote_addr [$time_local] "$request_method $uri" $status $body_bytes_sent';
+
 server {
     listen 80;
+    access_log /var/log/nginx/access.log path_only;
+    # The map's country view is ~4.4 MB of GeoJSON; gzip brings it to a fraction of that.
+    gzip on;
+    gzip_types application/json application/geo+json text/css application/javascript image/svg+xml;
+    gzip_proxied any;
     root /usr/share/nginx/html;
     index index.html;
     client_max_body_size 6m;
