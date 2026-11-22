@@ -33,7 +33,7 @@ Ma pierwszeństwo przy wyborze, co pokazujemy jako główną ścieżkę. Streszc
 - najważniejsze nie jest osobna aplikacja zbierająca dane, tylko **dostosowanie logiki i metod portalu**, żeby wykazy dało się pobierać i scalać w jedną standardową listę;
 - jury może nie mieć dostępu do wszystkich domen – cenniejsze jest **rozwiązanie do odczytu**.
 
-Odpowiedź (PR #16): wykaz AED w forku portalu wzorem wykazu DGA – analiza `docs/wykaz-dga-analiza.md`, uruchomienie `docs/wykaz-aed-w-portalu.md`. Kod Django nie był jeszcze uruchomiony w pełnym stosie portalu.
+Odpowiedź (PR #16): wykaz AED w forku portalu wzorem wykazu DGA – analiza `docs/wykaz-dga-analiza.md`, uruchomienie `docs/wykaz-aed-w-portalu.md`. Kod Django uruchomiono 22.11 lokalnie w pełnym stosie forka (migracje, testy, scalanie przez Celery, tabela i mapa we frontendzie); nie na serwerze publicznym.
 
 ## Proces, który budujemy
 
@@ -147,7 +147,7 @@ Stan na 22.11, ok. 01:00:
 | B. Źródła i mapper cykliczny | rejestr źródeł i pobieranie z niego zrobione; tryb przyrostowy i raport „co przybyło” – do potwierdzenia |
 | C. Usługa AED | zrobione, testy przechodzą; poprawki po przeglądach w PR #14 i commicie `838968e` (m.in. przejęcie punktu znanego tylko z OSM) |
 | C2. Portal lokalnie | w toku; konfiguracja portów i proxy frontendu (HubertK05), wynik uruchomienia – do potwierdzenia |
-| C3. Wykaz AED w portalu i wdrożenie pod domeną | kod w PR #16, nieuruchomiony w portalu; konfiguracja serwera gotowa, nieuruchomiona |
+| C3. Wykaz AED w portalu i wdrożenie pod domeną | kod w PR #16, uruchomiony lokalnie w pełnym stosie forka; konfiguracja serwera gotowa, nieuruchomiona |
 | D. Frontend | wstrzymany do sygnału; zmiany w toku w `frontend/src/app/pages/aed/` |
 | E. Kampania i prezentacja | nazwa, logo i księga znaku – w toku u zespołu; konspekt, opis projektu, instrukcja dla jury – szkice gotowe |
 

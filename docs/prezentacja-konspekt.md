@@ -9,7 +9,7 @@ Zasady: liczby tylko z `datasets/out/raport.json` (stan z budowy zbioru 21.11.20
 Zrzuty:
 
 - **są:** `frontend/aed-zrzuty/` (01–18, wersje 320 px, tryby kontrastu, wyniki axe w `DOSTEPNOSC.md`);
-- **do zrobienia z portalu z forka:** nazwy plików `portal-*.png`, katalog `docs/zrzuty/` (prowadzi go osoba robiąca zrzuty). Lista na końcu. Zrzuty z portalu powstaną dopiero po uruchomieniu wykazu AED w pełnym stosie, co jest **do potwierdzenia**.
+- **do zrobienia z portalu z forka:** nazwy plików `portal-*.png`, katalog `docs/zrzuty/` (prowadzi go osoba robiąca zrzuty). Lista na końcu. Zrzuty `portal-01`, `-02`, `-03`, `-06`, `-07`, `-08`, `-10`, `-11` to ekrany przeglądarki z lokalnego pełnego stosu forka (22.11); `portal-04` i `-05` to wyjście terminala wyrenderowane do PNG.
 
 ---
 
@@ -70,7 +70,7 @@ Zrzuty:
   4. Scalanie: raport bez zapisu (`--dry-run`), potem zasób zbiorczy.
   5. Odczyt: `GET /aed-aggregated`, widok tabeli, mapa, API zasobu.
 - **Zrzuty:** `portal-03-bledy-wykazu-krosno.png`, `portal-04-dry-run-raport.png`, `portal-05-aed-aggregated.png`, `portal-06-tabela.png`, `portal-07-mapa.png`, `portal-08-api-i-otwartosc.png`.
-- **Liczby:** wynik scalania wykazu Legionowa i eksportu z rejestru (`tests/test_wykaz.py`): 805 rekordów z wykazów, 24 połączenia, 781 w wykazie krajowym. **Do potwierdzenia uruchomieniem w portalu** – dziś to wynik testu poza portalem.
+- **Liczby:** wynik scalania wykazu Legionowa i eksportu z rejestru (`tests/test_wykaz.py`): 805 rekordów z wykazów, 24 połączenia, 781 w wykazie krajowym. Potwierdzone 22.11 w lokalnym pełnym stosie portalu: to samo dał `--dry-run` i scalanie przez Celery, a zasób zbiorczy ma 781 wierszy w tabeli i na mapie.
 - **Notatki mówcy:** Jury może to sprawdzić samym odczytem pod adresem publicznym, bez konta. Wskazówka prowadzącego mówiła wprost, że rozwiązanie do odczytu jest cenniejsze.
 
 ## Slajd 6. Standard danych i wzorzec XLSX
@@ -105,7 +105,7 @@ Zrzuty:
 - **Teza:** Stan początkowy z istniejących źródeł, uczciwie policzony i bez mieszania licencji.
 - **Treść:**
   - rejestr po deduplikacji: **18 814** (OSM 18 298 → 18 032, Warszawa 708, Krosno 21, Marki 8, Przemyśl 21, Legionowo 24);
-  - **266** połączeń automatycznych (reguły: odległość 151, odległość i podobieństwo 6, numer referencyjny Warszawy 109); **214** par do ręcznego przeglądu (153 kandydatów, 61 konfliktów źródeł); dwóch rekordów z tego samego źródła nigdy nie łączymy automatycznie;
+  - **266** połączeń automatycznych (reguły: odległość 151, odległość i podobieństwo 6, numer referencyjny Warszawy 109); **195** par do ręcznego przeglądu (148 kandydatów, 47 konfliktów źródeł); dwóch rekordów z tego samego źródła nigdy nie łączymy automatycznie;
   - do publikacji **781 z 18 814**: 18 032 rekordów wykluczonych przez licencję ODbL, poza tym 3 048 z dostępem prywatnym oraz braki miejscowości (17 959) i nazwy (12 131); powody mogą się nakładać;
   - nowe źródło to jeden wpis w `aed_standard/sources.json` (`docs/dodawanie-zrodla.md`).
 - **Zrzuty:** `04-panel-ministerstwa.jpg`, `13-ministerstwo-historia-zadan.jpg`, `01-rejestr-lista.jpg`, `03-rejestr-mapa.jpg`; `[BRAK: wykres „co odpadło z eksportu i dlaczego”]`.
@@ -128,13 +128,13 @@ Zrzuty:
 
 - **Teza:** Wiemy, gdzie są granice, i każda ma następny krok.
 - **Treść (pełna lista):**
-  - **kod wykazu AED w portalu nie był jeszcze uruchomiony w pełnym stosie** (migracje, formularz, zadanie Celery, `/aed-aggregated`, testy Django) – `[do aktualizacji po uruchomieniu]`;
+  - **wykaz AED w portalu działa tylko lokalnie** (pełny stos forka w Dockerze: migracje, 8 testów AED + 148 testów regresji DGA, panelu i Celery, formularz z błędami po polsku, scalanie przez Celery, zasób zbiorczy 781 wierszy z tabelą i mapą, `/aed-aggregated`); nie był uruchomiony na serwerze publicznym, a harmonogram 03:45 nie był sprawdzony (scalanie uruchamiano ręcznie);
   - serwer pod domeną: konfiguracja gotowa i sprawdzona składniowo, nieuruchomiona (`docs/wdrozenie-serwer.md`) – `[do aktualizacji]`;
   - eksport to 781 rekordów, z czego 708 z API Warszawy – zbiór jest dziś w praktyce warszawski;
   - wszystkie rekordy rejestru z importu mają status `niepotwierdzony`; status `aktywny` powstaje dopiero po ścieżce zarządcy;
   - średnia kompletność rejestru 39,2 na 100; tylko 100 z 781 rekordów eksportu ma godziny dostępu (wszystkie z API Warszawy);
   - rekordy znane tylko z OpenStreetMap (ODbL) zostają poza eksportem; wymaga to opinii prawnika;
-  - typy kolumn w portalu wymagają ręcznej korekty po wgraniu CSV (`nr_budynku`, `kod_terc`, `kod_simc`, `zrodlo_id` jako tekst), bo portal zgaduje typy z wartości (`docs/panel-portalu-krok-po-kroku.md`); zasób zbiorczy AED ma schemat ustawiony od razu;
+  - typy kolumn w portalu wymagają ręcznej korekty po wgraniu CSV (`nr_budynku`, `kod_terc`, `kod_simc`, `zrodlo_id`, `kompletnosc` jako tekst; po zmianie w zakładce „Zmiana typu” walidacja danych przechodzi – sprawdzone 22.11), bo portal zgaduje typy z wartości (`docs/panel-portalu-krok-po-kroku.md`); zasób zbiorczy AED ma schemat ustawiony od razu;
   - harvester XML i CKAN nie przenoszą flagi wykazu AED (brak `containsAedList` w XSD 1.13); zasób z harvestera oznacza redaktor;
   - plik XLSX wykazu jest sprawdzany dopiero przy scalaniu, nie w formularzu;
   - bez `id_aed` i `zrodlo_id` w wykazie identyfikator zależy od kolejności wierszy;
@@ -177,15 +177,16 @@ Kolejność odpowiada `docs/wykaz-aed-w-portalu.md` („Zrzuty ekranu do prezent
 
 | Plik | Co | Slajd |
 |---|---|---|
-| `portal-01-zbior-zbiorczy.png` | zbiór „Krajowy wykaz defibrylatorów AED – wykaz zbiorczy” na liście zbiorów ministerstwa | 1 |
+| `portal-01-zbior-zbiorczy.png` | strona zbioru „Krajowy wykaz defibrylatorów AED – wykaz zbiorczy” we frontendzie forka (dostawca: ministerstwo) | 1 |
 | `portal-02-formularz-wykaz-aed.png` | formularz zasobu w panelu z polem „Wykaz AED” i tekstem pomocy | 4 |
 | `portal-03-bledy-wykazu-krosno.png` | błędy po polsku po wgraniu pliku z Krosna | 5 |
-| `portal-04-dry-run-raport.png` | wynik `create_main_aed_resource --dry-run` | 5 |
-| `portal-05-aed-aggregated.png` | odpowiedź `GET /aed-aggregated` | 5 |
+| `portal-04-dry-run-raport.png` | wynik `create_main_aed_resource --dry-run` (render terminala) | 5 |
+| `portal-05-aed-aggregated.png` | odpowiedź `GET /aed-aggregated` (render terminala) | 5 |
 | `portal-06-tabela.png` | widok tabeli zasobu zbiorczego | 5 |
 | `portal-07-mapa.png` | mapa zasobu zbiorczego | 5 |
-| `portal-08-api-i-otwartosc.png` | `/resources/<id>/data` i ocena otwartości | 5 |
-| `portal-09-harvester-xml.png` | źródło XML: „Sprawdź poprawność pliku” i zakładka „Importy” (opcjonalnie) | 5 |
-| `portal-10-strona-glowna.png` | strona główna forka pod domeną (dowód „strona taka sama jak dane.gov.pl”) | 1 lub 4 |
+| `portal-08-api-i-otwartosc.png` | strona zasobu: poziom otwartości (3 gwiazdki), CSV, JSON, „Wyświetl dane poprzez API” | 5 |
+| `portal-09-harvester-xml.png` | źródło XML: „Sprawdź poprawność pliku” i zakładka „Importy” (opcjonalnie; nie zrobiono) | 5 |
+| `portal-10-aed-aggregated-przegladarka.png` | `GET /aed-aggregated` w przeglądarce (raport scalania) | 5 |
+| `portal-11-typy-kolumn.png` | panel, zakładka „Zmiana typu” wykazu ministerstwa: `nr_budynku`, `kod_terc` jako tekst | 10 |
 
 Uwaga o liczbach: panel ministerstwa w usłudze (zrzut `04`) pokazuje mniej rekordów niż `raport.json`, bo usługa nie wystawia 3 048 rekordów z dostępem „prywatny”. Na slajdach podajemy liczby z `raport.json` i podpisujemy źródło. `[do sprawdzenia: ujednolicić nowym zrzutem po tym samym stanie bazy]`.
