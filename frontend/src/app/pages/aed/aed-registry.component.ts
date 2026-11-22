@@ -9,13 +9,15 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { Subscription } from 'rxjs';
 
 import { SeoService } from '@app/services/seo.service';
 import { PaginationComponent } from '@app/shared/pagination/pagination.component';
 import { AedApiService, aedErrorMessage, AedRecord, AedStatus } from './aed-api.service';
-import { AED_OPEN_LABELS, AED_SCHEDULE_LABELS, aedOpenNow } from './aed-hours';
-import { AedMapComponent, aedDistanceText, AedOrigin } from './aed-map.component';
+import { AED_SCHEDULE_LABELS, aedOpenNow, AedOpenState } from './aed-hours';
+import { AedMapComponent, aedDistanceText, AedOrigin, aedPlaceTitle, aedRouteUrl } from './aed-map.component';
 import { aedField, aedOptions } from './aed-schema';
 import { AED_STATUS_LABELS, AedStatusComponent } from './aed-status.component';
 
@@ -23,7 +25,7 @@ import { AED_STATUS_LABELS, AedStatusComponent } from './aed-status.component';
 @Component({
   selector: 'app-aed-registry',
   standalone: true,
-  imports: [AedStatusComponent, AedMapComponent, PaginationComponent],
+  imports: [AedStatusComponent, AedMapComponent, PaginationComponent, NgTemplateOutlet],
   templateUrl: './aed-registry.component.html',
 })
 export class AedRegistryComponent implements OnInit {
@@ -32,6 +34,8 @@ export class AedRegistryComponent implements OnInit {
   private readonly injector = inject(Injector);
   private readonly map = viewChild(AedMapComponent);
   private readonly search = viewChild<ElementRef<HTMLInputElement>>('search');
+
+  private listRequest?: Subscription;
 
   protected readonly perPage = 25;
   protected readonly statuses = aedOptions(aedField('status')) as AedStatus[];
@@ -44,7 +48,12 @@ export class AedRegistryComponent implements OnInit {
   protected readonly status = signal<AedStatus | ''>('');
   protected readonly query = signal('');
   protected readonly openNowOnly = signal(false);
-  protected readonly openLabel = AED_OPEN_LABELS.dostepny;
+  protected readonly schedule = AED_SCHEDULE_LABELS;
+  protected readonly placeTitle = aedPlaceTitle;
+  protected readonly routeUrl = aedRouteUrl;
+  /** "Twojej lokalizacji" / "wybranego punktu" for the sentence above the sorted list. */
+  protected readonly fromText = (origin: AedOrigin) =>
+    origin.accuracy !== undefined ? 'Twojej lokalizacji' : 'wybranego punktu';
   /** Point the list is sorted from; kept only in this component, sent only as `lat`/`lon` of the list request. */
   protected readonly origin = signal<AedOrigin | null>(null);
   protected readonly picking = signal(false);
@@ -85,7 +94,9 @@ export class AedRegistryComponent implements OnInit {
   protected load(page = 1, focusId = ''): void {
     this.page.set(page);
     const origin = this.origin();
-    this.api
+    // Only the latest request may fill the list: an older answer (e.g. sorted by distance) must not arrive last.
+    this.listRequest?.unsubscribe();
+    this.listRequest = this.api
       .devices({
         status: this.status() || undefined,
         q: this.query(),
@@ -156,8 +167,8 @@ export class AedRegistryComponent implements OnInit {
     return !!record['szerokosc_geograficzna'] && !!record['dlugosc_geograficzna'];
   }
 
-  protected openNow(record: AedRecord): string {
-    return AED_SCHEDULE_LABELS[aedOpenNow(record['godziny_dostepu'] as string)];
+  protected openState(record: AedRecord): AedOpenState {
+    return aedOpenNow(record['godziny_dostepu'] as string);
   }
 
   protected address(record: AedRecord): string {

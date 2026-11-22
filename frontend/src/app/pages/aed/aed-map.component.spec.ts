@@ -1,4 +1,11 @@
-import { aedDevices, aedDistanceM, aedDistanceText } from './aed-map.component';
+import {
+  aedDevices,
+  aedDistanceM,
+  aedDistanceText,
+  aedOriginName,
+  aedPlaceTitle,
+  aedRouteUrl,
+} from './aed-map.component';
 
 describe('aed map helpers', () => {
   it('counts devices with the Polish plural', () => {
@@ -12,6 +19,14 @@ describe('aed map helpers', () => {
       '25 urządzeń',
       '112 urządzeń',
     ]);
+  });
+
+  it('titles a nameless device by its place and names the origin by its source', () => {
+    expect(aedPlaceTitle('', ' ', 'Hol, przy windzie')).toBe('Hol, przy windzie');
+    expect(aedPlaceTitle(null, undefined)).toBe('Miejsce bez nazwy');
+    expect(aedRouteUrl('52.2297', 21.0122)).toBe('https://www.google.com/maps/dir/?api=1&destination=52.2297,21.0122');
+    expect(aedOriginName({ lat: 52, lon: 21, accuracy: 0 })).toBe('Twoja lokalizacja');
+    expect(aedOriginName({ lat: 52, lon: 21 })).toBe('Wybrany punkt');
   });
 
   it('gives straight-line distance like the service (0.01° of latitude ≈ 1112 m)', () => {
