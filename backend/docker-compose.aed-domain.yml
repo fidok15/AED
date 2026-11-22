@@ -143,6 +143,8 @@ services:
       - "443:443"
     volumes:
       - ./aed-domain/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../prezentacja-html:/srv/prezentacja:ro  # https://<domain>/prezentacja.html
+      - ../video/out:/srv/film:ro  # https://<domain>/film.mp4 (npm run render in video/)
       - ./statics:/srv/statics:ro
       - ./media:/srv/media:ro
       - caddy-data:/data  # certificates survive restarts (Let's Encrypt rate limits)

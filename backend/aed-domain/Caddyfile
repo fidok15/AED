@@ -42,7 +42,20 @@
 
 {$AED_SITE_SCHEME}{$AED_DOMAIN} {
 	encode gzip
-	reverse_proxy aed-web:80
+	# Pitch deck (one self-contained file from the repository, updated by every deploy) and the pitch video
+	# (rendered from video/ into the git-ignored video/out/, copied to the server by hand: docs/wdrozenie-pve.md).
+	handle /prezentacja.html {
+		root * /srv/prezentacja
+		file_server
+	}
+	handle /film.mp4 {
+		rewrite * /misja-aed-pitch.mp4
+		root * /srv/film
+		file_server
+	}
+	handle {
+		reverse_proxy aed-web:80
+	}
 }
 
 {$AED_SITE_SCHEME}{$AED_API_HOST} {

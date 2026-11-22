@@ -46,15 +46,15 @@ apply() {
     local new=$1
     trap 'echo "$new" > "$state/failed"; echo "Wdrożenie ${new:0:7} NIEUDANE" >&2' ERR
     cd "$repo/backend"
-    mkdir -p logs  # ignored by git; Django's file log handlers need it, also during the image build
+    mkdir -p logs ../video/out  # ignored by git; Django's file log handlers need logs/, Caddy serves the video from out/
 
     # aed-domain/settings.py is appended to local.py (init-env.sh); rebuild it so changes in git take effect.
     sed '/"timeout": 1,/d' mcod/settings/local.py.sample | cat - aed-domain/settings.py > mcod/settings/local.py.new
     mv mcod/settings/local.py.new mcod/settings/local.py
 
     docker compose up -d --build  # no --remove-orphans: env.sample sets COMPOSE_IGNORE_ORPHANS
-    # Portal code is bind-mounted, so unchanged images keep running the old code: restart the app servers.
-    docker compose restart mcod-local-admin mcod-local-api mcod-local-cms mcod-local-celery
+    # Portal code and the Caddyfile are bind-mounted, so unchanged containers keep the old files: restart them.
+    docker compose restart mcod-local-admin mcod-local-api mcod-local-cms mcod-local-celery caddy
     docker compose exec -T mcod-local-admin python manage.py migrate --noinput
     docker compose exec -T mcod-local-admin python manage.py compilemessages >/dev/null
 
