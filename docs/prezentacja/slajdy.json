@@ -17,7 +17,7 @@
         "akcja dla dostawców danych"
       ],
       "wizualne": [
-        {"plik": "docs/zrzuty/portal-01-zbior-zbiorczy.png", "alt": "Lista zbiorów Ministerstwa Cyfryzacji w forku portalu z pozycją „Krajowy wykaz defibrylatorów AED – wykaz zbiorczy”.", "podpis": "Zbiór zbiorczy AED na liście zbiorów ministerstwa w forku portalu."}
+        {"plik": "docs/zrzuty/portal-01-zbior-zbiorczy.png", "alt": "Strona zbioru „Krajowy wykaz defibrylatorów AED – wykaz zbiorczy” we frontendzie forka portalu: dostawca Ministerstwo Cyfryzacji, kategoria Zdrowie, zasób „Krajowy wykaz AED”.", "podpis": "Zbiór zbiorczy AED w forku portalu (lokalny pełny stos)."}
       ],
       "notatki": "Zaczynamy od tezy, nie od technologii: dane o AED w dane.gov.pl mają mieć jeden standard, wielu dostawców i jednego wydawcę zbioru – ministerstwo. Nasze rozwiązanie nie stoi obok portalu, tylko korzysta z jego mechanizmów. W pakiecie jest wykaz w portalu, standard ze wzorcem, kanał sprzedawcy z naklejką QR i akcja dla dostawców."
     },
@@ -86,16 +86,16 @@
         "Ministerstwo publikuje swój wykaz: link do eksportu usługi AED albo plik.",
         "Scalanie: raport bez zapisu (--dry-run), potem zasób zbiorczy.",
         "Odczyt bez logowania: GET /aed-aggregated, tabela, mapa, API zasobu.",
-        "Wynik scalania wykazu Legionowa z eksportem rejestru: {wykaz_wejscie} rekordów, {wykaz_polaczenia} połączenia, **{wykaz_wynik} w wykazie krajowym** – wynik testu poza portalem, do potwierdzenia w portalu."
+        "Wynik scalania wykazu Legionowa z eksportem rejestru: {wykaz_wejscie} rekordów, {wykaz_polaczenia} połączenia, **{wykaz_wynik} w wykazie krajowym** – ten sam wynik dało scalanie w lokalnym pełnym stosie portalu (Celery)."
       ],
       "uklad_wizualnych": "siatka",
       "wizualne": [
         {"plik": "docs/zrzuty/portal-03-bledy-wykazu-krosno.png", "alt": "Formularz zasobu z błędami walidacji po polsku po wgraniu pliku z Krosna.", "podpis": "Krok 2: błędy wykazu Krosna."},
-        {"plik": "docs/zrzuty/portal-04-dry-run-raport.png", "alt": "Wynik polecenia create_main_aed_resource --dry-run: raport przyjętych i odrzuconych wykazów.", "podpis": "Krok 4: raport --dry-run."},
-        {"plik": "docs/zrzuty/portal-05-aed-aggregated.png", "alt": "Odpowiedź API GET /aed-aggregated z raportem scalania.", "podpis": "Krok 5: GET /aed-aggregated."},
-        {"plik": "docs/zrzuty/portal-06-tabela.png", "alt": "Widok tabeli zasobu zbiorczego AED w portalu.", "podpis": "Krok 5: tabela zasobu."},
-        {"plik": "docs/zrzuty/portal-07-mapa.png", "alt": "Mapa zasobu zbiorczego AED w portalu.", "podpis": "Krok 5: mapa zasobu."},
-        {"plik": "docs/zrzuty/portal-08-api-i-otwartosc.png", "alt": "API zasobu /resources/<id>/data i ocena poziomu otwartości.", "podpis": "Krok 5: API i otwartość."}
+        {"plik": "docs/zrzuty/portal-04-dry-run-raport.png", "alt": "Wynik polecenia create_main_aed_resource --dry-run w terminalu: raport przyjętych i odrzuconych wykazów.", "podpis": "Krok 4: raport --dry-run (terminal)."},
+        {"plik": "docs/zrzuty/portal-05-aed-aggregated.png", "alt": "Odpowiedź API GET /aed-aggregated z raportem scalania (wyjście curl).", "podpis": "Krok 5: GET /aed-aggregated (terminal)."},
+        {"plik": "docs/zrzuty/portal-06-tabela.png", "alt": "Zakładka „Tabela” zasobu „Krajowy wykaz AED” we frontendzie forka: kolumny id_aed, nazwa, współrzędne, adres; 40 stron po 20 wierszy.", "podpis": "Krok 5: tabela zasobu (781 wierszy)."},
+        {"plik": "docs/zrzuty/portal-07-mapa.png", "alt": "Zakładka „Mapa” zasobu „Krajowy wykaz AED”: punkty AED w klastrach 739, 21 i 21 na mapie Polski.", "podpis": "Krok 5: mapa zasobu (781 punktów)."},
+        {"plik": "docs/zrzuty/portal-08-api-i-otwartosc.png", "alt": "Strona zasobu „Krajowy wykaz AED”: poziom otwartości 3 gwiazdki, pobranie CSV, JSON i przycisk „Wyświetl dane poprzez API”.", "podpis": "Krok 5: otwartość i API zasobu."}
       ],
       "zrodlo": "Liczby: tests/test_wykaz.py (MergeWykazyTest) na prawdziwych plikach, uruchomione 22.11.2026; kroki: docs/panel-portalu-krok-po-kroku.md",
       "notatki": "Tak wygląda praca dostawcy w portalu: oznacza zasób jako wykaz, a portal od razu mówi po polsku, co poprawić. Raz dziennie portal scala wszystkie wykazy i ministerstwo wydaje jeden zbiór. Jury może sprawdzić wynik samym odczytem, bez konta – a wskazówka prowadzącego mówiła wprost, że rozwiązanie do odczytu jest cenniejsze."
@@ -199,13 +199,13 @@
       "uklad": "pelny",
       "kolumny": 2,
       "punkty": [
-        "**Kod wykazu AED w portalu nie był jeszcze uruchomiony w pełnym stosie** (migracje, formularz, zadanie Celery, /aed-aggregated, testy Django).",
+        "**Wykaz AED w portalu działa tylko lokalnie** (pełny stos forka: migracje, 8 testów AED + 148 regresji, scalanie przez Celery, zasób zbiorczy 781 wierszy z tabelą i mapą, /aed-aggregated); nie na serwerze publicznym, harmonogram 03:45 uruchamiany ręcznie.",
         "Serwer pod domeną: konfiguracja gotowa i sprawdzona składniowo, nieuruchomiona.",
         "Eksport to {eksport} rekordów, z czego {eksport_warszawa} z API Warszawy – zbiór jest dziś w praktyce warszawski.",
         "Wszystkie rekordy z importu mają status „niepotwierdzony”; „aktywny” powstaje dopiero po ścieżce zarządcy.",
         "Średnia kompletność rejestru {komp_rejestr} na 100; tylko {eksport_z_godzinami} z {eksport} rekordów eksportu ma godziny dostępu.",
         "Rekordy znane tylko z OpenStreetMap (ODbL) zostają poza eksportem – wymaga opinii prawnika.",
-        "Typy kolumn w portalu wymagają ręcznej korekty po wgraniu CSV (nr_budynku, kod_terc, kod_simc, zrodlo_id jako tekst); zasób zbiorczy ma schemat od razu.",
+        "Typy kolumn w portalu wymagają ręcznej korekty po wgraniu CSV (nr_budynku, kod_terc, kod_simc, zrodlo_id, kompletnosc jako tekst; po zmianie walidacja przechodzi); zasób zbiorczy ma schemat od razu.",
         "Harvester XML i CKAN nie przenoszą flagi wykazu AED (brak containsAedList w XSD 1.13).",
         "Plik XLSX wykazu jest sprawdzany dopiero przy scalaniu, nie w formularzu.",
         "Bez id_aed i zrodlo_id w wykazie identyfikator zależy od kolejności wierszy.",
@@ -218,7 +218,7 @@
         "Po drugiej rundzie przeglądu Codexem nie było rundy potwierdzającej."
       ],
       "zrodlo": "datasets/out/raport.json; {eksport_warszawa} i {eksport_z_godzinami} z {eksport} policzone z datasets/out/aed_dane_gov_pl.csv; docs/wdrozenie-serwer.md; docs/przeglad-codex.md",
-      "notatki": "Mówimy otwarcie, co działa, a co jest planem. Najważniejsze ograniczenie: wykaz w portalu jest napisany i przetestowany jako logika, ale nie był jeszcze uruchomiony w pełnym stosie portalu. Każda pozycja z tej listy ma swój następny krok na kolejnym slajdzie."
+      "notatki": "Mówimy otwarcie, co działa, a co jest planem. Najważniejsze ograniczenie: wykaz w portalu działa w lokalnym pełnym stosie forka (formularz, scalanie przez Celery, tabela i mapa), ale nie był uruchomiony na serwerze publicznym, a harmonogram nocny uruchamialiśmy ręcznie. Każda pozycja z tej listy ma swój następny krok na kolejnym slajdzie."
     },
     {
       "sekcja": "Co dalej",
@@ -252,7 +252,7 @@
            ["Standard danych", "propozycja struktury", "zakres pól zatwierdził zespół"],
            ["Walidator, mapper, deduplikacja", "kod", "testy na prawdziwych plikach"],
            ["Usługa API i moduł frontendu", "kod", "testy ścieżki, przejście w przeglądarce"],
-           ["Wykaz AED w forku portalu", "analiza DGA i kod", "testy logiki; w portalu nieuruchomiony"],
+           ["Wykaz AED w forku portalu", "analiza DGA i kod", "testy logiki i Django; uruchomiony lokalnie w pełnym stosie, nie na serwerze"],
            ["Kampania", "propozycje nazw, brief", "wybór należy do zespołu; znaku AI nie rysowało"]
          ]}
       ],

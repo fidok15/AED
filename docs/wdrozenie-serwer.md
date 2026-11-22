@@ -30,9 +30,9 @@ Oba warianty zajmują porty 80 i 443, więc na jednym serwerze działa tylko jed
 ## 1. Serwer
 
 - **System:** Linux na procesorze amd64 (x86_64) – **założenie do potwierdzenia u kolegi**. Obrazy aplikacji portalu są przypięte do `linux/amd64` (`backend/docker-compose.local.yml`). Na ARM natywna budowa nie przechodzi: według notatki w `backend/docker-compose.aed-mac.yml` dla Pythona 3.8 na arm64 nie ma gotowego pakietu gevent, a budowa ze źródeł się nie udaje. Zostaje wtedy emulacja amd64, która jest bardzo wolna.
-- **Sieć Dockera:** portal używa podsieci `172.18.18.0/24` ze stałymi adresami. Jeśli na serwerze inna sieć Dockera już ją zajmuje, dodaj `-f docker-compose.aed-mac.yml` (podsieć `172.30.18.0/24`). Zmienną `COMPOSE_FILE` w `.env` trzeba wtedy rozszerzyć o ten plik. **[nie uruchomiono]**
+- **Sieć Dockera:** portal używa podsieci `172.18.18.0/24` ze stałymi adresami. Jeśli na serwerze inna sieć Dockera już ją zajmuje, dodaj `-f docker-compose.aed-mac.yml` (podsieć `172.30.18.0/24`). Zmienną `COMPOSE_FILE` w `.env` trzeba wtedy rozszerzyć o ten plik. Lokalnie na Macu (22.11) kolizja wystąpiła i ten plik ją usunął; na serwerze **[nie uruchomiono]**.
 - **Docker Engine** z wtyczką Compose. Nakładka używa znacznika `!reset` (zerowanie portów), więc Compose musi go znać. Sprawdzone na Compose 5.7.0. Najstarszej wersji, która go obsługuje, nie sprawdzaliśmy.
-- **Pamięć:** 8 GB RAM, minimum 6 GB z plikiem wymiany. Szacunek: Elasticsearch ma stałą stertę 1 GB, a cztery kontenery aplikacji mają limit 2 GB każdy (`mem_limit` w `docker-compose.local.yml`).
+- **Pamięć:** 8 GB RAM, minimum 6 GB z plikiem wymiany. Elasticsearch ma stałą stertę 1 GB, a cztery kontenery aplikacji mają limit 2 GB każdy (`mem_limit` w `docker-compose.local.yml`). Pomiar z lokalnego uruchomienia na Macu (22.11, emulacja amd64, sterta Elasticsearch zmniejszona do 512 MB): Elasticsearch ok. 2,9 GB, panel i API po ok. 0,6 GB, reszta poniżej 0,5 GB; przy stercie 1 GB Elasticsearch padł z braku pamięci w 8 GB Dockera. Na natywnym x86_64 zużycie powinno być mniejsze (wniosek).
 - **Dysk:** 40 GB wolnego miejsca, także szacunek. Obraz aplikacji portalu zawiera Pythona, Node.js, Firefoksa i ffmpeg, do tego dochodzi build frontendu z `node_modules`.
 - **Procesor:** 4 vCPU. Pierwsza budowa obrazów potrwa od kilkunastu do kilkudziesięciu minut (szacunek).
 - **Porty otwarte z internetu:** 22, 80, 443. Na hoście nic więcej nie nasłuchuje: nakładka zeruje porty bazy, RabbitMQ, Redis, Elasticsearch, poczty testowej, Fuseki i wewnętrznego nginx.
@@ -114,7 +114,7 @@ W katalogu `backend/` repozytorium:
 ```sh
 git clone <repozytorium> aed && cd aed/backend
 sh aed-domain/init-env.sh aed.example.pl                 # 1. .env z sekretami; wypisze hasło kont demo AED
-cp mcod/settings/local.py.sample mcod/settings/local.py  # 2. lokalne ustawienia portalu (plik jest w .gitignore)
+cp mcod/settings/local.py.sample mcod/settings/local.py  # 2. lokalne ustawienia portalu (plik jest w .gitignore); usuń w nim dwa wiersze "timeout": 1, (inaczej krok 5 kończy się błędem unknown setting [index.timeout])
 docker compose up -d --build --scale caddy=0             # 3. budowa i start BEZ wejścia z internetu (pierwszy raz długo)
 docker compose exec mcod-local-admin python manage.py init_mcod_db            # 4. migracje + dane startowe
 docker compose exec mcod-local-admin python manage.py search_index --rebuild -f  # 5. indeksy wyszukiwarki
@@ -128,7 +128,7 @@ Uwagi:
 
 - Caddy startuje na końcu celowo: `init_mcod_db` zakłada konta z hasłami znanymi z danych startowych. Do zmiany haseł serwer nie może być osiągalny z internetu.
 - `/media/reports/` i `/media/meetings/` są zablokowane na wszystkich hostach (403): w oryginale chroni je logowanie przez `X-Accel`, którego ten serwer pośredniczący nie odtwarza. Pliki zasobów (`/media/resources/`) są serwowane wprost z dysku, także dla zasobów w wersji roboczej – nie wgrywaj tu danych, które nie mają być publiczne.
-- `init_mcod_db` wykonuje `migrate`, więc zakłada też tabele AED (`resources.0076_resource_contains_aed_list`, `aed.0001_initial`) i ładuje `basic_data.json` (`core/management/commands/init_mcod_db.py`). **[nie uruchomiono]**
+- `init_mcod_db` wykonuje `migrate`, więc zakłada też tabele AED (`resources.0076_resource_contains_aed_list`, `aed.0001_initial`) i ładuje `basic_data.json` (`core/management/commands/init_mcod_db.py`). Sprawdzone lokalnie 22.11 (`docs/wykaz-aed-w-portalu.md`); na serwerze **[nie uruchomiono]**.
 - Krok 6 jest potrzebny, bo `docker-compose.local.yml` montuje katalog `translations/` z repozytorium, a w nim nie ma plików `.mo`. Bez tego panel może być po angielsku (wniosek z `docs/integracja-portal-backend.md`).
 - Kontrola: `docker compose ps` (wszystkie `running`, `aed-service` `healthy`), potem `curl -sI https://<domena>/pl/aed`, `curl -s https://api.<domena>/aed-aggregated`, `curl -s https://<domena>/api/aed/eksport/dane-gov-pl.md5`.
 - Logi: `docker compose logs -f caddy` (certyfikaty), `docker compose logs -f mcod-local-celery` (przetwarzanie plików, scalanie).

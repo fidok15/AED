@@ -107,7 +107,45 @@ $C -f docker-compose.aed-ports.yml stop mcod-local-admin mcod-local-api mcod-loc
 - Panel (`http://localhost:8001`, logowanie `curl`em jako `admin@mcod.local`): formularz „Dodaj zasób” ma pole „Wykaz AED” z tekstem pomocy. Plik Krosna z „Wykaz AED: TAK” – zasób niezapisany (HTTP 200) i 10 komunikatów po polsku przy polu; ten sam plik z „NIE” – zapisany (302); plik Legionowa z „TAK” – zapisany (302) z `contains_aed_list=True`.
 - Wykaz ministerstwa (`aed_dane_gov_pl.csv`) jako zwykły zasób dostawcy: walidacja danych tabelarycznych portalu kończy się FAILURE (typy zgadywane przez portal, opis w `docs/panel-portalu-krok-po-kroku.md`). Scalanie czyta plik bezpośrednio, więc mu to nie przeszkadza; zasób zbiorczy przechodzi, bo dostaje schemat tekstowy od razu.
 
-Zrzuty (`docs/zrzuty/`): `portal-01`, `-02`, `-03`, `-04`, `-05`, `-08` to wyrenderowane do PNG wyjścia terminala i API z tego uruchomienia, a nie ekrany przeglądarki. Ekranów `portal-06-tabela.png` i `portal-07-mapa.png` nie zrobiono: wymagają przeglądarki i frontendu podpiętego do lokalnego API.
+### Sprawdzone w przeglądarce (22.11, ok. 01:45–01:55)
+
+Frontend forka (`frontend/`, `ng serve`) podpięty do lokalnego API, panel pod `http://localhost:8001`. Klikane w przeglądarce (Chrome sterowany przez DevTools), okno 1440 px.
+
+Uruchomienie frontendu na lokalnym API (plik proxy poza repozytorium, bo `proxy.aed-local.conf.json` kieruje `/media` na `https://127.0.0.1:443`, a `/api/aed` na usługę AED, której tu nie potrzeba):
+
+```
+// proxy.portal-local.conf.json
+{
+  "/api/**":  { "target": "http://localhost:8000/1.4/", "pathRewrite": { "^/api": "" }, "changeOrigin": true, "secure": false },
+  "/media":   { "target": "http://localhost:8000", "changeOrigin": true, "secure": false },
+  "/flags":   { "target": "https://dane.gov.pl/", "changeOrigin": true, "secure": true },
+  "/pn-apps": { "target": "http://localhost:8001", "changeOrigin": true, "secure": false, "ws": true }
+}
+```
+```
+cd frontend
+npx ng serve --configuration dev --port 4300 --no-prebundle --proxy-config /ścieżka/do/proxy.portal-local.conf.json
+# http://localhost:4300/pl/dataset/4214  (zbiór zbiorczy), .../resource/40211 (tabela), .../resource/40211/map (mapa)
+```
+
+`--no-prebundle` jest konieczne: bez niego zakładka „Mapa” jest pusta, a w konsoli jest `Dynamic require of "leaflet" is not supported`. Przyczyna leży w kodzie portalu, nie w naszym: `src/app/services/leflet.service.ts` ładuje Leaflet przez `require('leaflet')`, a serwer deweloperski Angulara (esbuild/Vite) wydziela zależności z `node_modules` do osobnych modułów ESM. Buildu produkcyjnego (`npm run build:aed`) pod tym kątem nie sprawdzano.
+
+Wyniki:
+
+- **Strona zbioru** `http://localhost:4300/pl/dataset/4214`: „Krajowy wykaz defibrylatorów AED – wykaz zbiorczy”, dostawca Ministerstwo Cyfryzacji, kategoria Zdrowie, częstotliwość „Codziennie”, słowa kluczowe, jeden zasób „Krajowy wykaz AED” (CSV 253 kB) z ikonami mapy i tabeli. Zrzut `portal-01`.
+- **Strona zasobu** `.../resource/40211`: poziom otwartości 3 gwiazdki, przyciski „CSV (253kB)”, „JSON” i „Wyświetl dane poprzez API”. Zrzut `portal-08`.
+- **Tabela**: kolumny standardu (`id_aed`, `nazwa`, `szerokosc_geograficzna`…), 20 wierszy na stronę, 40 stron (781 rekordów). Zrzut `portal-06`.
+- **Mapa** (z `--no-prebundle`): punkty z `/resources/40211/geo` w klastrach 739 + 21 + 21 = 781. Zrzut `portal-07`.
+- **Panel, dodanie zasobu z plikiem Krosna i „Wykaz AED: TAK”**: formularz nie zapisuje zasobu i pokazuje przy polu „Wykaz AED” 10 komunikatów po polsku (6 × nieznana kolumna, w tym podpowiedzi „Czy chodziło o „dlugosc_geograficzna”?”, 4 × brak kolumny wymaganej w profilu publikacja). Zrzuty `portal-02` (formularz z polem i tekstem pomocy) i `portal-03` (błędy).
+- **Panel, edycja istniejącego zasobu**: zasób „Wykaz AED Krosno (test formularza)” (plik Krosna, zapisany wcześniej z „NIE”) przełączony na „TAK” – zapis odrzucony z tymi samymi 10 komunikatami, w bazie flaga dalej `false`. Zasób Legionowa przełączony „TAK” → „NIE” – zapisany; potem „NIE” → „TAK” – zapisany z komunikatem „Zasób … został pomyślnie zmieniony”. Walidacja przy edycji czyta plik już zapisany w zasobie.
+- **Wykaz jako link**: panel przyjmuje tylko adresy `https://` („Wymagany format protokołu to https://”), więc lokalny serwer HTTP odpada. Zasób z linkiem `https://api.dane.gov.pl/media/resources/20260914/aed.csv` (publiczny plik Legionowa) i „Wykaz AED: TAK” zapisał się bez sprawdzania (zgodnie z opisem: linki sprawdza dopiero scalanie). `create_main_aed_resource --dry-run` przyjął go: 4 wykazy, 3 przyjęte, link Legionowa 24/24. Ten sam plik Legionowa w dwóch zasobach jednego zbioru nie został połączony automatycznie (oba mają źródło `dane.gov.pl/4212`, a dwa rekordy z jednego źródła nigdy nie są łączone automatycznie) – wynik 805 zamiast 781 rekordów, 27 par do przeglądu zamiast 2. Zasób testowy usunięto w panelu, scalania właściwego nie uruchamiano, więc zasób zbiorczy dalej ma 781 rekordów.
+- **Wykaz ministerstwa jako zwykły zasób, typy kolumn**: zakładka „Walidacja danych” pokazywała FAILURE („Wartość "" w wierszu 2 i kolumnie 11 nie jest typem "integer"”). W zakładce „Zmiana typu” portal wykrył jako `integer` pięć kolumn: `nr_budynku` (8), `kod_terc` (11), `kod_simc` (12) i `zrodlo_id` (35) i `kompletnosc` (38). Zmiana wszystkich pięciu na „Dane tekstowe” i „Zmień typ” → „Zmieniono typ danych”, po ok. 20 s walidacja danych SUCCESS (dwa zadania). Ręczna zmiana typów naprawia problem. Zrzut `portal-11` (stan po wyborze typów, przed kliknięciem „Zmień typ”).
+- **`GET http://localhost:8000/aed-aggregated`** w przeglądarce (widok „Pretty-print” Chrome): raport z wykazami przyjętymi i odrzuconymi, 781 rekordów. Zrzut `portal-10`.
+- Lista zasobów w panelu nie ma kolumny ani filtra „Wykaz AED” – zrzutu `portal-09` nie zrobiono.
+
+Uwagi z przeglądarki: na stronach frontendu otwiera się okno „Polityka prywatności i RODO” z pustą treścią (frontend pyta `/cms/…`, a CMS nie jest uruchomiony) – trzeba je zamknąć; odnośniki „Pobierz” i „Wyświetl dane poprzez API” prowadzą pod `https://api.mcod.local/…` (adres API z ustawień backendu), więc lokalnie nie działają bez wpisu w `/etc/hosts` i TLS. Zegar panelu pokazuje czas kontenera.
+
+Zrzuty (`docs/zrzuty/`): `portal-01`, `-02`, `-03`, `-06`, `-07`, `-08`, `-10`, `-11` to ekrany przeglądarki z tego uruchomienia. `portal-04` (`--dry-run`) i `portal-05` (`/aed-aggregated` z `curl`) to nadal wyjście terminala wyrenderowane do PNG.
 
 ### Poprawki po uruchomieniu
 
@@ -116,9 +154,9 @@ Zrzuty (`docs/zrzuty/`): `portal-01`, `-02`, `-03`, `-04`, `-05`, `-08` to wyren
 
 ### Nadal niesprawdzone
 
-- frontend (strona zbioru, widok tabeli, zakładka mapy) na lokalnym API;
 - harmonogram Celery beat o 03:45 (zadanie uruchamiano ręcznie; wpis w harmonogramie sprawdza tylko `test_celery.py`);
-- edycja istniejącego zasobu w panelu (sprawdzono tylko dodawanie), pliki XLSX i zasoby-linki jako wykazy, harvester XML;
+- pliki XLSX jako wykazy, harvester XML; zasób-link przeszedł tylko `--dry-run`, nie scalanie właściwe;
+- mapa w buildzie produkcyjnym frontendu (`build:aed`) – sprawdzono tylko `ng serve --no-prebundle`;
 - przy dwóch scaleniach w jednym dniu plik dostaje dopisek Django (`..._TiO6y0n.csv`), bo nazwa zawiera tylko datę; działa, ale nazwa jest mniej czytelna.
 
 ### Czas i zasoby

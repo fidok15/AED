@@ -1,10 +1,10 @@
 # Integracja z backendem dane.gov.pl (mcod 2.63.0) – ustalenia z kodu
 
-Wynik przeglądu `backend/` (tylko odczyt, nic nie uruchamiano – demon Dockera nie działał na maszynie, na której robiono przegląd). „Sprawdzone” znaczy przeczytane w kodzie; „wniosek” znaczy wywnioskowane, bez testu.
+Wynik przeglądu `backend/` (tylko odczyt, nic nie uruchamiano – demon Dockera nie działał na maszynie, na której robiono przegląd). „Sprawdzone” znaczy przeczytane w kodzie; „wniosek” znaczy wywnioskowane, bez testu. Późniejsze uruchomienie pełnego stosu na Macu (22.11) i jego wyniki: `docs/wykaz-aed-w-portalu.md`, „Co sprawdzono”.
 
 ## Uruchomienie lokalne
 
-1. `cp env.sample .env` oraz `cp mcod/settings/local.py.sample mcod/settings/local.py`.
+1. `cp env.sample .env` oraz `cp mcod/settings/local.py.sample mcod/settings/local.py`. W `local.py` usunąć dwa wiersze `"timeout": 1,` (Elasticsearch 6 odrzuca to ustawienie indeksu i `search_index --rebuild` kończy się błędem `unknown setting [index.timeout]`), a do logowania pod `localhost` ustawić `SESSION_COOKIE_DOMAIN = None` (sprawdzone 22.11).
 2. W `.env` ustawić `DISCOURSE_FORUM_ENABLED=false` – obraz forum wymaga logowania do prywatnego rejestru.
 3. W `/etc/hosts`: `127.0.0.1 mcod.local api.mcod.local admin.mcod.local cms.mcod.local forum.mcod.local mail.mcod.local`.
 4. `docker compose -f docker-compose.local.yml build`
@@ -19,7 +19,8 @@ Konta z danych startowych: `admin@mcod.local` / `testadmin123!` (superużytkowni
 Ryzyka na Macu z procesorem Apple:
 
 - obrazy aplikacji są przypięte do `linux/amd64`, więc działają w emulacji; pierwsza budowa może trwać bardzo długo;
-- potrzeba ok. 10 kontenerów i 6–8 GB pamięci dla Dockera (szacunek);
+- potrzeba ok. 10 kontenerów i 8 GB pamięci dla Dockera; zmierzone 22.11: Elasticsearch ok. 2,9 GB mimo sterty 512 MB (emulacja; przy stercie 1 GB kontener padł z braku pamięci), panel i API po ok. 0,6 GB, kontener testów do 2 GB;
+- podsieć `172.18.18.0/24` z `docker-compose.local.yml` kolidowała z inną siecią Dockera – `docker-compose.aed-mac.yml` zmienia ją na `172.30.18.0/24`;
 - pliki tłumaczeń `.mo` nie są w repozytorium, a katalog `translations/` jest montowany na te z obrazu – panel może być po angielsku do czasu `compilemessages` (wniosek);
 - zadania przetwarzania plików wymagają działającego Celery i RabbitMQ; bez nich wgrany plik nigdy się nie zwaliduje.
 

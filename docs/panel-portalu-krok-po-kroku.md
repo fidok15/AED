@@ -60,9 +60,10 @@ Licencja: portal nie ma pola „licencja” do wyboru wprost. Zaznaczenie warunk
    | `kod_terc` | Liczba całkowita | Dane tekstowe |
    | `kod_simc` | Liczba całkowita | Dane tekstowe (inaczej zginie zero wiodące, np. `0920806`) |
    | `zrodlo_id` | Liczba całkowita | Dane tekstowe |
+   | `kompletnosc` | Liczba całkowita | Dane tekstowe (tak zrobiono 22.11; liczba całkowita też powinna przejść – wniosek, niesprawdzone) |
    | `szerokosc_geograficzna`, `dlugosc_geograficzna` | Liczba zmiennoprzecinkowa | bez zmian – wymagane dla mapy |
 
-   Dlaczego tak jest – patrz sekcja „CSV a walidacja portalu”. Zapis zmienionego schematu uruchamia ponowną walidację (`resources/admin.py:888-912`).
+   Sprawdzone 22.11 na lokalnym stosie: po zmianie tych pięciu kolumn na tekst i kliknięciu „Zmień typ” walidacja danych po ok. 20 s ma status SUCCESS (zrzut `docs/zrzuty/portal-11-typy-kolumn.png`). Dlaczego tak jest – patrz sekcja „CSV a walidacja portalu”. Zapis zmienionego schematu uruchamia ponowną walidację (`resources/admin.py:888-912`).
 4. Zakładka **„Mapy i wykresy”** – zestaw „współrzędne geograficzne” (`resources/forms.py:131-158`, opisy ról w `settings/base.py:1840-1861`):
 
    | Kolumna | Rola (znacznik) |
@@ -176,10 +177,12 @@ Uruchomione (na tej maszynie, bez portalu):
 - wykrywanie typów i walidacja CSV jak w sekcji wyżej;
 - test automatyczny `tests/test_aed_service.py::HarvesterFeedTest`: XSD, suma MD5, stabilność między pobraniami, zmiana linku po zmianie danych, brak rekordów OSM i prywatnych w pliku zasobu.
 
+Uruchomione później w lokalnym pełnym stosie forka (22.11, `docs/wykaz-aed-w-portalu.md`): formularz zasobu w panelu (dodanie i edycja, pole „Wykaz AED”), przetwarzanie pliku przez Celery, walidacja danych, ocena otwartości, tabela i mapa zasobu we frontendzie, zmiana typów kolumn w zakładce „Zmiana typu” (po zmianie `nr_budynku`, `kod_terc`, `kod_simc`, `zrodlo_id`, `kompletnosc` na tekst walidacja danych wykazu ministerstwa przeszła).
+
 Tylko w kodzie, nieuruchomione:
 
-- formularze panelu (instytucja, zbiór, zasób, źródło danych) i ich komunikaty;
-- zadania Celery: `validate_xml_url_task`, `import_data_task`, przetwarzanie pliku, indeksowanie, ocena otwartości, renderowanie mapy;
+- formularze panelu dla instytucji i źródła danych (harvester) i ich komunikaty;
+- zadania Celery harvestera: `validate_xml_url_task`, `import_data_task`;
 - serializer `XMLDatasetSchema` (`harvester/serializers.py:680-796`) w całości, w tym zamiana `conditions` na licencję i dopasowanie kategorii `HEAL`;
 - że kontener portalu u kolegi dosięgnie `host.docker.internal` – na Docker Desktop to standard, na Linuksie wymaga `extra_hosts`;
 - zachowanie ręcznie ustawionych typów kolumn przy kolejnych importach harvestera.

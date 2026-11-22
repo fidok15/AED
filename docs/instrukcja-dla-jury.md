@@ -49,15 +49,15 @@ Wymaga portalu z forka: adres z sekcji 0 albo lokalny stos według `docs/wykaz-a
 
 Bez logowania (odczyt):
 
-1. Otwórz `https://api.<domena>/aed-aggregated`. Odpowiedź zawiera identyfikatory zbioru i zasobu zbiorczego oraz raport: które wykazy przyjęto, które odrzucono i dlaczego. [do sprawdzenia]
-2. W portalu otwórz zbiór „Krajowy wykaz defibrylatorów AED – wykaz zbiorczy” (dostawca: Ministerstwo Cyfryzacji) i zasób „Krajowy wykaz AED”. Sprawdź widok tabeli, mapę (współrzędne i nazwa mają znaczniki mapy ustawione już przy tworzeniu zasobu) i pobranie CSV. [do sprawdzenia]
+1. Otwórz `https://api.<domena>/aed-aggregated`. Odpowiedź zawiera identyfikatory zbioru i zasobu zbiorczego oraz raport: które wykazy przyjęto, które odrzucono i dlaczego. Sprawdzone 22.11 w przeglądarce na lokalnym stosie (`http://localhost:8000/aed-aggregated`, zrzut `docs/zrzuty/portal-10-aed-aggregated-przegladarka.png`).
+2. W portalu otwórz zbiór „Krajowy wykaz defibrylatorów AED – wykaz zbiorczy” (dostawca: Ministerstwo Cyfryzacji) i zasób „Krajowy wykaz AED”. Sprawdź poziom otwartości (3 gwiazdki), widok tabeli (781 rekordów, 40 stron po 20) i zakładkę „Mapa” (współrzędne i nazwa mają znaczniki mapy ustawione już przy tworzeniu zasobu). Strona zbioru, tabela i mapa sprawdzone 22.11 w przeglądarce na lokalnym stosie (zrzuty `portal-01`, `-06`, `-07`, `-08`); okno „Polityka prywatności i RODO” zamknij przyciskiem „Zamknij”. Pobrania CSV z karty zasobu nie sprawdzono (lokalnie odnośnik prowadzi pod `https://api.mcod.local`) [do sprawdzenia].
 3. `https://api.<domena>/resources/<id zasobu>/data` – te same dane przez API portalu. [do sprawdzenia]
 4. W pliku sprawdź: kolumny standardu, brak rekordów z OpenStreetMap (ODbL) i z dostępem prywatnym, puste `numer_seryjny`, `dysponent_email`, `dysponent_telefon`.
 
 Z kontem redaktora (panel `https://admin.<domena>`):
 
-5. Dodaj zasób w zbiorze swojej instytucji z plikiem `datasets/raw/dane_gov_pl/legionowo/resource_2625221.csv` i zaznacz „Wykaz AED: TAK”. Zapis przechodzi, bo plik Legionowa jest podzbiorem standardu. [do sprawdzenia]
-6. To samo z `datasets/raw/dane_gov_pl/krosno/resource_54632.csv`. Formularz nie zapisze zasobu i pokaże błędy po polsku przy polu „Wykaz AED”, np. „Kolumna »Adres« nie występuje w standardzie”, z podpowiedzią właściwej nazwy kolumny. [do sprawdzenia]
+5. Dodaj zasób w zbiorze swojej instytucji z plikiem `datasets/raw/dane_gov_pl/legionowo/resource_2625221.csv` i zaznacz „Wykaz AED: TAK”. Zapis przechodzi, bo plik Legionowa jest podzbiorem standardu (sprawdzone 22.11: dodanie `curl`em, a w przeglądarce edycja istniejącego zasobu z przełączeniem „NIE” → „TAK”). Formularz wymaga też zaznaczenia „Tak/Nie” w pięciu polach „Zawiera …” i wyboru zbioru.
+6. To samo z `datasets/raw/dane_gov_pl/krosno/resource_54632.csv`. Formularz nie zapisze zasobu i pokaże błędy po polsku przy polu „Wykaz AED”, np. „Kolumna »Adres« nie występuje w standardzie”, z podpowiedzią właściwej nazwy kolumny (10 komunikatów; sprawdzone 22.11 w przeglądarce, zrzut `portal-03`). To samo przy edycji: przełączenie istniejącego zasobu z plikiem Krosna na „TAK” nie zapisuje zmiany.
 7. Scalanie uruchamia harmonogram (codziennie 03:45) albo zespół poleceniem `manage.py create_main_aed_resource`. Nowy wykaz pojawi się w raporcie `/aed-aggregated` po najbliższym scalaniu.
 
 ### Zasilanie XML (drugi mechanizm portalu: harvester)
@@ -138,7 +138,7 @@ Zrzuty ekranu: `docs/zrzuty/07-konwerter-mapowanie.png`, `docs/zrzuty/08-konwert
 |---|---|
 | `datasets/out/aed_dane_gov_pl.csv` | zbiór do publikacji na dane.gov.pl: 781 rekordów, 38 kolumn (zgodnie ze schematem) |
 | `datasets/out/aed_rejestr.csv`, `aed_rejestr.geojson` | rejestr krajowy po deduplikacji: 18 814 rekordów, wszystkie ze statusem `niepotwierdzony` (żaden nie ma jeszcze potwierdzenia zarządcy) |
-| `datasets/out/duplikaty_do_przegladu.csv` | 214 par do ręcznego przeglądu (153 kandydatów, 61 konfliktów źródeł) |
+| `datasets/out/duplikaty_do_przegladu.csv` | 195 par do ręcznego przeglądu (148 kandydatów, 47 konfliktów źródeł) |
 | `datasets/out/raport.json` | statystyki: rekordy na źródło przed i po, połączenia, pokrycie pól, kompletność, powody wykluczeń z eksportu, `naprawy_danych` |
 | `wzorzec/wzorzec-aed.xlsx` | wzorcowy zakres danych: arkusze Dane, Słownik pól, Słowniki, Mapowanie źródeł, Instrukcja |
 | `wzorzec/przyklad-*.csv` | trzy przykładowe pliki (sprzedawca, sprzedawca z błędami, publikacja) |
@@ -160,7 +160,7 @@ Z linii poleceń (Python 3, bez dodatkowych pakietów):
 |---|---|---|
 | Szczegółowy opis i tytuł projektu | `docs/opis-projektu.md`, `README.md` | 1. Otwórz `docs/opis-projektu.md`: tytuł roboczy, opis szczegółowy, wersja krótka. 2. W `README.md` sprawdź opis dwóch kanałów i tabelę katalogów. Nazwa akcji: patrz „Do uzupełnienia”. |
 | Prezentacja, min. 5 slajdów | konspekt: `docs/prezentacja-konspekt.md` (12 slajdów); plik prezentacji: patrz „Do uzupełnienia” | 1. Otwórz konspekt. 2. Policz slajdy (12). 3. Sprawdź nazwy zrzutów w katalogu `frontend/aed-zrzuty/` i listę zrzutów z portalu na końcu konspektu. |
-| Dowody na realizację wymagań technicznych (zrzuty ekranu) | `frontend/aed-zrzuty/` (zrzuty 01–18 prototypu AED, wersje 320 px, tryby kontrastu, wyniki axe) | 1. Otwórz pliki. 2. Porównaj z ekranami z sekcji 2. Zrzuty portalu z forka (wykaz AED, tabela, mapa, panel): patrz „Do uzupełnienia”. |
+| Dowody na realizację wymagań technicznych (zrzuty ekranu) | `frontend/aed-zrzuty/` (zrzuty 01–18 prototypu AED, wersje 320 px, tryby kontrastu, wyniki axe) | 1. Otwórz pliki. 2. Porównaj z ekranami z sekcji 2. Zrzuty portalu z forka (wykaz AED, tabela, mapa, panel): `docs/zrzuty/portal-*.png`, opis w sekcji 5, pkt 7. |
 | Opis funkcjonalności i kroki użytkownika | sekcja 2 tej instrukcji; slajdy 5 i 7 konspektu | 1. Wykonaj ścieżki W, A, B, C. |
 | Lista ograniczeń | slajd 10 konspektu; sekcja 6 tej instrukcji | 1. Przeczytaj listę. |
 | Prototyp | adres publiczny z sekcji 0 albo `http://localhost:8080/pl/aed` po `docker compose up --build` | 1. Wykonaj sekcję 0 albo 1. 2. Wykonaj ścieżki W i A–C. |
@@ -186,7 +186,7 @@ Z linii poleceń (Python 3, bez dodatkowych pakietów):
 |---|---|---|
 | Ogólnopolski, otwarty, możliwie aktualny zbiór | `datasets/out/aed_dane_gov_pl.csv`, panel ministerstwa | 1. Sprawdź liczbę wierszy (781). 2. Sprawdź kolumny `data_aktualizacji`, `data_weryfikacji`, `status`. 3. Uruchom przypomnienia i mapper (ścieżka C). |
 | Dane z wielu rozproszonych źródeł ze wskazaniem referencyjnego zakresu | `aed_standard/sources.json` (rejestr źródeł), `datasets/raw/manifest.json`, `datasets/out/raport.json` (`rekordy_na_zrodlo`), kolumny `zrodlo`, `zrodlo_id`, `licencja` w CSV; w portalu: każdy wykaz AED to osobne źródło z nazwą dostawcy | 1. Otwórz manifest: źródło, identyfikator zbioru, licencja i data danych (m.in. Krosno 3624, Marki 4955, Przemyśl 4581, Legionowo 40593, API Warszawy, OpenAEDMap/OSM). 2. W `raport.json` sprawdź liczbę rekordów przed i po deduplikacji dla każdego źródła. 3. Zakres terytorialny: jedno źródło = jedna gmina, API Warszawy = Warszawa, OSM = cała Polska [do sprawdzenia: formalny opis zakresu w jednej tabeli]. |
-| Integracja informacji od wszystkich dysponentów w jednym zbiorze | wykaz AED w portalu (ścieżka W): scalanie wykazów wielu dostawców w zasób zbiorczy ministerstwa; `raport.json` (`polaczenia`, `do_przegladu`), `duplikaty_do_przegladu.csv`, panel ministerstwa | 0. Ścieżka W, kroki 1–2 (`/aed-aggregated`, zasób zbiorczy). 1. W `raport.json` sprawdź: 266 połączeń (reguły: odległość 151, odległość i podobieństwo 6, numer referencyjny Warszawy 109), 214 par do przeglądu. 2. W panelu ministerstwa przejrzyj parę duplikatów. 3. Zasada: dwa rekordy z tego samego źródła nie są nigdy łączone automatycznie. |
+| Integracja informacji od wszystkich dysponentów w jednym zbiorze | wykaz AED w portalu (ścieżka W): scalanie wykazów wielu dostawców w zasób zbiorczy ministerstwa; `raport.json` (`polaczenia`, `do_przegladu`), `duplikaty_do_przegladu.csv`, panel ministerstwa | 0. Ścieżka W, kroki 1–2 (`/aed-aggregated`, zasób zbiorczy). 1. W `raport.json` sprawdź: 266 połączeń (reguły: odległość 151, odległość i podobieństwo 6, numer referencyjny Warszawy 109), 195 par do przeglądu. 2. W panelu ministerstwa przejrzyj parę duplikatów. 3. Zasada: dwa rekordy z tego samego źródła nie są nigdy łączone automatycznie. |
 | Wzorcowy zakres danych, jednolity sposób udostępniania | `aed_standard/schema.json`, `wzorzec/wzorzec-aed.xlsx` | 1. Otwórz schemat, sprawdź pola z rozmowy z komisją: `id_aed`, `producent`, `model`, `numer_seryjny`, `data_produkcji`, `data_waznosci_elektrod`, `data_waznosci_baterii`, `szerokosc_geograficzna`, `dlugosc_geograficzna`, `godziny_dostepu`, `wprowadzajacy_typ`, `wprowadzajacy_nazwa`. 2. Uruchom walidator (sekcja 3, kroki 2–4). |
 | Proces: sprzedawca → naklejka QR → zarządca → zbiór ministerstwa | prototyp; wykaz ministerstwa w portalu | ścieżki A, B, C po kolei; potem ścieżka W, krok 1: eksport usługi jest wykazem ministerstwa (link) [do sprawdzenia] |
 | Prośby o potwierdzenie i przypomnienia o terminach baterii i elektrod | panel ministerstwa, „Zadania cykliczne” i „Wiadomości do dysponentów” | 1. Ścieżka A: zgłoś urządzenia. 2. W skrzynce zobacz „Aktywacja urządzenia AED-…”. 3. „Uruchom przypomnienia”: urządzenia z plików przykładowych mają odległe terminy (bateria 2030); na bazie z danymi demonstracyjnymi w przebiegu 22.11 wynik: prośby o potwierdzenie 1, przypomnienia o terminach 1, a w skrzynce pojawia się „Prośba o potwierdzenie danych”. |
@@ -219,15 +219,15 @@ Z linii poleceń (Python 3, bez dodatkowych pakietów):
 3. **Licencje źródeł są zachowane.** Kolumna `licencja` w każdym rekordzie (CC0 1.0, CC BY 4.0, ODbL 1.0). Rekordy z OpenStreetMap (ODbL) nie trafiają do eksportu: w `raport.json` pole `eksport_dane_gov_pl.powody_wykluczenia` ma 18 032 takich wykluczeń. Wymaga opinii prawnika (patrz sekcja 6).
 4. **Prototyp niczego nie publikuje na produkcyjnym dane.gov.pl.** W lekkim wariancie (`docker compose up`) strony poza obszarem AED czytają publiczne API dane.gov.pl tylko do odczytu; w wariancie pod domeną czytają portal z forka. Logowanie do kont portalu we frontendzie jest wyłączone w trybie prototypu (`aed-prototype.ts`).
 5. **Zmiany w kodzie portalu są małe i wydzielone.** Frontend: moduł `frontend/src/app/pages/aed/`. Backend: aplikacja `backend/mcod/aed/` (walidacja wykazu, scalanie, zadanie Celery, widok `/aed-aggregated`, polecenie `create_main_aed_resource`) oraz pole zasobu `contains_aed_list` (model, formularz, migracja `resources/0076`). Lista zmienionych plików: `docs/wykaz-dga-analiza.md`, koniec dokumentu.
-6. **Stan uruchomienia:** kod wykazu AED w portalu był kompilowany, a jego logika (`aed_standard/wykaz.py`) przechodzi testy na prawdziwych plikach (`tests/test_wykaz.py`); w pełnym stosie portalu nie był jeszcze uruchomiony [do sprawdzenia]. Dalsze kroki integracji (np. nowy typ instytucji dla firm AED): `docs/integracja-portal-backend.md`.
-7. Zrzuty portalu z forka z zasobem zbiorczym: patrz „Do uzupełnienia”.
+6. **Stan uruchomienia:** kod wykazu AED w portalu był kompilowany, a jego logika (`aed_standard/wykaz.py`) przechodzi testy na prawdziwych plikach (`tests/test_wykaz.py`); 22.11 uruchomiono go lokalnie w pełnym stosie forka (Docker na Macu): migracje, 8 testów AED i 148 testów regresji DGA, panelu i Celery, scalanie przez Celery, zasób zbiorczy 781 wierszy z tabelą i mapą we frontendzie, `/aed-aggregated` (`docs/wykaz-aed-w-portalu.md`, „Co sprawdzono”). Nie uruchomiono go na serwerze publicznym; harmonogram 03:45 nie był sprawdzony (zadanie uruchamiano ręcznie). Dalsze kroki integracji (np. nowy typ instytucji dla firm AED): `docs/integracja-portal-backend.md`.
+7. Zrzuty portalu z forka z zasobem zbiorczym (ekrany przeglądarki z lokalnego stosu): `docs/zrzuty/portal-01`, `-02`, `-03`, `-06`, `-07`, `-08`, `-10`, `-11`; `portal-04` i `-05` to wyjście terminala.
 
 ## 6. Znane ograniczenia (skrót)
 
-- Wykaz AED w portalu nie był jeszcze uruchomiony w pełnym stosie portalu [do aktualizacji po uruchomieniu]; wdrożenie pod domeną jest przygotowane, ale nieuruchomione (`docs/wdrozenie-serwer.md`).
+- Wykaz AED w portalu działa w lokalnym pełnym stosie forka, ale nie na serwerze publicznym; wdrożenie pod domeną jest przygotowane, ale nieuruchomione (`docs/wdrozenie-serwer.md`). Harmonogram 03:45 nie był sprawdzony – scalanie uruchamiano ręcznie.
 - Zbiór do publikacji ma 781 rekordów, z czego 708 z API Warszawy; średnia kompletność rejestru 39,2 na 100.
 - Harvester XML i CKAN nie przenoszą flagi „Wykaz AED” (XSD 1.13 jej nie ma); zasób z harvestera oznacza redaktor w panelu.
-- Po wgraniu zwykłego CSV do portalu typy czterech kolumn trzeba poprawić ręcznie na tekst (`docs/panel-portalu-krok-po-kroku.md`); zasób zbiorczy AED ma schemat ustawiony od razu.
+- Po wgraniu zwykłego CSV do portalu typy kolumn wykrytych jako liczby całkowite (`nr_budynku`, `kod_terc`, `kod_simc`, `zrodlo_id`, `kompletnosc`) trzeba zmienić ręcznie na tekst w zakładce „Zmiana typu” – sprawdzone 22.11, potem walidacja danych SUCCESS (`docs/panel-portalu-krok-po-kroku.md`); zasób zbiorczy AED ma schemat ustawiony od razu.
 - Wiadomości do zarządców trafiają do skrzynki w panelu, nie są wysyłane e-mailem.
 - Rekordy znane tylko z OSM (ODbL) są w rejestrze, ale poza eksportem do dane.gov.pl; wymaga to opinii prawnika.
 - Żaden rekord zbioru krajowego zbudowanego z surowych źródeł nie ma jeszcze potwierdzenia zarządcy (wszystkie `niepotwierdzony`); status `aktywny` pojawia się dopiero po ścieżce B.
@@ -247,6 +247,5 @@ Z linii poleceń (Python 3, bez dodatkowych pakietów):
 | Ostateczna nazwa i hasło akcji | `kampania/nazwa-i-haslo.md` (decyzja zespołu) |
 | Plik prezentacji (PDF lub link) | `docs/prezentacja.pdf` [do ustalenia]; konspekt jest gotowy |
 | Publiczny adres prototypu, hasło kont demo i konto redaktora w panelu | sekcja 0 |
-| Zrzuty portalu z forka: wykaz AED, zasób zbiorczy, tabela, mapa, `/aed-aggregated` | lista w `docs/prezentacja-konspekt.md`; sekcja 5, pkt 7 |
 | Tytuł z nazwą akcji (tytuł roboczy w `docs/opis-projektu.md`) | `docs/opis-projektu.md`, `README.md` |
 | Adres repozytorium (jeśli ma być podany jury) | sekcja 4A |
