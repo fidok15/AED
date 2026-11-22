@@ -5,7 +5,7 @@ Zbiór: {{ dataset_title }}
 {% if entry.status == "przyjety" %}
 Przy ostatnim scalaniu krajowego wykazu AED portal przyjął wszystkie wiersze Twojego wykazu ({{ entry.przyjete }} z {{ entry.wiersze }}). Dziękujemy za poprawienie danych.
 {% else %}
-Przy ostatnim scalaniu krajowego wykazu AED portal przyjął {{ entry.przyjete }} z {{ entry.wiersze }} wierszy Twojego wykazu, odrzucił {{ rejected_rows }}.{% if entry.status == "czesciowo" %} Poprawne wiersze trafiły do krajowego wykazu AED; odrzucone wiersze nie są publikowane, dopóki ich nie poprawisz.{% else %} Żadne urządzenie z tego wykazu nie trafiło do krajowego wykazu AED.{% endif %}
+Przy ostatnim scalaniu krajowego wykazu AED portal przyjął {{ entry.przyjete }} z {{ entry.wiersze }} wierszy Twojego wykazu, odrzucił {{ rejected_rows }}.{% if entry.status == "czesciowo" %} Poprawne wiersze przeszły sprawdzenie i biorą udział w scalaniu krajowego wykazu AED (urządzenia prywatne i powtórzenia nie są publikowane); odrzucone wiersze nie są brane pod uwagę, dopóki ich nie poprawisz.{% else %} Żadne urządzenie z tego wykazu nie trafiło do krajowego wykazu AED.{% endif %}
 
 Problemy{% if more_problems %} (pierwsze {{ problems|length }} z {{ entry.problemy_razem }}){% endif %}:
 {% for p in problems %}- {% if p.wiersz %}Wiersz {{ p.wiersz }}{% else %}Plik{% endif %}{% if p.pole %}, pole {{ p.pole }}{% endif %}: {{ p.komunikat }}

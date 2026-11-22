@@ -60,6 +60,12 @@ def test_smtp_error_does_not_stop_the_merge():
     info = AggregatedAEDInfo.objects.get()
     assert info.resource is not None
     assert info.report["wykazy"][0]["status"] == "odrzucony"
+    assert len(mail.outbox) == 0
+
+    _merge(resource, KROSNO)  # SMTP is back: the same result is still owed to the provider
+    assert len(mail.outbox) == 1
+    _merge(resource, KROSNO)  # delivered: no repeat
+    assert len(mail.outbox) == 1
 
 
 def test_switch_off():

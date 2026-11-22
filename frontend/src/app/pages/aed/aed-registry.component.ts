@@ -148,6 +148,9 @@ export class AedRegistryComponent implements OnInit {
     this.picking.set(false);
     this.nearError.set('');
     this.origin.set(origin);
+    // Distances on screen belong to the previous origin: never show them under the new origin label.
+    this.records.set([]);
+    this.total.set(0);
     this.load();
   }
 

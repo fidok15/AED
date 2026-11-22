@@ -19,6 +19,9 @@ logger = logging.getLogger("mcod")
 PROBLEM_STATUSES = ("odrzucony", "czesciowo")
 
 
+PENDING_KEY = "powiadomienie_oczekuje"  # set on a report entry whose message failed; the next merge retries it
+
+
 def _signature(entry: Dict[str, Any]):
     problems = tuple((p["wiersz"], p["pole"], p["kod"], p["komunikat"]) for p in entry.get("problemy", []))
     return entry["status"], entry.get("wiersze", 0) - entry.get("przyjete", 0), entry.get("problemy_razem", 0), problems
@@ -31,10 +34,11 @@ def lists_to_notify(old_report: Optional[Dict[str, Any]], new_report: Dict[str, 
     result = []
     for entry in new_report.get("wykazy", []):
         previous = old.get(entry["zasob"])
+        pending = previous is not None and previous.get(PENDING_KEY)  # the last message was not delivered
         if entry["status"] in PROBLEM_STATUSES:
-            if previous is None or _signature(previous) != _signature(entry):
+            if previous is None or pending or _signature(previous) != _signature(entry):
                 result.append(entry)
-        elif previous is not None and previous["status"] in PROBLEM_STATUSES:
+        elif previous is not None and (pending or previous["status"] in PROBLEM_STATUSES):
             result.append(entry)
     return result
 
@@ -77,7 +81,10 @@ def build_message(entry: Dict[str, Any], resource) -> Optional[EmailMultiAlterna
 
 
 def notify_aed_list_providers(old_report: Optional[Dict[str, Any]], new_report: Dict[str, Any]) -> int:
-    """Sends the messages; never raises, so a mail problem does not undo the merge. -> number sent."""
+    """Sends the messages; never raises, so a mail problem does not undo the merge. -> number sent.
+
+    An entry whose message failed gets PENDING_KEY in new_report (the caller saves it), so the next merge
+    sends it even when the result is unchanged."""
     if not C.NOTIFY_PROVIDERS:
         return 0
     sent = 0
@@ -95,6 +102,7 @@ def notify_aed_list_providers(old_report: Optional[Dict[str, Any]], new_report: 
                 message.connection = connection
                 sent += message.send()
         except Exception as exc:
+            entry[PENDING_KEY] = True
             logger.error("AED list %s: provider notification failed: %s", entry.get("zasob"), exc)
     logger.info("AED list notifications sent: %s of %s.", sent, len(entries))
     return sent
