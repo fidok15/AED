@@ -68,6 +68,10 @@ export class AedMinistryComponent implements OnInit {
       return { title: field.title, a, b, same: a === b };
     }).filter((row) => row.a || row.b);
   });
+  /** By default only the fields in which the two records differ; the toggle shows every filled field. */
+  protected readonly showAllFields = signal(false);
+  protected readonly differing = computed(() => this.comparison().filter((row) => !row.same));
+  protected readonly shownRows = computed(() => (this.showAllFields() ? this.comparison() : this.differing()));
 
   protected readonly messages = signal<AedMessage[]>([]);
   protected readonly messagesTotal = signal(0);

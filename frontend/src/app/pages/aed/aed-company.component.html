@@ -138,27 +138,36 @@
 
           @if (report.problemy.length) {
             <div class="aed-scroll" tabindex="0" role="region" aria-labelledby="aed-problems-caption">
-              <table class="aed-table">
+              <!-- Below 640 px each row becomes a card (aed.scss, "A6"): explicit roles keep the table for screen readers
+                   when CSS changes the display of its parts; the visible labels inside cells are aria-hidden duplicates of the headers. -->
+              <table class="aed-table aed-problems" role="table">
                 <caption id="aed-problems-caption">
                   Co poprawić w pliku
                 </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Wiersz</th>
-                    <th scope="col">Kolumna</th>
-                    <th scope="col">Rodzaj</th>
-                    <th scope="col">Co poprawić</th>
+                <thead role="rowgroup">
+                  <tr role="row">
+                    <th scope="col" role="columnheader">Wiersz</th>
+                    <th scope="col" role="columnheader">Kolumna</th>
+                    <th scope="col" role="columnheader">Rodzaj</th>
+                    <th scope="col" role="columnheader">Co poprawić</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody role="rowgroup">
                   @for (problem of report.problemy; track $index) {
-                    <tr>
-                      <td>{{ problem.wiersz }}</td>
-                      <td>
+                    <tr role="row" [class.aed-problems__row--error]="problem.poziom === 'blad'">
+                      <td role="cell" class="aed-problems__row-no">
+                        <span class="aed-problems__label" aria-hidden="true">Wiersz </span>{{ problem.wiersz }}
+                      </td>
+                      <td role="cell" class="aed-problems__field">
+                        <span class="aed-problems__label" aria-hidden="true">Kolumna: </span>
                         {{ title(problem.pole) }} <code>{{ problem.pole }}</code>
                       </td>
-                      <td>{{ problem.poziom === 'blad' ? 'Błąd' : 'Ostrzeżenie' }}</td>
-                      <td>{{ problem.komunikat }}</td>
+                      <td role="cell" class="aed-problems__level">
+                        {{ problem.poziom === 'blad' ? 'Błąd' : 'Ostrzeżenie' }}
+                      </td>
+                      <td role="cell" class="aed-problems__fix">
+                        <span class="aed-problems__label" aria-hidden="true">Co poprawić: </span>{{ problem.komunikat }}
+                      </td>
                     </tr>
                   }
                 </tbody>

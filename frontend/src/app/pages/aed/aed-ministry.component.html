@@ -106,53 +106,84 @@
           <strong>{{ number(pair.podobienstwo * 100) }}%</strong>.
         }
       </p>
-      <div class="aed-scroll" tabindex="0" role="region" aria-labelledby="aed-pair-caption">
-        <table class="aed-table aed-compare">
-          <caption id="aed-pair-caption">
-            Porównanie rekordów
-            {{
-              pair.rekord_a.id_aed
-            }}
-            i
-            {{
-              pair.rekord_b.id_aed
-            }}
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">Pole</th>
-              <th scope="col">Rekord A</th>
-              <th scope="col">Rekord B</th>
-              <th scope="col">Zgodność</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (row of comparison(); track row.title) {
-              <tr [class.aed-compare__differs]="!row.same">
-                <th scope="row">{{ row.title }}</th>
-                <td>{{ row.a || 'brak' }}</td>
-                <td>{{ row.b || 'brak' }}</td>
-                <td>{{ row.same ? 'to samo' : 'różnica' }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-      <p class="aed-note">Po połączeniu zostaje rekord A, a rekord B dostaje status „wycofany”.</p>
-      <div class="aed-actions">
-        <button class="btn btn-primary" type="button" [attr.aria-disabled]="busy() || null" (click)="decide('polacz')">
-          To samo urządzenie – połącz
-        </button>
+      <div class="aed-compare__toolbar">
+        <p class="aed-compare__count">
+          Pola z różnicą: <strong>{{ number(differing().length) }}</strong> z {{ number(comparison().length) }}
+          wypełnionych.
+        </p>
         <button
           class="btn btn-outline-primary"
           type="button"
-          [attr.aria-disabled]="busy() || null"
-          (click)="decide('rozdziel')">
-          Różne urządzenia – zostaw oba
+          [attr.aria-pressed]="showAllFields()"
+          aria-controls="aed-pair-table"
+          (click)="showAllFields.set(!showAllFields())">
+          Pokaż wszystkie pola
         </button>
-        <button class="btn btn-link" type="button" [attr.aria-disabled]="busy() || null" (click)="skip()">
-          Pomiń tę parę
-        </button>
+      </div>
+      @if (shownRows().length) {
+        <div class="aed-scroll" tabindex="0" role="region" aria-labelledby="aed-pair-caption">
+          <table class="aed-table aed-compare" id="aed-pair-table">
+            <caption id="aed-pair-caption">
+              Porównanie rekordów
+              {{
+                pair.rekord_a.id_aed
+              }}
+              i
+              {{
+                pair.rekord_b.id_aed
+              }}{{
+                showAllFields() ? ' – wszystkie wypełnione pola' : ' – tylko pola z różnicą'
+              }}
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Pole</th>
+                <th scope="col">Rekord A</th>
+                <th scope="col">Rekord B</th>
+                <th scope="col">Zgodność</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of shownRows(); track row.title) {
+                <tr [class.aed-compare__differs]="!row.same">
+                  <th scope="row">{{ row.title }}</th>
+                  <td>{{ row.a || 'brak' }}</td>
+                  <td>{{ row.b || 'brak' }}</td>
+                  <td>{{ row.same ? 'to samo' : 'różnica' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p class="aed-message" id="aed-pair-table">
+          Rekordy {{ pair.rekord_a.id_aed }} i {{ pair.rekord_b.id_aed }} mają te same wartości we wszystkich
+          wypełnionych polach. Wybierz „Pokaż wszystkie pola”, żeby je zobaczyć.
+        </p>
+      }
+      <div class="aed-decision" role="group" aria-labelledby="aed-decision-label">
+        <p class="aed-decision__label" id="aed-decision-label">
+          Decyzja dla pary {{ position() + 1 }}. Po połączeniu zostaje rekord A, a rekord B dostaje status „wycofany”.
+        </p>
+        <div class="aed-actions">
+          <button
+            class="btn btn-primary"
+            type="button"
+            [attr.aria-disabled]="busy() || null"
+            (click)="decide('polacz')">
+            To samo urządzenie – połącz
+          </button>
+          <button
+            class="btn btn-outline-primary"
+            type="button"
+            [attr.aria-disabled]="busy() || null"
+            (click)="decide('rozdziel')">
+            Różne urządzenia – zostaw oba
+          </button>
+          <button class="btn btn-link" type="button" [attr.aria-disabled]="busy() || null" (click)="skip()">
+            Pomiń tę parę
+          </button>
+        </div>
       </div>
     } @else {
       <p>Nie ma par do przeglądu. Nowe mogą pojawić się po uruchomieniu mappera źródeł.</p>

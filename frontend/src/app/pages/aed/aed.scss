@@ -1650,3 +1650,126 @@ html:has(.aed--app) {
     }
   }
 }
+
+// ---- Narrow-screen tables: CSV validation report (company panel) and duplicate review (ministry panel) ----
+// Kept in one block at the end of the file (review notes A6, A7).
+.aed {
+  .aed-problems__label {
+    display: none;
+  }
+
+  // A6: below 640 px each problem is a card – row number and kind on top, column and fix below.
+  // The table keeps explicit ARIA roles in the markup, so changing `display` here does not drop its semantics.
+  @media (max-width: 639.98px) {
+    .aed-problems {
+      &,
+      tbody,
+      caption {
+        display: block;
+      }
+
+      thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+
+      tr {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas:
+          'no level'
+          'field field'
+          'fix fix';
+        gap: 0.25rem 0.75rem;
+        margin-top: 0.75rem;
+        padding: 0.75rem;
+        border: 1px solid var(--aed-line);
+        border-left: 4px solid var(--aed-warn);
+        border-radius: 0.25rem;
+        background: var(--aed-paper);
+      }
+
+      .aed-problems__row--error {
+        border-left-color: var(--aed-error);
+      }
+
+      td {
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .aed-problems__row-no {
+        grid-area: no;
+        font-weight: 700;
+      }
+
+      .aed-problems__level {
+        grid-area: level;
+        justify-self: end;
+        font-weight: 700;
+      }
+
+      .aed-problems__field {
+        grid-area: field;
+      }
+
+      .aed-problems__fix {
+        grid-area: fix;
+      }
+
+      .aed-problems__label {
+        display: inline;
+        color: var(--aed-muted);
+      }
+
+      .aed-problems__row-no .aed-problems__label {
+        color: inherit;
+      }
+    }
+  }
+
+  // A7: differing fields by default, a toggle for all of them, and the decision right under the comparison.
+  .aed-compare__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    margin-top: 1rem;
+  }
+
+  .aed-compare__count {
+    margin: 0;
+  }
+
+  .aed-compare td {
+    overflow-wrap: anywhere;
+  }
+
+  .aed-decision {
+    margin: 1rem 0;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--aed-line);
+    border-bottom: 1px solid var(--aed-line);
+    background: var(--aed-surface);
+
+    &__label {
+      margin: 0;
+    }
+
+    .aed-actions {
+      margin: 0.75rem 0 0;
+    }
+
+    .btn {
+      white-space: normal;
+      text-align: left;
+    }
+  }
+}
