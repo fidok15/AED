@@ -15,6 +15,8 @@ M = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 R_ID = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
 REL = "{http://schemas.openxmlformats.org/package/2006/relationships}Relationship"
 # Built-in number formats that show a date (ECMA-376 18.8.30); 18-21 and 45-47 are time only.
+MAX_COLUMNS = 300          # a list of AED has a few dozen columns; the standard itself has 38
+MAX_CELLS = 2 * 10 ** 6    # rows x width after expanding a sparse sheet, checked before allocating
 DATE_FORMAT_IDS = set(range(14, 18)) | {22} | set(range(27, 37)) | set(range(50, 59))
 
 
@@ -111,7 +113,7 @@ def read_rows(data, max_unpacked):
             if (fid.isdigit() and int(fid) in DATE_FORMAT_IDS) or _is_date_format(custom.get(fid, "")):
                 dates.add(str(i))
 
-    rows = []
+    rows, total = [], 0
     for row in ws.iter(M + "row"):
         cells = {}
         for pos, c in enumerate(row.findall(M + "c")):
@@ -134,8 +136,16 @@ def read_rows(data, max_unpacked):
                 except (ValueError, OverflowError):
                     value = text
             col = _col(c.get("r"))
-            cells[col if col >= 0 else pos] = value
+            col = col if col >= 0 else pos
+            if value:   # styled empty cells (often far to the right) do not widen the row
+                if col >= MAX_COLUMNS:
+                    raise XlsxError("Arkusz ma dane w kolumnie nr %d, a wykaz może mieć najwyżej %d kolumn. Usuń zbędne "
+                                    "kolumny albo zapisz arkusz jako CSV." % (col + 1, MAX_COLUMNS))
+                cells[col] = value
         if cells:
             width = max(cells) + 1
+            total += width
+            if total > MAX_CELLS:
+                raise XlsxError("Arkusz ma więcej niż %d komórek. Podziel plik albo zapisz go jako CSV." % MAX_CELLS)
             rows.append([cells.get(i, "") for i in range(width)])
     return name, rows

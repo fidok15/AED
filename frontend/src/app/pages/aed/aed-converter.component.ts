@@ -1,5 +1,6 @@
 import { HttpBackend, HttpClient } from '@angular/common/http';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Subscription } from 'rxjs';
 
 import { SeoService } from '@app/services/seo.service';
 import { aedErrorMessage, aedFileTooLarge, aedFocusFactory, AedProblem } from './aed-api.service';
@@ -56,6 +57,9 @@ export interface AedConverterResult {
     problemy_razem: number;
     poprawki: string[];
     normalizacje: AedConverterNormalization[];
+    /** Fields emptied in the public file (contact, serial number) and the message saying so. */
+    ukryte_pola: string[];
+    ukryte_komunikat: string;
   };
 }
 
@@ -70,6 +74,8 @@ export class AedConverterComponent implements OnInit {
   private readonly http = new HttpClient(inject(HttpBackend));
   private readonly seo = inject(SeoService);
   private readonly focus = aedFocusFactory();
+  /** Request in flight; a new file cancels it, so a late answer for the previous file never lands. */
+  private pending?: Subscription;
 
   protected readonly file = signal<File | null>(null);
   protected readonly analysis = signal<AedConverterAnalysis | null>(null);
@@ -108,11 +114,13 @@ export class AedConverterComponent implements OnInit {
     this.analysis.set(null);
     this.result.set(null);
     this.error.set('');
+    this.pending?.unsubscribe();
+    this.busy.set(false);
     const file = this.file();
-    if (!file || this.busy()) return;
+    if (!file) return;
     if (aedFileTooLarge(file)) return this.error.set(aedFileTooLarge(file));
     this.busy.set(true);
-    this.http.post<AedConverterAnalysis>(`${API}/analiza`, this.form(file)).subscribe({
+    this.pending = this.http.post<AedConverterAnalysis>(`${API}/analiza`, this.form(file)).subscribe({
       next: (analysis) => {
         this.analysis.set(analysis);
         this.mapping.set(Object.fromEntries(analysis.kolumny.map((column) => [column.kolumna, column.pole])));
@@ -153,7 +161,7 @@ export class AedConverterComponent implements OnInit {
     const body = this.form(file);
     body.append('mapowanie', JSON.stringify(this.mapping()));
     body.append('stale', JSON.stringify(this.constants()));
-    this.http.post<AedConverterResult>(`${API}/konwersja`, body).subscribe({
+    this.pending = this.http.post<AedConverterResult>(`${API}/konwersja`, body).subscribe({
       next: (result) => {
         this.result.set(result);
         this.error.set('');

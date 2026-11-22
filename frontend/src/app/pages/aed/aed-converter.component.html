@@ -206,6 +206,9 @@
         {{ result.raport.poza_wykazem_krajowym }}.
       </p>
     }
+    @if (result.raport.ukryte_komunikat) {
+      <p class="aed-message aed-message--warn"><strong>Uwaga:</strong> {{ result.raport.ukryte_komunikat }}</p>
+    }
     @if (result.raport.normalizacje.length) {
       <h3 class="aed-h3">Ujednolicony zapis wartości</h3>
       <p class="aed-field__hint">Zmieniliśmy tylko zapis, nie treść. Sprawdź przykłady, zanim opublikujesz wykaz.</p>

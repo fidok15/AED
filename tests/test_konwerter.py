@@ -123,7 +123,9 @@ class NormalizationTest(unittest.TestCase):
         self.assertEqual([r["data_waznosci_elektrod"] for r in rows], ["2029-05-31", "2029-02-28", "31.02.2030"])
         self.assertEqual([r["data_produkcji"] for r in rows], ["2020-03-04", "2020-03-04", "01/13/2020"])
         self.assertEqual([r["kod_pocztowy"] for r in rows], ["00-950", "00-951", "12-345"])
-        self.assertEqual(rows[0]["dysponent_telefon"], "+48 22 123 45 67")
+        # Contact columns are empty in the public file, but the clean-up is still reported.
+        self.assertEqual({r["dysponent_telefon"] for r in rows}, {""})
+        self.assertEqual((rep["ukryte_pola"], "kanałem rejestru" in rep["ukryte_komunikat"]), (["dysponent_telefon"], True))
         self.assertEqual((rows[0]["szerokosc_geograficzna"], rows[1]["dlugosc_geograficzna"]), ("52.2297", "21.013"))
         by_col = {n["kolumna"]: n for n in rep["normalizacje"]}
         self.assertEqual((by_col["Dostep"]["liczba"], by_col["Dostep"]["z"], by_col["Dostep"]["na"]), (2, "Publiczny", "publiczny"))
@@ -131,6 +133,52 @@ class NormalizationTest(unittest.TestCase):
         self.assertNotIn("Nazwa", by_col)   # trimming spaces alone is not reported
         self.assertEqual((rep["poprawne"], rep["odrzucone"]), (2, 1))
         self.assertEqual({p["kod"] for p in rep["problemy"] if p["wiersz"] == 3}, {"format_daty"})
+
+
+class CodexReviewTest(unittest.TestCase):
+    def test_public_file_has_no_contact_or_serial(self):
+        data = ("nazwa,szerokosc_geograficzna,dlugosc_geograficzna,miejscowosc,dysponent_email,numer_seryjny\n"
+                "Urząd,52.2,21.0,Warszawa,sekretariat@um.example.pl,SN-1\n").encode("utf-8")
+        a = analyze(data, "w.csv")
+        text, rep = convert(data, "w.csv", {c["kolumna"]: c["pole"] for c in a["kolumny"]})
+        row = next(csv.DictReader(io.StringIO(text)))
+        self.assertEqual((row["dysponent_email"], row["numer_seryjny"], row["nazwa"]), ("", "", "Urząd"))
+        self.assertEqual(set(rep["ukryte_pola"]), {"dysponent_email", "numer_seryjny"})
+        self.assertEqual(rep["status"], "przyjety")
+
+    def test_rows_marked_as_osm_are_rejected(self):
+        data = ("nazwa,szerokosc_geograficzna,dlugosc_geograficzna,miejscowosc,zrodlo,licencja\n"
+                "Sklep,52.2,21.0,Warszawa,openstreetmap,ODbL 1.0\n"
+                "Urząd,52.3,21.1,Warszawa,,CC0 1.0\n"
+                "Hala,52.4,21.2,Warszawa,gmina,ODbL\n").encode("utf-8")
+        a = analyze(data, "w.csv")
+        mapping = {c["kolumna"]: c["pole"] for c in a["kolumny"]}
+        self.assertEqual((mapping["zrodlo"], mapping["licencja"]), ("", ""))   # system columns are not mapping targets
+        text, rep = convert(data, "w.csv", mapping)
+        self.assertEqual((rep["status"], rep["poprawne"], rep["odrzucone"]), ("czesciowo", 1, 2))
+        self.assertEqual({p["wiersz"] for p in rep["problemy"] if p["kod"] == "dane_osm"}, {1, 3})
+        records, report = read_wykaz(text.encode("utf-8"), SOURCE)   # the portal rejects them as well
+        self.assertEqual([r["nazwa"] for r in records], ["Urząd"])
+
+    def test_explicit_address_columns_win_over_parsed_address(self):
+        data = ("Nazwa;Adres;Miasto;Kod;Lat;Lon\n"
+                "Urząd;ul. Jasna 12, 38-400 Krosno;Krosno Odrzańskie;66-600;52.05;15.10\n").encode("utf-8")
+        mapping = {"Nazwa": "nazwa", "Adres": ADDRESS, "Miasto": "miejscowosc", "Kod": "kod_pocztowy",
+                   "Lat": "szerokosc_geograficzna", "Lon": "dlugosc_geograficzna"}
+        row = next(csv.DictReader(io.StringIO(convert(data, "k.csv", mapping)[0])))
+        self.assertEqual((row["miejscowosc"], row["kod_pocztowy"], row["nazwa_ulicy"], row["nr_budynku"]),
+                         ("Krosno Odrzańskie", "66-600", "Jasna", "12"))
+
+    def test_separator_ignores_quoted_text(self):
+        data = '"Nazwa, opis, piętro, uwagi";lat;lon\n"Urząd, parter, , -";52.2;21.0\n"Szkoła, hol, 1, -";52.3;21.1\n'.encode("utf-8")
+        a = analyze(data, "s.csv")
+        self.assertEqual((a["separator"], [c["kolumna"] for c in a["kolumny"]]), ("średnik", ["Nazwa, opis, piętro, uwagi", "lat", "lon"]))
+
+    def test_truncated_utf16_is_a_polish_error(self):
+        data = "nazwa,lat\nUrząd,52.2\n".encode("utf-16")[:-1]
+        with self.assertRaises(ConverterError) as ctx:
+            analyze(data, "u.csv")
+        self.assertIn("UTF-16", str(ctx.exception))
 
 
 class XlsxTest(unittest.TestCase):
@@ -157,6 +205,18 @@ class XlsxTest(unittest.TestCase):
         a = analyze(data, "gmina.xlsx")
         self.assertEqual([c["kolumna"] for c in a["kolumny"]], ["Nazwa", "Lat", "Lon", "Bateria", "Produkcja"])
         self.assertEqual(a["przyklad_wierszy"], [["Urząd & Biblioteka", "52.229676", "21.0122", "2030-01-31", "2020-03-04"]])
+
+    def test_sparse_or_huge_sheet_is_refused_before_allocation(self):
+        far = xlsx_file('<row r="1"><c r="XFD1" t="inlineStr"><is><t>x</t></is></c></row>')
+        # Styled empty cells far to the right do not count.
+        styled = xlsx_file('<row r="1"><c r="A1" t="inlineStr"><is><t>nazwa</t></is></c><c r="XFD1" s="1"/></row>'
+                           '<row r="2"><c r="A2" t="inlineStr"><is><t>Urząd</t></is></c></row>')
+        self.assertEqual([c["kolumna"] for c in analyze(styled, "s.xlsx")["kolumny"]], ["nazwa"])
+        wide = "".join('<row r="%d"><c r="KN%d" t="inlineStr"><is><t>x</t></is></c></row>' % (i, i) for i in range(1, 8000))
+        for data, words in ((far, "najwyżej 300 kolumn"), (wide, "komórek")):
+            with self.assertRaises(ConverterError) as ctx:
+                analyze(data if isinstance(data, bytes) else xlsx_file(data), "plik.xlsx")
+            self.assertIn(words, str(ctx.exception))
 
     def test_unsafe_or_broken_xlsx_is_refused(self):
         bomb = xlsx_file("<row><c><v>1</v></c></row>", shared=None, extra={"xl/sharedStrings.xml": "<sst>" + " " * (60 * 2 ** 20) + "</sst>"})
