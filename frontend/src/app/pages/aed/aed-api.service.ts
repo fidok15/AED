@@ -35,6 +35,8 @@ export interface AedStats {
   wg_zrodla: Record<string, number>;
   dostawcy: number;
   potwierdzone_90_dni: number;
+  /** False when the server's demo accounts use passwords handed over separately (AED_DEMO_PASSWORD). */
+  hasla_demo_domyslne?: boolean;
   /** ISO time of the last run of each cyclic job; null when it has not run yet. */
   ostatnie_uruchomienia?: { mapper: string | null; przypomnienia: string | null };
 }
@@ -186,12 +188,20 @@ export interface AedSignal {
   uwagi?: string;
 }
 
+/** Upload limit of the service (MAX_UPLOAD in aed_service/app.py). */
+export const AED_MAX_UPLOAD = 5 * 1024 * 1024;
+const AED_TOO_LARGE = 'Plik jest większy niż 5 MB. Podziel go na mniejsze części.';
+
+/** Checked before sending: a proxy may cut an oversized upload off before the service answers. */
+export const aedFileTooLarge = (file: File | null): string => (file && file.size > AED_MAX_UPLOAD ? AED_TOO_LARGE : '');
+
 /**
  * Message from the error body `{"blad": {"kod", "komunikat", "problemy"}}` (problems come with HTTP 422),
  * with a fallback for network failures. `keep` narrows the listed problems further.
  */
 export function aedErrorMessage(error: HttpErrorResponse, keep: (problem: AedProblem) => boolean = () => true): string {
   const blad = error?.error?.blad;
+  if (!blad && error?.status === 413) return AED_TOO_LARGE; // limit of a proxy in front of the service
   if (!blad) return 'Nie udało się połączyć z rejestrem. Spróbuj ponownie za chwilę.';
   // Warnings never block a request; listing them in an error message only hides the real errors.
   const problems: AedProblem[] = (blad.problemy ?? []).filter(

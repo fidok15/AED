@@ -113,7 +113,7 @@ Sygnał (żądanie): `{"typ": "jest" | "brak" | "uszkodzony" | "zamkniety", "sze
 |---|---|---|
 | `GET /api/aed/urzadzenia` | każdy | lista stronicowana; parametry: `status`, `zrodlo`, `dostep`, `q` (nazwa, miejscowość), `strona`, `na_stronie` |
 | `GET /api/aed/urzadzenia.geojson` | każdy | punkty do mapy: `id_aed`, `nazwa`, `status`, `dostep`, `godziny_dostepu`, `kompletnosc`, `zrodlo`; parametr `bbox=minLon,minLat,maxLon,maxLat` |
-| `GET /api/aed/statystyki` | każdy | `razem`, `srednia_kompletnosc`, `wg_statusu`, `wg_zrodla`, `dostawcy`, `potwierdzone_90_dni`, `ostatnie_uruchomienia: {mapper, przypomnienia}` (czas ostatniego udanego uruchomienia albo `null`) |
+| `GET /api/aed/statystyki` | każdy | `razem`, `srednia_kompletnosc`, `wg_statusu`, `wg_zrodla`, `dostawcy`, `potwierdzone_90_dni`, `ostatnie_uruchomienia: {mapper, przypomnienia}` (czas ostatniego udanego uruchomienia albo `null`), `hasla_demo_domyslne` (`false`, gdy konta demo mają hasło z `AED_DEMO_PASSWORD`; karty logowania nie pokazują wtedy haseł) |
 | `GET /api/aed/sprzedawcy` | każdy | `{"dane": [...], "progi": {...}}`; firma: nazwa, `typ_podmiotu`, miejscowość, współrzędne siedziby, `liczba_urzadzen`, `srednia_kompletnosc`, `udzial_aktywnych`, `odznaka` |
 | `GET /api/aed/eksport/dane-gov-pl.csv` | każdy | eksport publikacyjny (profil `publikacja`, bez ODbL, bez `dostep = prywatny`, bez rekordów wycofanych i demonstracyjnych; kolumny kontaktu i numeru seryjnego puste). Parametr `wersja` jest ignorowany (patrz niżej) |
 | `GET`, `HEAD /api/aed/eksport/dane-gov-pl.xml` | każdy | zasilanie harvestera XML dane.gov.pl (schemat 1.13, `application/xml`): jeden zbiór `aed-krajowy-rejestr` z jednym zasobem `aed-krajowy-rejestr-csv`, który wskazuje na eksport publikacyjny CSV |

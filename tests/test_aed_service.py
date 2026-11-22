@@ -376,6 +376,14 @@ class JobsAndDemoTest(unittest.TestCase):
         r = c.simulate_post("/api/aed/sesja", json={"email": "ministerstwo@aed.example", "haslo": "ministerstwo-demo"})
         return {"Authorization": "Bearer " + r.json["token"]}
 
+    def test_stats_tell_whether_demo_passwords_are_the_default_ones(self):
+        self.assertTrue(self.client().simulate_get("/api/aed/statystyki").json["hasla_demo_domyslne"])
+        self.tmp.cleanup()
+        os.makedirs(self.tmp.name)
+        with mock.patch.dict(os.environ, {"AED_DEMO_PASSWORD": "inne-haslo-serwera"}):
+            c = self.client()
+        self.assertFalse(c.simulate_get("/api/aed/statystyki").json["hasla_demo_domyslne"])
+
     def test_job_history_and_failure_tolerance(self):
         c = self.client()
         m = self.ministry(c)

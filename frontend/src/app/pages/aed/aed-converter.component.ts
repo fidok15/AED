@@ -2,7 +2,7 @@ import { HttpBackend, HttpClient } from '@angular/common/http';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 
 import { SeoService } from '@app/services/seo.service';
-import { aedErrorMessage, aedFocusFactory, AedProblem } from './aed-api.service';
+import { aedErrorMessage, aedFileTooLarge, aedFocusFactory, AedProblem } from './aed-api.service';
 import { aedField } from './aed-schema';
 
 // Public converter of a provider's own file to the AED standard (docs/api-aed.md, "Konwerter do standardu").
@@ -97,6 +97,7 @@ export class AedConverterComponent implements OnInit {
     this.error.set('');
     const file = this.file();
     if (!file || this.busy()) return;
+    if (aedFileTooLarge(file)) return this.error.set(aedFileTooLarge(file));
     this.busy.set(true);
     this.http.post<AedConverterAnalysis>(`${API}/analiza`, this.form(file)).subscribe({
       next: (analysis) => {

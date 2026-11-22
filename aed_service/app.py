@@ -5,6 +5,7 @@ All validation and registry logic lives in aed_standard; this module only stores
 import base64
 import csv
 import datetime
+import functools
 import hashlib
 import hmac
 import io
@@ -291,6 +292,18 @@ DEMO_ACCOUNTS = [  # email, password, name, role, type, city, lat, lon
     ("serwis@aed.example", "serwis-demo", "Serwis Rytm Sp. z o.o. (firma fikcyjna)", "firma", "sprzedawca",
      "Poznań", 52.4064, 16.9252),
 ]
+
+
+@functools.lru_cache(maxsize=8)
+def _is_default_password(password, salt, pass_hash):
+    return hmac.compare_digest(hash_password(password, salt), pass_hash)
+
+
+def demo_passwords_default(db):
+    """True when the demo accounts still use the passwords from DEMO_ACCOUNTS (the sign-in cards may show them)."""
+    email, pw = DEMO_ACCOUNTS[0][:2]
+    row = db.execute("SELECT salt, pass_hash FROM accounts WHERE email=?", (email,)).fetchone()
+    return bool(row) and _is_default_password(pw, bytes(row["salt"]), bytes(row["pass_hash"]))
 
 
 def seed(db, with_registry=True):
@@ -821,6 +834,7 @@ def stats(req, resp):
         "wg_statusu": dict(db.execute("SELECT status, COUNT(*) FROM devices WHERE %s GROUP BY status" % pub).fetchall()),
         "wg_zrodla": dict(db.execute("SELECT zrodlo, COUNT(*) FROM devices WHERE %s GROUP BY zrodlo" % pub).fetchall()),
         "dostawcy": db.execute("SELECT COUNT(DISTINCT konto_id) FROM devices WHERE konto_id IS NOT NULL").fetchone()[0],
+        "hasla_demo_domyslne": demo_passwords_default(db),
         "potwierdzone_90_dni": db.execute(
             "SELECT COUNT(*) FROM devices WHERE %s AND origin!='import' AND data_weryfikacji>=?" % pub, (since,)).fetchone()[0],
         "ostatnie_uruchomienia": {col: (db.execute("SELECT MAX(start) FROM jobs WHERE %s IS NOT NULL" % col).fetchone()[0])

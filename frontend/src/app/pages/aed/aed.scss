@@ -79,7 +79,7 @@
     max-width: 44rem;
   }
 
-  a {
+  a:not(.btn) {
     color: var(--aed-blue);
     text-decoration: underline;
   }
@@ -777,6 +777,8 @@
   }
 
   .aed-scroll {
+    // relative: visually hidden labels inside the table stay clipped here instead of widening the page at 320 px
+    position: relative;
     overflow-x: auto;
     margin: 1rem 0;
   }
