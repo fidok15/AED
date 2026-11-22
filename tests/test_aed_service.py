@@ -216,7 +216,9 @@ class ServiceTest(unittest.TestCase):
         c, ns = self.client, "{http://www.w3.org/2000/svg}"
         id_aed = self.submit(seller_csv(["STICKER-1"])).json["przyjete"][0]["id_aed"]
         url = "/api/aed/urzadzenia/%s/naklejka.svg" % id_aed
-        root = ET.fromstring(c.simulate_get(url).text)
+        # without a logo file first (aed_service/naklejka-logo.svg exists in the repository)
+        with mock.patch.object(svc, "STICKER_LOGO_PATH", os.path.join(self.tmp.name, "brak-logo.svg")):
+            root = ET.fromstring(c.simulate_get(url).text)
         _, _, w, h = [float(v) for v in root.get("viewBox").split()]
         texts = [(t.text, float(t.get("font-size"))) for t in root.iter(ns + "text")]
         self.assertIn(id_aed, [t for t, _ in texts])

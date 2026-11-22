@@ -11,7 +11,7 @@ import { aedField, AedValue } from './aed-schema';
 const API = '/api/aed';
 const SESSION_KEY = 'aed_sesja';
 
-export type AedStatus = 'zgloszony' | 'aktywny' | 'niepotwierdzony' | 'nieaktualny' | 'wycofany';
+export type AedStatus = 'zgloszony' | 'zweryfikowany' | 'niepotwierdzony' | 'nieaktualny' | 'wycofany';
 
 /** A device: columns of aed_standard/schema.json. The service sends every value as text. */
 export interface AedRecord {
@@ -45,6 +45,8 @@ export interface AedFilters {
   model?: string;
   miejscowosc?: string;
   zrodlo?: string;
+  /** Device condition (schema enum `stan_urzadzenia`); `nieznany` also matches an empty value. */
+  stan_urzadzenia?: string;
 }
 
 export interface AedCount {
@@ -63,6 +65,8 @@ export interface AedFilterOptions {
   wewnatrz_budynku: Record<string, number>;
   z_godzinami: number;
   calodobowo: number;
+  /** Every value of the schema enum, zeros included; an empty value counts as `nieznany`. */
+  stan_urzadzenia?: Record<string, number>;
 }
 
 /** Request parameters without empty values. */
@@ -197,6 +201,9 @@ export interface AedMapFeature {
     godziny_dostepu: string;
     kompletnosc: number;
     zrodlo: string;
+    /** '' = nieznany */
+    stan_urzadzenia?: string;
+    data_stanu?: string;
   };
 }
 
@@ -210,14 +217,14 @@ export interface AedSeller {
   liczba_urzadzen: number;
   srednia_kompletnosc: number;
   /** 0–1 */
-  udzial_aktywnych: number;
+  udzial_zweryfikowanych: number;
   odznaka: 'tak' | 'nie';
 }
 
 export interface AedSellers {
   dane: AedSeller[];
-  /** Badge thresholds: minimum average completeness (0–100) and minimum share of active devices (0–1). */
-  progi: { srednia_kompletnosc: number; udzial_aktywnych: number };
+  /** Badge thresholds: minimum average completeness (0–100) and minimum share of verified devices (0–1). */
+  progi: { srednia_kompletnosc: number; udzial_zweryfikowanych: number };
 }
 
 export type AedCondition = 'sprawny' | 'problem';

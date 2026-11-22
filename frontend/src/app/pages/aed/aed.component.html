@@ -2,7 +2,12 @@
 <div class="aed" [class.aed--app]="app" lang="pl">
   @if (app) {
     <header class="aed-appbar">
-      <span class="aed-appbar__name">Rejestr AED</span>
+      <span class="aed-brand">
+        <img class="aed-brand__logo aed-brand__logo--kolor" src="assets/aed/opiekun-aed-lockup-kolor.svg" alt="Opiekun AED" width="172" height="37" />
+        <!-- portal high-contrast modes: negative on black, one colour on yellow (brand book, s. 8) -->
+        <img class="aed-brand__logo aed-brand__logo--negatyw" src="assets/aed/opiekun-aed-lockup-negatyw.svg" alt="Opiekun AED" width="172" height="37" />
+        <img class="aed-brand__logo aed-brand__logo--mono" src="assets/aed/opiekun-aed-lockup-mono.svg" alt="Opiekun AED" width="172" height="37" />
+      </span>
       <span class="aed-tag">prototyp</span>
       <a class="aed-appbar__portal" [routerLink]="['/'] | localize">dane.gov.pl</a>
     </header>
@@ -11,7 +16,15 @@
     </main>
   } @else {
     <div class="container aed-page">
-      <nav class="aed-nav" aria-label="Rejestr AED">
+      <nav class="aed-nav" aria-label="Opiekun AED">
+        <a class="aed-nav__brand" [routerLink]="['/!aed'] | localize">
+          <span class="aed-brand">
+            <img class="aed-brand__logo aed-brand__logo--kolor" src="assets/aed/opiekun-aed-lockup-kolor.svg" alt="Opiekun AED – start" width="172" height="37" />
+            <!-- portal high-contrast modes: negative on black, one colour on yellow (brand book, s. 8) -->
+            <img class="aed-brand__logo aed-brand__logo--negatyw" src="assets/aed/opiekun-aed-lockup-negatyw.svg" alt="Opiekun AED – start" width="172" height="37" />
+            <img class="aed-brand__logo aed-brand__logo--mono" src="assets/aed/opiekun-aed-lockup-mono.svg" alt="Opiekun AED – start" width="172" height="37" />
+          </span>
+        </a>
         <ul class="aed-nav__list">
           @for (link of links; track link.label) {
             <li>

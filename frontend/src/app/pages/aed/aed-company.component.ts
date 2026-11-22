@@ -96,7 +96,7 @@ export class AedCompanyComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.seo.setPageTitle(['Panel firmy', 'Rejestr AED']);
+    this.seo.setPageTitle(['Panel firmy', 'Opiekun AED']);
   }
 
   private loadScore(): void {

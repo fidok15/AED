@@ -10,9 +10,10 @@
 
 @if (sellers(); as sellers) {
   <p>
-    Odznakę dostaje firma, której urządzenia mają średnią kompletność danych co najmniej
+    Odznakę „Opiekun AED – partner sprzedaży” dostaje firma, której urządzenia mają średnią kompletność danych co najmniej
     <strong>{{ sellers.progi.srednia_kompletnosc }}%</strong> i z których co najmniej
-    <strong>{{ number(sellers.progi.udzial_aktywnych * 100) }}%</strong> jest zweryfikowanych – dysponent potwierdził ich miejsce, dostęp i godziny.
+    <strong>{{ number(sellers.progi.udzial_zweryfikowanych * 100) }}%</strong> jest zweryfikowanych – dysponent
+    potwierdził ich miejsce, dostęp i godziny.
   </p>
 
   @if (ranked().length) {
@@ -46,7 +47,7 @@
                   ><span [style.width.%]="seller.srednia_kompletnosc"></span
                 ></span>
               </td>
-              <td class="aed-table__number">{{ number(seller.udzial_aktywnych * 100) }}%</td>
+              <td class="aed-table__number">{{ number(seller.udzial_zweryfikowanych * 100) }}%</td>
               <td>
                 @if (seller.odznaka === 'tak') {
                   <span class="aed-badge">
@@ -54,7 +55,7 @@
                       <path d="M12 2.5 20 5.5v6c0 4.6-3.2 8.3-8 10-4.8-1.7-8-5.4-8-10v-6z" />
                       <path d="M8 12l3 3 5.5-6" />
                     </svg>
-                    Przyznana
+                    Opiekun AED
                   </span>
                 } @else {
                   Jeszcze nie

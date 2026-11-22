@@ -19,8 +19,16 @@ import * as L from 'leaflet';
 
 import { AedApiService, aedErrorMessage, AedFilters, AedMapFeature, AedRecord, AedStatus } from './aed-api.service';
 import { AED_SCHEDULE_LABELS, aedOpenNow, AedOpenState, aedWarsawNow } from './aed-hours';
-import { aedField } from './aed-schema';
-import { AED_MARKS, AED_STATUS_LABELS, aedMarkSvg, AedStatusComponent } from './aed-status.component';
+import { aedField, aedLabel } from './aed-schema';
+import {
+  AED_MARKS,
+  AED_STATUS_LABELS,
+  AedConditionComponent,
+  aedConditionText,
+  aedMarkSvg,
+  AedStatusComponent,
+  aedUnavailable,
+} from './aed-status.component';
 
 /** Point the list and the map are measured from: the phone's position or a point picked on the map. */
 export interface AedOrigin {
@@ -70,6 +78,19 @@ export const aedOriginName = (origin: AedOrigin | null): string =>
       ? 'Twoja lokalizacja'
       : 'Wybrany punkt';
 
+/** "parter", "piętro 2", "poziom −1 (pod ziemią)" for the schema field `pietro`. */
+export function aedFloorText(value: unknown): string {
+  const floor = Number(value);
+  if (floor === 0) return 'parter';
+  return floor < 0 ? `poziom −${-floor} (pod ziemią)` : `piętro ${floor}`;
+}
+
+/** Schema label of `sposob_ustalenia_polozenia`; a geocoded point is said plainly not to be the device's spot. */
+export const aedPositionText = (value: unknown): string =>
+  value === 'geokodowanie_adresu'
+    ? 'położenie z geokodowania adresu – punkt budynku, nie miejsce urządzenia'
+    : aedLabel(aedField('sposob_ustalenia_polozenia'), value as string);
+
 /** Grouping radius in screen pixels: wide on the country view, just above a marker's size in a city. */
 const radiusFor = (zoom: number) => (zoom <= 7 ? 72 : zoom <= 11 ? 56 : zoom <= 13 ? 44 : 28);
 
@@ -83,7 +104,7 @@ const latLng = (feature: AedMapFeature) => L.latLng(feature.geometry.coordinates
 @Component({
   selector: 'app-aed-map',
   standalone: true,
-  imports: [AedStatusComponent],
+  imports: [AedStatusComponent, AedConditionComponent],
   // Escape closes the details from anywhere in the map (the panel, a marker, the map itself).
   host: { '(keydown.escape)': 'selected() && close()' },
   template: `
@@ -119,6 +140,11 @@ const latLng = (feature: AedMapFeature) => L.latLng(feature.geometry.coordinates
                     {{ feature.properties.nazwa || 'Miejsce bez nazwy' }}
                   </button>
                   <app-aed-status [status]="feature.properties.status" />
+                  @if (unavailable(feature.properties.stan_urzadzenia)) {
+                    <app-aed-condition
+                      [value]="feature.properties.stan_urzadzenia"
+                      [date]="feature.properties.data_stanu" />
+                  }
                 </li>
               }
             </ul>
@@ -128,6 +154,11 @@ const latLng = (feature: AedMapFeature) => L.latLng(feature.geometry.coordinates
             @let heading = placeTitle(point.nazwa, detail() && address(detail()), detail()?.['opis_lokalizacji']);
             <h3 class="aed-map__title" id="aed-panel-title" tabindex="-1" #panelTitle>{{ heading }}</h3>
             <app-aed-status [status]="point.status" />
+            @if (unavailable(point.stan_urzadzenia)) {
+              <p class="aed-message aed-message--warn aed-unavailable">
+                Uwaga: dysponent zgłosił, że urządzenie jest czasowo niedostępne. Szukaj innego AED.
+              </p>
+            }
             @if (distance()) {
               <p class="aed-map__distance">{{ distance() }}</p>
             }
@@ -141,6 +172,10 @@ const latLng = (feature: AedMapFeature) => L.latLng(feature.geometry.coordinates
             }
             <dl class="aed-map__facts">
               <div>
+                <dt>{{ title('stan_urzadzenia') }}</dt>
+                <dd><app-aed-condition [value]="point.stan_urzadzenia" [date]="point.data_stanu" /></dd>
+              </div>
+              <div>
                 <dt>{{ title('godziny_dostepu') }}</dt>
                 <dd>{{ point.godziny_dostepu || 'brak danych' }}</dd>
               </div>
@@ -148,10 +183,26 @@ const latLng = (feature: AedMapFeature) => L.latLng(feature.geometry.coordinates
                 <dt>{{ title('dostep') }}</dt>
                 <dd>{{ point.dostep || 'brak danych' }}</dd>
               </div>
+              @if (detail(); as record) {
+                @if ((record['pietro'] ?? '') !== '') {
+                  <div>
+                    <dt>{{ title('pietro') }}</dt>
+                    <dd>{{ floorText(record['pietro']) }}</dd>
+                  </div>
+                }
+                @if (record['sposob_ustalenia_polozenia']) {
+                  <div>
+                    <dt>{{ title('sposob_ustalenia_polozenia') }}</dt>
+                    <dd>{{ positionText(record['sposob_ustalenia_polozenia']) }}</dd>
+                  </div>
+                }
+              }
             </dl>
-            <p class="aed-open aed-open--{{ openState(point.godziny_dostepu) }}">
-              {{ schedule[openState(point.godziny_dostepu)] }}
-            </p>
+            @if (!unavailable(point.stan_urzadzenia)) {
+              <p class="aed-open aed-open--{{ openState(point.godziny_dostepu) }}">
+                {{ schedule[openState(point.godziny_dostepu)] }}
+              </p>
+            }
             <p class="aed-row__id">{{ point.id_aed }}</p>
             <a class="aed-route" [href]="routeUrl(at[1], at[0])" target="_blank" rel="noopener">
               Wyznacz trasę<span class="visually-hidden"> (Mapy Google, nowa karta)</span>
@@ -177,6 +228,10 @@ const latLng = (feature: AedMapFeature) => L.latLng(feature.geometry.coordinates
           </li>
         }
         <li>
+          <span class="aed-mark__badge aed-mark__badge--sample" aria-hidden="true">!</span>
+          <span>Urządzenie czasowo niedostępne (znak przy symbolu statusu)</span>
+        </li>
+        <li>
           <span class="aed-cluster aed-cluster--sample" aria-hidden="true">12</span>
           <span>Grupa urządzeń – wybierz, aby przybliżyć</span>
         </li>
@@ -186,8 +241,8 @@ const latLng = (feature: AedMapFeature) => L.latLng(feature.geometry.coordinates
         </li>
       </ul>
       <p class="aed-note">
-        {{ labels.aktywny }} – dysponent potwierdził miejsce, dostęp i godziny dostępu; datę tej weryfikacji podaje opis
-        urządzenia. Mapa pokazuje te same urządzenia i filtry co lista pod nią.
+        {{ labels.zweryfikowany }} – dysponent potwierdził miejsce, dostęp i godziny dostępu; datę tej weryfikacji
+        podaje opis urządzenia. Mapa pokazuje te same urządzenia i filtry co lista pod nią.
       </p>
       <p class="aed-note">
         Klawiatura: Tab przechodzi po znacznikach, potem po przyciskach powiększenia i „Moja lokalizacja”, Enter otwiera
@@ -219,9 +274,12 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
 
   protected readonly labels = AED_STATUS_LABELS;
   protected readonly schedule = AED_SCHEDULE_LABELS;
-  protected readonly legend: AedStatus[] = ['aktywny', 'niepotwierdzony', 'zgloszony', 'nieaktualny', 'wycofany'];
+  protected readonly legend: AedStatus[] = ['zweryfikowany', 'niepotwierdzony', 'zgloszony', 'nieaktualny', 'wycofany'];
   protected readonly title = (column: string) => aedField(column).title;
   protected readonly devicesText = aedDevices;
+  protected readonly unavailable = aedUnavailable;
+  protected readonly floorText = aedFloorText;
+  protected readonly positionText = aedPositionText;
   protected readonly placeTitle = aedPlaceTitle;
   protected readonly routeUrl = aedRouteUrl;
   protected readonly originName = aedOriginName;
@@ -552,16 +610,19 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
   private device(feature: AedMapFeature, selected: boolean): L.Marker {
     const { properties } = feature;
     const mark = AED_MARKS[properties.status];
-    const label = `${properties.nazwa || 'Miejsce bez nazwy'}, status: ${AED_STATUS_LABELS[properties.status]}`;
+    const out = aedUnavailable(properties.stan_urzadzenia);
+    const label =
+      `${properties.nazwa || 'Miejsce bez nazwy'}, status: ${AED_STATUS_LABELS[properties.status]}` +
+      (out ? `, urządzenie ${aedConditionText(properties.stan_urzadzenia, '')}` : '');
     const icon = L.divIcon({
       className: `aed-mark aed-mark--${properties.status}${selected ? ' aed-mark--selected' : ''}`,
-      html: aedMarkSvg(mark),
+      html: aedMarkSvg(mark) + (out ? '<span class="aed-mark__badge" aria-hidden="true">!</span>' : ''),
       iconSize: mark.size,
       iconAnchor: mark.anchor,
     });
     return this.marker(latLng(feature), label, icon, () => {
       this.trigger = properties.id_aed;
       this.open([feature]);
-    }).setZIndexOffset(properties.status === 'aktywny' ? 500 : 0);
+    }).setZIndexOffset(properties.status === 'zweryfikowany' && !out ? 500 : 0);
   }
 }

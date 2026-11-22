@@ -8,9 +8,18 @@ import { AedQrComponent } from './aed-qr.component';
 describe('AedQrComponent, manager view', () => {
   const inDays = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
   // A record the manager has already completed once; the service sends every value as text.
-  const record = (changes: Partial<AedRecord> = {}): AedRecord => ({
+  // `waznosc_do` is the last valid day computed by the service (aed_standard.valid_until).
+  const record = (changes: Partial<AedRecord> = {}): AedRecord => {
+    const base = { ...fields(), ...changes };
+    const waznosc_do = {
+      data_waznosci_baterii: String(base['data_waznosci_baterii']),
+      data_waznosci_elektrod: String(base['data_waznosci_elektrod']),
+    };
+    return { ...base, waznosc_do } as unknown as AedRecord;
+  };
+  const fields = (): AedRecord => ({
     id_aed: 'AED-TEST00000001',
-    status: 'aktywny',
+    status: 'zweryfikowany',
     kompletnosc: '90',
     nazwa: 'Urząd Demonstracyjny',
     miejscowosc: 'Fikcyjnowo',
@@ -24,7 +33,6 @@ describe('AedQrComponent, manager view', () => {
     data_waznosci_baterii: inDays(400),
     data_waznosci_elektrod: inDays(400),
     data_weryfikacji: '2026-11-21',
-    ...changes,
   });
 
   let confirm: jest.Mock;
@@ -61,27 +69,34 @@ describe('AedQrComponent, manager view', () => {
     fixture.detectChanges();
   };
 
-  it('says the device is verified only when the service made it active', () => {
-    open(record(), record({ status: 'aktywny' }));
+  it('says the device is verified and ready when the service confirmed it', () => {
+    open(record(), record({ status: 'zweryfikowany', stan_urzadzenia: 'gotowy', data_stanu: '2026-11-22' }));
     choose('input[name="aed-stan"][value="sprawny"]');
     submit();
 
     expect(page.querySelector('#aed-done').textContent).toContain('Dane potwierdzone');
     expect(page.querySelector('.aed-result').textContent).toContain('status „Zweryfikowany”');
     expect(page.querySelector('.aed-result__mark--problem')).toBeNull();
+    expect(page.querySelector('.aed-device').textContent).toContain('gotowe do użycia (potwierdzone 22.11.2026)');
   });
 
-  it('reports a problem as a problem: no "Zweryfikowany", no success mark', () => {
-    open(record(), record({ status: 'niepotwierdzony' }));
+  it('reports a problem by the device condition: data stay verified, the device is temporarily unavailable', () => {
+    open(
+      record(),
+      record({ status: 'zweryfikowany', stan_urzadzenia: 'czasowo_niedostepny', data_stanu: '2026-11-22' }),
+    );
     choose('input[name="aed-stan"][value="problem"]');
     type('#aed-uwagi', 'Mija termin ważności baterii');
     submit();
 
     expect(confirm.mock.calls[0][1]).toMatchObject({ stan: 'problem', uwagi: 'Mija termin ważności baterii' });
     expect(page.querySelector('#aed-done').textContent).toContain('Zgłoszenie problemu zapisane');
-    expect(page.querySelector('.aed-result').textContent).toContain('nie jest teraz pokazywane jako zweryfikowane');
-    expect(page.querySelector('.aed-result').textContent).toContain('Niepotwierdzony');
-    expect(page.querySelector('.aed-result').textContent).not.toContain('status „Zweryfikowany”');
+    const result = page.querySelector('.aed-result').textContent;
+    expect(result).toContain('czasowo niedostępne');
+    expect(result).toContain('Dostępne teraz');
+    expect(result).toContain('Jest na miejscu i jest gotowe do użycia');
+    expect(result).not.toContain('Dane potwierdzone');
+    expect(page.querySelector('.aed-device').textContent).toContain('czasowo niedostępne (od 22.11.2026)');
     expect(page.querySelector('.aed-result__mark--problem')).not.toBeNull();
   });
 
@@ -111,13 +126,57 @@ describe('AedQrComponent, manager view', () => {
     expect(page.querySelector('.aed-device__expiry').textContent).toMatch(
       /Bateria: ważna do .* r\. \(zostało 20 dni\)/,
     );
-    expect(page.querySelector<HTMLInputElement>('#aed-data_waznosci_baterii').type).toBe('date');
+    // RRRR-MM-DD or RRRR-MM: one text box, checked against the schema pattern.
+    expect(page.querySelector<HTMLInputElement>('#aed-data_waznosci_baterii').type).toBe('text');
+    type('#aed-data_waznosci_baterii', '2028-13');
+    page.querySelector('#aed-data_waznosci_baterii').dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+    expect(page.querySelector('#aed-data_waznosci_baterii-error').textContent).toContain('RRRR-MM');
 
-    const next = inDays(1500);
+    const next = '2030-03';
     type('#aed-data_waznosci_baterii', next);
     choose('input[name="aed-stan"][value="sprawny"]');
     submit();
     expect(confirm.mock.calls[0][1]).toMatchObject({ data_waznosci_baterii: next });
+  });
+
+  it('flags a month-only expiry date from the last day of that month (waznosc_do of the service)', () => {
+    const loaded = record();
+    (loaded as unknown as { waznosc_do: Record<string, string> }).waznosc_do.data_waznosci_elektrod = inDays(10);
+    open({ ...loaded, data_waznosci_elektrod: '2026-11' }, record());
+    expect(page.querySelector('.aed-device__expiry').textContent).toMatch(/Elektrody: ważne do .* \(zostało 10 dni\)/);
+  });
+
+  it('sends the floor inside a building and the phone position with its method', () => {
+    open(record({ wewnatrz_budynku: 'nie' }), record());
+    expect(page.querySelector('#aed-pietro')).toBeNull();
+    choose('input[name="aed-wewnatrz_budynku"][value="tak"]');
+    type('#aed-pietro', '-1');
+
+    const geolocation = {
+      getCurrentPosition: (ok: PositionCallback) =>
+        ok({ coords: { latitude: 52.2297, longitude: 21.0122, accuracy: 8 } } as GeolocationPosition),
+    };
+    Object.defineProperty(navigator, 'geolocation', { value: geolocation, configurable: true });
+    page.querySelector<HTMLButtonElement>('.aed-card .aed-button--secondary').click();
+    choose('input[name="aed-stan"][value="sprawny"]');
+    submit();
+    expect(confirm.mock.calls[0][1]).toMatchObject({
+      pietro: '-1',
+      szerokosc_geograficzna: 52.2297,
+      sposob_ustalenia_polozenia: 'pomiar_przy_urzadzeniu',
+    });
+  });
+
+  it('claims no position method for coordinates typed by hand and no floor outside a building', () => {
+    open(record({ wewnatrz_budynku: 'nie', pietro: '2' }), record());
+    type('#aed-szerokosc_geograficzna', '52.3');
+    choose('input[name="aed-stan"][value="sprawny"]');
+    submit();
+    const body = confirm.mock.calls[0][1];
+    expect(body.szerokosc_geograficzna).toBe('52.3'); // text box: the service reads the number
+    expect('sposob_ustalenia_polozenia' in body).toBe(false);
+    expect('pietro' in body).toBe(false);
   });
 
   it('does not prefill a point known only from OpenStreetMap and sends the owner contact', () => {

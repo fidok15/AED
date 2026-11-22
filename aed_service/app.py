@@ -689,7 +689,7 @@ def device_get(req, resp, id_aed):
 STICKER_W = 360                # sticker width in user units; widened only if a long URL needs a bigger QR
 STICKER_MARGIN = 20            # text must stay this far from both edges
 STICKER_LOGO_PATH = os.environ.get("AED_STICKER_LOGO", os.path.join(HERE, "naklejka-logo.svg"))  # optional campaign logo
-STICKER_LOGO_H = 50
+STICKER_LOGO_H = 56  # Opiekun AED lockup: >= 35 mm wide (brand book minimum) on the A4 sheet of 3 stickers across
 STICKER_CAPTION = ("Zeskanuj kod QR", "i sprawdź lub zgłoś stan AED")  # two short lines, see test for the width rule
 FONT = 'font-family="Arial,sans-serif" text-anchor="middle"'
 

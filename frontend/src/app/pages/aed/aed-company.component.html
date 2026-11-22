@@ -26,10 +26,10 @@
           </div>
           <div>
             <dt>Zweryfikowane przez dysponentów</dt>
-            <dd>{{ number(score.udzial_aktywnych * 100) }}%</dd>
+            <dd>{{ number(score.udzial_zweryfikowanych * 100) }}%</dd>
           </div>
           <div>
-            <dt>Odznaka</dt>
+            <dt>Odznaka „Opiekun AED – partner sprzedaży”</dt>
             <dd>{{ score.odznaka === 'tak' ? 'przyznana' : 'jeszcze nie' }}</dd>
           </div>
         </dl>
@@ -40,10 +40,11 @@
     <details class="aed-details">
       <summary>Co uzupełnić, żeby podnieść wynik</summary>
       <p>
-        Kompletność to wynik od 0 do 100 liczony z pól standardu – im ważniejsze pole, tym więcej punktów. Odznakę
+        Kompletność to wynik od 0 do 100 liczony z pól standardu – im ważniejsze pole, tym więcej punktów. Odznakę „Opiekun AED – partner
+        sprzedaży”
         @if (thresholds(); as thresholds) {
           dostaje firma ze średnią kompletnością co najmniej {{ thresholds.srednia_kompletnosc }}% i z co najmniej
-          {{ number(thresholds.udzial_aktywnych * 100) }}% urządzeń zweryfikowanych przez dysponenta.
+          {{ number(thresholds.udzial_zweryfikowanych * 100) }}% urządzeń zweryfikowanych przez dysponenta.
         } @else {
           dostaje firma z wysoką średnią kompletnością i dużym udziałem urządzeń zweryfikowanych.
         }

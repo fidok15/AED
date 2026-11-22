@@ -80,7 +80,7 @@ Nazwy, e-maile (`@demo.example`) i numery seryjne (`DEMO-PUL-001`, ...) są fikc
 
 ## Naklejka QR
 
-`GET /urzadzenia/{id}/naklejka.svg`: szerokość 360 jednostek (viewBox), tytuł, kod QR ze strefą ciszy 4 moduły, identyfikator (20 px, pogrubiony) i dwuwierszowy podpis. Na górze jest puste, oznaczone miejsce na logo kampanii (`<g id="miejsce-na-logo">`, 50 jednostek wysokości). Jeśli istnieje plik SVG z ścieżki `STICKER_LOGO_PATH` (domyślnie `aed_service/naklejka-logo.svg`, zmiana: `AED_STICKER_LOGO`), jest wstawiany w to miejsce. Test pilnuje, by każdy wiersz tekstu spełniał regułę: liczba znaków x rozmiar czcionki x 0,75 <= szerokość - 40.
+`GET /urzadzenia/{id}/naklejka.svg`: szerokość 360 jednostek (viewBox), tytuł, kod QR ze strefą ciszy 4 moduły, identyfikator (20 px, pogrubiony) i dwuwierszowy podpis. Na górze jest puste, oznaczone miejsce na logo kampanii (`<g id="miejsce-na-logo">`, 56 jednostek wysokości). Jeśli istnieje plik SVG z ścieżki `STICKER_LOGO_PATH` (domyślnie `aed_service/naklejka-logo.svg`, zmiana: `AED_STICKER_LOGO`), jest wstawiany w to miejsce. W repozytorium leży tam znak akcji „Opiekun AED” (lockup w kolorze, kopia `kampania/logo/svg/opiekun-aed-lockup-kolor.svg` z polem ochronnym 1X w pliku); miejsce ma 56 jednostek wysokości, więc na arkuszu A4 z trzema naklejkami w rzędzie znak ma ok. 37 mm szerokości bez pola ochronnego – powyżej minimum 35 mm z księgi znaku. Test pilnuje, by każdy wiersz tekstu spełniał regułę: liczba znaków x rozmiar czcionki x 0,75 <= szerokość - 40.
 
 ## Znacznik demo
 

@@ -5,7 +5,7 @@ import { Subscription } from 'rxjs';
 import { SeoService } from '@app/services/seo.service';
 import { aedErrorMessage, aedFileTooLarge, aedFocusFactory, AedProblem } from './aed-api.service';
 import { aedPlural } from './aed-map.component';
-import { aedField } from './aed-schema';
+import { aedField, aedLabel } from './aed-schema';
 
 // Public converter of a provider's own file to the AED standard (docs/api-aed.md, "Konwerter do standardu").
 // Nothing is stored by the service; the provider downloads the result and publishes it on dane.gov.pl.
@@ -106,6 +106,9 @@ export class AedConverterComponent implements OnInit {
   /** Request in flight; a new file cancels it, so a late answer for the previous file never lands. */
   private pending?: Subscription;
 
+  /** A geocoded row records how its position was found (schema 0.3.0, `sposob_ustalenia_polozenia`). */
+  protected readonly positionTitle = aedField('sposob_ustalenia_polozenia').title;
+  protected readonly geocodedLabel = aedLabel(aedField('sposob_ustalenia_polozenia'), 'geokodowanie_adresu');
   protected readonly file = signal<File | null>(null);
   protected readonly analysis = signal<AedConverterAnalysis | null>(null);
   /** column -> target field ('' = column skipped); starts as the service's proposal. */
@@ -159,7 +162,7 @@ export class AedConverterComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.seo.setPageTitle(['Konwerter do standardu AED', 'Rejestr AED']);
+    this.seo.setPageTitle(['Konwerter do standardu AED', 'Opiekun AED']);
   }
 
   protected choose(input: HTMLInputElement): void {

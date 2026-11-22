@@ -64,6 +64,8 @@
     <p class="aed-note" id="aed-open-note">
       „Dostępny teraz” wynika z godzin podanych w rejestrze i z bieżącej godziny w Polsce. Urządzenia bez godzin albo z
       godzinami, których nie da się jednoznacznie odczytać, nie przechodzą tego filtra; lista podaje, ile ich jest.
+      Urządzenia, które dysponent zgłosił jako czasowo niedostępne albo wycofane z użycia, nie przechodzą tego filtra
+      i nie ma ich wśród najbliższych.
     </p>
   </details>
 </section>
@@ -80,7 +82,7 @@
     </div>
     <div>
       <dt>Zweryfikowane przez dysponenta</dt>
-      <dd>{{ number(stats.wg_statusu.aktywny ?? 0) }}</dd>
+      <dd>{{ number(stats.wg_statusu.zweryfikowany ?? 0) }}</dd>
     </div>
     <div>
       <dt>Średnia kompletność danych</dt>
@@ -168,6 +170,33 @@
           </span>
         </label>
       </fieldset>
+
+      @if (options.stan_urzadzenia; as counts) {
+        <fieldset class="aed-more__group">
+          <legend class="aed-field__label">{{ title('stan_urzadzenia') }}</legend>
+          <label class="aed-more__choice">
+            <input
+              type="radio"
+              name="aed-stan"
+              [checked]="!extra().stan_urzadzenia"
+              (change)="setExtra('stan_urzadzenia', '')" />
+            <span>Każdy</span>
+          </label>
+          @for (item of conditions; track item) {
+            <label class="aed-more__choice">
+              <input
+                type="radio"
+                name="aed-stan"
+                [checked]="extra().stan_urzadzenia === item"
+                (change)="setExtra('stan_urzadzenia', item)" />
+              <span>
+                <app-aed-condition [value]="item" />
+                <span class="aed-filter__count">{{ number(counts[item] ?? 0) }}</span>
+              </span>
+            </label>
+          }
+        </fieldset>
+      }
 
       <fieldset class="aed-more__group">
         <legend class="aed-field__label">Miejsce urządzenia</legend>
@@ -303,8 +332,16 @@
           @if (record['odleglosc_m'] !== undefined) {
             <p class="aed-row__distance">{{ distanceText(+record['odleglosc_m']) }}</p>
           }
-          @let open = openState(record);
-          <p class="aed-open aed-open--{{ open }}">{{ schedule[open] }}</p>
+          @if (unavailable(record['stan_urzadzenia'])) {
+            <!-- No "open now" line: a device its manager reported out of use must not look available. -->
+            <p class="aed-message aed-message--warn aed-unavailable">
+              Uwaga: urządzenie {{ conditionText(record['stan_urzadzenia'], record['data_stanu']) }} – zgłosił to
+              dysponent. Szukaj innego AED.
+            </p>
+          } @else {
+            @let open = openState(record);
+            <p class="aed-open aed-open--{{ open }}">{{ schedule[open] }}</p>
+          }
         </div>
         <div class="aed-row__status">
           @if (hasPoint(record)) {
@@ -329,6 +366,10 @@
               <dd><app-aed-status [status]="record.status" /></dd>
             </div>
             <div>
+              <dt>{{ title('stan_urzadzenia') }}</dt>
+              <dd><app-aed-condition [value]="record['stan_urzadzenia']" [date]="record['data_stanu']" /></dd>
+            </div>
+            <div>
               <dt>{{ title('dostep') }}</dt>
               <dd>{{ record['dostep'] || 'brak danych' }}</dd>
             </div>
@@ -345,9 +386,17 @@
           </dl>
           <details class="aed-row__details">
             <summary>
-              Identyfikator i kompletność danych<span class="visually-hidden">: {{ heading }}</span>
+              Identyfikator, położenie i kompletność danych<span class="visually-hidden">: {{ heading }}</span>
             </summary>
             <p class="aed-row__id">{{ title('id_aed') }}: {{ record.id_aed }}</p>
+            @if ((record['pietro'] ?? '') !== '') {
+              <p class="aed-row__id">{{ title('pietro') }}: {{ floorText(record['pietro']) }}</p>
+            }
+            @if (record['sposob_ustalenia_polozenia']) {
+              <p class="aed-row__id">
+                {{ title('sposob_ustalenia_polozenia') }}: {{ positionText(record['sposob_ustalenia_polozenia']) }}
+              </p>
+            }
             <p class="aed-row__gauge">
               <span>{{ title('kompletnosc') }} {{ record.kompletnosc }}%</span>
               <span class="aed-gauge" aria-hidden="true"><span [style.width.%]="record.kompletnosc"></span></span>

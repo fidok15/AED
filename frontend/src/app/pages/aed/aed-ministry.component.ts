@@ -109,7 +109,7 @@ export class AedMinistryComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.seo.setPageTitle(['Panel ministerstwa', 'Rejestr AED']);
+    this.seo.setPageTitle(['Panel ministerstwa', 'Opiekun AED']);
   }
 
   private load(): void {

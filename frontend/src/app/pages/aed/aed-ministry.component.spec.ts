@@ -34,7 +34,14 @@ describe('AedMinistryComponent duplicate review', () => {
   // Same serial number, the new submission has no position yet: odleglosc_m is null.
   const pair: AedDuplicate = {
     id: 7,
-    rekord_a: { id_aed: 'AED-A', status: 'aktywny', kompletnosc: 80, nazwa: 'Hala', miejscowosc: 'Marki', model: 'X1' },
+    rekord_a: {
+      id_aed: 'AED-A',
+      status: 'zweryfikowany',
+      kompletnosc: 80,
+      nazwa: 'Hala',
+      miejscowosc: 'Marki',
+      model: 'X1',
+    },
     rekord_b: { id_aed: 'AED-B', status: 'zgloszony', kompletnosc: 40, nazwa: 'Hala', miejscowosc: '', model: 'X1' },
     odleglosc_m: null,
     podobienstwo: 0,

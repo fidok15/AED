@@ -1,7 +1,7 @@
 import { Component, computed, input } from '@angular/core';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 
-import { AedField, aedLabel, aedOptions, AedValue } from './aed-schema';
+import { AED_MONTH_DATE_HINT, AedField, aedLabel, aedOptions, AedValue } from './aed-schema';
 
 /**
  * One form field generated from aed_standard/schema.json: label from `title`, help from `description`,
@@ -19,6 +19,9 @@ export class AedFieldComponent {
 
   protected readonly id = computed(() => 'aed-' + this.field().name);
   protected readonly options = computed(() => aedOptions(this.field()));
+  /** RRRR-MM-DD or RRRR-MM: one text box (a date picker cannot take a month only). */
+  protected readonly monthDate = computed(() => !!this.field().dokladnosc_daty);
+  protected readonly monthDateHint = AED_MONTH_DATE_HINT;
   protected readonly inputType = computed(() => {
     const { type, format } = this.field();
     if (type === 'date') return 'date';

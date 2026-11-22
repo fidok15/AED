@@ -1,10 +1,10 @@
 # Tytuł i opis projektu (formularz zgłoszeniowy)
 
-„Misja AED – Dane na ratunek” to nazwa zadania konkursowego. Poniżej tytuł roboczy projektu; nazwę akcji wybiera zespół (kandydaci: `kampania/nazwa-i-haslo.md`) i po wyborze dopisuje ją przed tytułem. Liczby: stan z `datasets/out/raport.json` (rejestr z mappera) z 22.11.
+„Misja AED – Dane na ratunek” to nazwa zadania konkursowego. Nazwa akcji to „Opiekun AED”, hasło: „Dbasz o AED? Pokaż to w danych.” (`kampania/nazwa-i-haslo.md`, znak i księga znaku w `kampania/`). Liczby: stan z `datasets/out/raport.json` (rejestr z mappera) z 22.11.
 
-## Tytuł roboczy
+## Tytuł
 
-Wykaz AED w dane.gov.pl: jeden standard, wielu dostawców, jeden zbiór ministerstwa
+Opiekun AED – wykaz AED w dane.gov.pl: jeden standard, wielu dostawców, jeden zbiór ministerstwa
 
 ## Opis szczegółowy
 

@@ -18,9 +18,23 @@ import { SeoService } from '@app/services/seo.service';
 import { PaginationComponent } from '@app/shared/pagination/pagination.component';
 import { AedApiService, aedErrorMessage, AedFilters, AedRecord, AedStatus } from './aed-api.service';
 import { AED_SCHEDULE_LABELS, aedOpenNow, AedOpenState } from './aed-hours';
-import { AedMapComponent, aedDistanceText, AedOrigin, aedPlaceTitle, aedRouteUrl } from './aed-map.component';
+import {
+  aedDistanceText,
+  aedFloorText,
+  AedMapComponent,
+  AedOrigin,
+  aedPlaceTitle,
+  aedPositionText,
+  aedRouteUrl,
+} from './aed-map.component';
 import { aedField, aedLabel, aedOptions } from './aed-schema';
-import { AED_STATUS_LABELS, AedStatusComponent } from './aed-status.component';
+import {
+  AED_STATUS_LABELS,
+  AedConditionComponent,
+  aedConditionText,
+  AedStatusComponent,
+  aedUnavailable,
+} from './aed-status.component';
 
 /** Extra filters of the registry, folded under "Dodatkowe filtry". */
 type AedExtraFilters = Omit<AedFilters, 'status' | 'dostepny_teraz'>;
@@ -29,7 +43,7 @@ type AedExtraFilters = Omit<AedFilters, 'status' | 'dostepny_teraz'>;
 @Component({
   selector: 'app-aed-registry',
   standalone: true,
-  imports: [AedStatusComponent, AedMapComponent, PaginationComponent, NgTemplateOutlet],
+  imports: [AedStatusComponent, AedConditionComponent, AedMapComponent, PaginationComponent, NgTemplateOutlet],
   templateUrl: './aed-registry.component.html',
 })
 export class AedRegistryComponent implements OnInit {
@@ -55,6 +69,12 @@ export class AedRegistryComponent implements OnInit {
   protected readonly access = aedOptions(aedField('dostep')).filter((value) => value !== 'prywatny');
   /** Short label: the schema label up to its explanation ("Publiczny – każdy …" -> "Publiczny"). */
   protected readonly accessLabel = (value: string) => aedLabel(aedField('dostep'), value).split(' – ')[0];
+  /** Device conditions of the schema enum, in the order of the schema. */
+  protected readonly conditions = aedOptions(aedField('stan_urzadzenia'));
+  protected readonly unavailable = aedUnavailable;
+  protected readonly conditionText = aedConditionText;
+  protected readonly floorText = aedFloorText;
+  protected readonly positionText = aedPositionText;
   protected readonly inside = [
     { value: 'tak', label: 'W budynku' },
     { value: 'nie', label: 'Na zewnątrz' },
@@ -110,7 +130,7 @@ export class AedRegistryComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.seo.setPageTitle('Rejestr AED');
+    this.seo.setPageTitle(['Rejestr urządzeń', 'Opiekun AED']);
     this.load();
     // "Znajdź najbliższy AED" on the start page lands on the location button, ready for Enter.
     if (this.route.snapshot.fragment === 'aed-near') {
