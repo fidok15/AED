@@ -175,7 +175,7 @@
           Wykaz jest zgodny ze standardem
         }
         @case ('czesciowo') {
-          Wykaz jest częściowo zgodny ze standardem
+          Część wierszy wymaga poprawek
         }
         @default {
           Wykaz wymaga poprawek
@@ -266,13 +266,14 @@
     }
 
     @if (result.raport.poprawne) {
+      <p>{{ verdict() }}</p>
       <p>
         <a class="btn btn-primary" [href]="downloadHref()" [download]="result.nazwa_pliku"
           >Pobierz wykaz w standardzie (CSV)</a
         >
       </p>
       @if (result.raport.odrzucone) {
-        <p>Odrzucone wiersze są w pliku, ale portal je pominie. Popraw je w pliku źródłowym i przekształć ponownie.</p>
+        <p>Odrzucone wiersze popraw w pliku źródłowym i przekształć plik ponownie.</p>
       }
       <h3 class="aed-h3">Co dalej</h3>
       <ol class="aed-steps">

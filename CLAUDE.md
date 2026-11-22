@@ -62,7 +62,7 @@ Cykl życia rekordu: `zgloszony` (sprzedawca podał dane urządzenia) → `aktyw
 
 | Kryterium | Waga | Co je realizuje |
 |---|---|---|
-| Zgodność z zasadami dane.gov.pl | 30% | wykaz AED w forku portalu wzorem DGA (flaga zasobu, walidacja w panelu, scalanie, publiczny odczyt); zbiór publikuje ministerstwo mechanizmami portalu (zasób, harvester XML); pełny fork pod domeną dla jury |
+| Zgodność z zasadami dane.gov.pl | 30% | wykaz AED w forku portalu wzorem DGA (flaga zasobu, walidacja w panelu, scalanie, publiczny odczyt); zbiór publikuje ministerstwo mechanizmami portalu (zasób, harvester XML); pełny fork uruchomiony lokalnie (także próbnie pod `aed.localhost`), serwer publiczny dla jury – do zrobienia przez zespół |
 | Logotyp i hasło | 25% | nazwa akcji, hasło, logo, księga znaku, materiały dla dostawców |
 | Kreatywność i innowacyjność | 15% | kanał sprzedawcy, QR, potwierdzenia, wskaźnik kompletności, zachęty |
 | Zgodność z tematem | 15% | scalanie wykazów wielu dostawców, mapper wielu źródeł, deduplikacja, wskazanie zakresu każdego źródła |
@@ -90,7 +90,7 @@ Nazwy kolumn adresu i położenia są zgodne ze zbiorem Legionowa, najczystszym 
 
 Ta sama struktura obsługuje dwa profile wymagalności:
 
-- **`sprzedaz`** – sprzedawca zna urządzenie i nabywcę, nie zna jeszcze miejsca montażu. Wymagane: producent, model, numer seryjny, data produkcji, daty ważności elektrod i baterii, nabywca.
+- **`sprzedaz`** – sprzedawca zna urządzenie i nabywcę, nie zna jeszcze miejsca montażu. Wymagane: producent, model, numer seryjny, data produkcji, daty ważności elektrod i baterii, nazwa i e-mail dysponenta (`dysponent_nazwa`, `dysponent_email`).
 - **`publikacja`** – rekord w zbiorze otwartym. Wymagane: identyfikator, nazwa miejsca, współrzędne, miejscowość, status, źródło, licencja. Dostęp, godziny dostępu i data weryfikacji są wymagane dopiero dla statusu `aktywny`; ich brak w rekordach z importu obniża kompletność.
 
 Do zbioru na dane.gov.pl trafia tylko rekord spełniający profil `publikacja`. Kompletność rekordu (0–100) liczymy z wag pól zapisanych w schemacie.
@@ -146,8 +146,8 @@ Stan na 22.11, ok. 01:00:
 | A. Standard i deduplikacja | zrobione; rejestr źródeł `sources.json` (Jakub Zawadzki) |
 | B. Źródła i mapper cykliczny | rejestr źródeł i pobieranie z niego zrobione; tryb przyrostowy i raport „co przybyło” – do potwierdzenia |
 | C. Usługa AED | zrobione, testy przechodzą; poprawki po przeglądach w PR #14 i commicie `838968e` (m.in. przejęcie punktu znanego tylko z OSM) |
-| C2. Portal lokalnie | w toku; konfiguracja portów i proxy frontendu (HubertK05), wynik uruchomienia – do potwierdzenia |
-| C3. Wykaz AED w portalu i wdrożenie pod domeną | kod w PR #16, uruchomiony lokalnie w pełnym stosie forka; konfiguracja serwera gotowa, nieuruchomiona |
+| C2. Portal lokalnie | zrobione 22.11: pełny stos forka w Dockerze, testy Django AED i regresji, zrzuty `docs/zrzuty/portal-*.png` |
+| C3. Wykaz AED w portalu i wdrożenie pod domeną | wykaz uruchomiony lokalnie w pełnym stosie forka (scalanie ręcznym uruchomieniem zadania; harmonogram 03:45 niesprawdzony); nakładka domenowa uruchomiona lokalnie pod `aed.localhost`; serwer publiczny – do zrobienia przez zespół |
 | D. Frontend | wstrzymany do sygnału; zmiany w toku w `frontend/src/app/pages/aed/` |
 | E. Kampania i prezentacja | nazwa, logo i księga znaku – w toku u zespołu; konspekt, opis projektu, instrukcja dla jury – szkice gotowe |
 
@@ -262,18 +262,22 @@ Gdy brakuje czasu, tniemy w tej kolejności: ranking i odznaki → mapa sprzedaw
 ## Decyzje podjęte (noc 21/22.11, po wskazówce prowadzącego)
 
 - **Główna ścieżka to wykaz AED w portalu.** Dostawcy publikują wykazy jako zasoby w swoich zbiorach, a portal je waliduje i scala w zasób zbiorczy ministerstwa (wzór: wykaz DGA). Zmienia to wcześniejszą decyzję „w backendzie portalu tylko publikacja zbioru”: logika wykazu jest w `backend/mcod/aed/`, wydzielona jako łatka. Usługa AED zostaje drugim kanałem: rekordy potwierdzone przez sprzedawcę i zarządcę trafiają do ministerstwa i wracają do portalu jako jego wykaz (plik lub link) albo zasilanie XML.
-- **Prototyp dla jury:** pełny fork portalu na serwerze kolegi pod kupioną domeną (`docs/wdrozenie-serwer.md`); zastępuje decyzję „na razie tylko lokalnie”. Lekki wariant (`docker-compose.prod.yml`) zostaje jako zapas.
+- **Prototyp dla jury:** pełny fork portalu na serwerze kolegi pod kupioną domeną (`docs/wdrozenie-serwer.md`); zastępuje decyzję „na razie tylko lokalnie”. Lekki wariant (`docker-compose.prod.yml`) zostaje jako zapas. Stan 22.11: uruchomiony lokalnie (także pod `aed.localhost`), serwera publicznego jeszcze nie ma.
 - **Dane kontaktowe i numer seryjny** są wycinane z każdego eksportu jedną regułą (`HIDDEN_PUBLIC`); zbiór zbiorczy ma warunki licencji CC BY 4.0, bo część wykazów jest na CC BY (po przeglądzie Codexa, PR #16).
+
+## Decyzje podjęte (22.11)
+
+- **Hasła kont demo** usługi AED zostają publiczne (`…-demo`) – świadomie, na czas pokazu.
+- **Konto dla jury w panelu portalu:** `jury@aed.example`, redaktor instytucji demonstracyjnej.
+- **Numer seryjny** jest ukryty w danych publicznych; widzi go firma zgłaszająca i ministerstwo.
+- **Zasilanie XML z usługi** zostaje w wersji 1.13 (produkcyjny portal zna 1.13); XSD 1.14 z `containsAedList` jest tylko w forku.
+- **Kto odpowiada za wykaz i ile wykazów na instytucję** – odłożone; zależy od przyszłych przepisów. Do tego czasu każdy typ instytucji i wiele wykazów.
 
 ## Otwarte decyzje
 
 - Serwer i domena: architektura (zakładamy Linux amd64), RAM i dysk, nazwa domeny, rekordy `api.`, `admin.`, `cms.`; do kiedy serwer działa i kto go wyłączy.
-- Dostęp jury: hasło kont demo AED (`AED_DEMO_PASSWORD` przekazane osobno czy znane hasła demo; karty logowania we frontendzie pokazują dziś stałe hasła) oraz konto w panelu portalu (redaktor instytucji demonstracyjnej czy tylko odczyt bez logowania).
-- Wykaz AED: kilka wykazów na instytucję i każdy typ instytucji (dziś tak) czy jak DGA – jeden wykaz, tylko `local`/`state`?
 - Czy wymagać `id_aed` albo `zrodlo_id` w wykazie (bez nich identyfikator zależy od kolejności wierszy)?
-- Czy dodać `containsAedList` do XSD harvestera (wersja 1.14), żeby wykaz z harvestera oznaczał się sam?
 - Harmonogram Celery na serwerze: scalanie samo o 03:45 czy ręcznie na pokazie?
 - Ostateczna godzina i sposób oddania projektu – potwierdzić u organizatora.
 - Nazwa i hasło akcji (kandydaci w `kampania/nazwa-i-haslo.md`).
-- Czy numer seryjny jest publikowany w zbiorze otwartym, czy zostaje tylko w rejestrze (dziś kolumna w eksporcie jest pusta).
 - Podstawa prawna obowiązku raportowania przez sprzedawców: dziś brak, więc dobrowolność i zachęty; rekomendacja regulacyjna na slajdzie „co dalej”.

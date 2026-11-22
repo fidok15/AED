@@ -63,6 +63,14 @@ def _day_matches(days, today, holiday):
     return False
 
 
+def _minute(text, end):
+    """Minute of the day for "HH:MM", or None when out of range. 24:00 only as the end of a span."""
+    h, m = (int(x) for x in text.split(":"))
+    if m > 59 or h > 24 or (h == 24 and (m or not end)):
+        return None
+    return h * 60 + m
+
+
 def open_now(hours, now=None):
     """'dostepny', 'zamkniety' or 'nieznane' for a `godziny_dostepu` value at `now` (Warsaw wall clock)."""
     value = (hours or "").strip()
@@ -92,8 +100,9 @@ def open_now(hours, now=None):
         if times in ("off", "closed"):
             is_open = False
             continue
-        spans = [[int(t.split(":")[0]) * 60 + int(t.split(":")[1]) for t in span.strip().split("-")]
-                 for span in times.split(",")]
+        spans = [[_minute(t, end) for end, t in enumerate(span.strip().split("-"))] for span in times.split(",")]
+        if any(None in span for span in spans):
+            return "nieznane"  # 08:75, 25:00, 24:00 as a start: not a time
         if any(to <= start for start, to in spans):
             return "nieznane"  # past midnight: not read
         is_open = any(start <= minute < to for start, to in spans)

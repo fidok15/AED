@@ -12,6 +12,12 @@ services:
       AED_BASE_URL: https://${AED_DOMAIN:?set AED_DOMAIN in .env}
       AED_CORS_ORIGINS: https://${AED_DOMAIN}
       AED_DEMO_PASSWORD: ${AED_DEMO_PASSWORD:-}
+      AED_MINISTRY_PASSWORD: ${AED_MINISTRY_PASSWORD:-}
+      AED_RESET_PASSWORDS: ${AED_RESET_PASSWORDS:-0}
+      AED_DEMO_SEED: ${AED_DEMO_SEED:-1}
+
+  web:
+    ports: !reset []  # plain HTTP only inside the compose network; the internet reaches it through Caddy (HTTPS)
 
   caddy:
     image: public.ecr.aws/docker/library/caddy:2

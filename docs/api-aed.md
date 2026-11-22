@@ -50,7 +50,7 @@ Odpowiedź zgłoszenia:
 }
 ```
 
-`duplikaty` to wiersze, których producent i numer seryjny są już w rejestrze – nie tworzą nowego rekordu. Odpowiedź ma też pole `sucha_proba` (`true` dla `/zgloszenia/sprawdz`; wtedy lista `przyjete` jest pusta, a liczba jest w `podsumowanie.przyjete`).
+`duplikaty` to wiersze, których producent i numer seryjny są już wśród urządzeń **tego samego konta** (albo powtarzają się w pliku) – nie tworzą nowego rekordu. Dopasowanie do urządzenia innej firmy albo z importu nie jest raportowane firmie (odpowiedź nie zdradza, że taki numer jest w rejestrze): wiersz jest przyjmowany, a para trafia do kolejki duplikatów ministerstwa. Wiersz z jawnym `zrodlo = openstreetmap` albo `licencja = ODbL 1.0` jest odrzucany (błąd `dane_osm`). Odpowiedź ma też pole `sucha_proba` (`true` dla `/zgloszenia/sprawdz`; wtedy lista `przyjete` jest pusta, a liczba jest w `podsumowanie.przyjete`).
 
 Identyfikator `id_aed` i pole `zrodlo_id` zgłoszonego urządzenia są losowe – nie da się z nich odtworzyć numeru seryjnego.
 
@@ -59,6 +59,7 @@ Identyfikator `id_aed` i pole `zrodlo_id` zgłoszonego urządzenia są losowe �
 | Metoda i ścieżka | Kto | Opis |
 |---|---|---|
 | `GET /api/aed/urzadzenia/{id_aed}` | każdy | rekord w zakresie publicznym (bez kontaktu, bez numeru seryjnego) |
+| `GET /api/aed/urzadzenia/{id_aed}` z `Authorization` | ministerstwo, firma zgłaszająca | pełny rekord (z numerem seryjnym i kontaktem); inna firma dostaje zakres publiczny |
 | `GET /api/aed/urzadzenia/{id_aed}?t=<token>` | zarządca | pełny rekord do edycji |
 | `GET /api/aed/urzadzenia/{id_aed}/naklejka.svg` | każdy | naklejka z kodem QR prowadzącym do `/aed/qr/{id_aed}` |
 | `POST /api/aed/urzadzenia/{id_aed}/potwierdzenie` | zarządca (token `t`) | uzupełnienie i potwierdzenie danych; rekord przechodzi w `aktywny` |
@@ -112,14 +113,14 @@ Sygnał (żądanie): `{"typ": "jest" | "brak" | "uszkodzony" | "zamkniety", "sze
 | Metoda i ścieżka | Kto | Opis |
 |---|---|---|
 | `GET /api/aed/urzadzenia` | każdy | lista stronicowana; parametry: `status`, `zrodlo`, `dostep`, `q` (nazwa, miejscowość albo dokładny `id_aed`), `dostepny_teraz=1`, `lat` i `lon` (najbliższe urządzenia), `strona`, `na_stronie` |
-| `GET /api/aed/urzadzenia.geojson` | każdy | punkty do mapy: `id_aed`, `nazwa`, `status`, `dostep`, `godziny_dostepu`, `kompletnosc`, `zrodlo`; parametry `bbox=minLon,minLat,maxLon,maxLat`, `dostepny_teraz=1` |
+| `GET /api/aed/urzadzenia.geojson` | każdy | punkty do mapy: `id_aed`, `nazwa`, `status`, `dostep`, `godziny_dostepu`, `kompletnosc`, `zrodlo`; parametry `bbox=minLon,minLat,maxLon,maxLat`, `dostepny_teraz=1`, `status`. Bez `status` rekordy `wycofany` są pominięte (jak w liście) |
 
 `dostepny_teraz=1` (łączy się z pozostałymi filtrami) zostawia urządzenia, których `godziny_dostepu` są otwarte w tej chwili w Polsce (Europe/Warsaw, z przejściem CET/CEST). Godziny czyta `aed_standard.open_now` – odpowiednik `aedOpenNow` z frontendu (wspólna tabela przypadków `frontend/src/app/pages/aed/aed-hours.cases.json`): `24/7` i reguły typu `Mo-Fr 08:00-16:00; Sa 09:00-13:00; Su,PH off` (zakresy i listy dni, kilka przedziałów, święta ustawowe `PH`). Przedziały przez północ, miesiące, `sunrise` i opisy słowne dają stan „nieznany”. Urządzenia bez godzin albo z godzinami nieczytelnymi nie przechodzą filtra; lista podaje wtedy ich liczbę w polu `bez_godzin` obok `razem` (`razem` liczy tylko urządzenia dostępne teraz, stronicowanie działa po filtrze). Bez parametru pola `bez_godzin` nie ma. Filtr liczy się w Pythonie po filtrach SQL (ok. 13 ms dla całej listy, ok. 15 800 rekordów).
 
 `lat` i `lon` (podawane razem, WGS84, kropka dziesiętna; szerokość −90…90, długość −180…180, inaczej `422 zle_wspolrzedne`) sortują listę rosnąco po odległości od tego punktu i dodają do każdego rekordu `odleglosc_m` – odległość w linii prostej (wzór haversine, metry, liczba całkowita), nie droga dojścia. Rekordy bez współrzędnych wypadają z listy; `razem` je pomija. Parametry łączą się z `status`, `q`, `dostepny_teraz=1` (najpierw filtry, potem sortowanie) i ze stronicowaniem. Punkt nie jest zapisywany; dziennik dostępu usługi (`python -m aed_service`) zapisuje ścieżkę zapytania bez parametrów.
-| `GET /api/aed/statystyki` | każdy | `razem`, `srednia_kompletnosc`, `wg_statusu`, `wg_zrodla`, `dostawcy`, `potwierdzone_90_dni`, `ostatnie_uruchomienia: {mapper, przypomnienia}` (czas ostatniego udanego uruchomienia albo `null`), `hasla_demo_domyslne` (`false`, gdy konta demo mają hasło z `AED_DEMO_PASSWORD`; karty logowania nie pokazują wtedy haseł) |
+| `GET /api/aed/statystyki` | każdy | `razem`, `srednia_kompletnosc`, `wg_statusu`, `wg_zrodla`, `dostawcy`, `potwierdzone_90_dni`, `ostatnie_uruchomienia: {mapper, przypomnienia}` (czas ostatniego udanego uruchomienia albo `null`), `hasla_demo_domyslne` (`false`, gdy konto ministerstwa ma hasło z `AED_MINISTRY_PASSWORD` lub `AED_DEMO_PASSWORD`; karty logowania nie pokazują wtedy haseł; zmiana haseł po inicjalizacji: `AED_RESET_PASSWORDS=1` przy jednym starcie – nowe hasła, wszystkie sesje wylogowane) |
 | `GET /api/aed/sprzedawcy` | każdy | `{"dane": [...], "progi": {...}}`; firma: nazwa, `typ_podmiotu`, miejscowość, współrzędne siedziby, `liczba_urzadzen`, `srednia_kompletnosc`, `udzial_aktywnych`, `odznaka` |
-| `GET /api/aed/eksport/dane-gov-pl.csv` | każdy | eksport publikacyjny (profil `publikacja`, bez ODbL, bez `dostep = prywatny`, bez rekordów wycofanych i demonstracyjnych; kolumny kontaktu i numeru seryjnego puste). Parametr `wersja` jest ignorowany (patrz niżej) |
+| `GET /api/aed/eksport/dane-gov-pl.csv` | każdy | eksport publikacyjny (profil `publikacja`, bez ODbL, bez `dostep = prywatny`, bez rekordów `zgloszony` – publiczny staje się dopiero po potwierdzeniu zarządcy – bez rekordów wycofanych i demonstracyjnych, bez rekordów z kodem do szafki w polach opisowych (błąd `kod_do_szafki`); kolumny kontaktu i numeru seryjnego puste; komórka tekstowa zaczynająca się od `=`, `+`, `-`, `@`, tabulatora lub CR dostaje prefiks `'`, z wyjątkiem tekstu liczbowego i telefonu `+48…`). Parametr `wersja` jest ignorowany (patrz niżej) |
 | `GET`, `HEAD /api/aed/eksport/dane-gov-pl.xml` | każdy | zasilanie harvestera XML dane.gov.pl (schemat 1.13, `application/xml`): jeden zbiór `aed-krajowy-rejestr` z jednym zasobem `aed-krajowy-rejestr-csv`, który wskazuje na eksport publikacyjny CSV |
 | `GET /api/aed/eksport/dane-gov-pl.md5` | każdy | suma MD5 pliku XML (32 znaki szesnastkowe, `text/plain`) |
 
@@ -138,9 +139,9 @@ Lista stronicowana: `{"dane": [...], "razem": 19000, "strona": 1, "na_stronie": 
 | Metoda i ścieżka | Kto | Opis |
 |---|---|---|
 | `GET /api/aed/duplikaty` | ministerstwo | pary do ręcznego przeglądu: oba rekordy, odległość w metrach, podobieństwo |
-| `POST /api/aed/duplikaty/{id}` | ministerstwo | `{"decyzja": "polacz" | "rozdziel"}`; `polacz` zachowuje rekord A, rekord B dostaje status `wycofany`. Decyzja jest trwała: kolejne uruchomienia mappera jej nie cofają, a para nie wraca do kolejki |
+| `POST /api/aed/duplikaty/{id}` | ministerstwo | `{"decyzja": "polacz" | "rozdziel"}`; `polacz` zachowuje rekord A, rekord B dostaje status `wycofany`. Decyzja jest trwała: kolejne uruchomienia mappera jej nie cofają, a para nie wraca do kolejki. Po `polacz` otwarte pary z rekordem B są zamykane i kolejkowane ponownie z rekordem A. Para, której rekord jest już `wycofany`, daje 409 `para_nieaktualna` i znika z kolejki |
 | `GET /api/aed/wiadomosci` | ministerstwo | skrzynka nadawcza: prośby o potwierdzenie i przypomnienia (odbiorca, temat, treść, link, data) |
-| `POST /api/aed/przypomnienia/uruchom` | ministerstwo | ręczne uruchomienie zadania cyklicznego: prośby o potwierdzenie dla rekordów bez weryfikacji od 6 miesięcy, przypomnienia 60 dni przed końcem ważności baterii lub elektrod, oznaczenie `nieaktualny` po 12 miesiącach bez potwierdzenia |
+| `POST /api/aed/przypomnienia/uruchom` | ministerstwo | ręczne uruchomienie zadania cyklicznego: prośby o potwierdzenie dla rekordów bez weryfikacji od 6 miesięcy (także `niepotwierdzony` po zgłoszeniu problemu przez zarządcę; rekord z importu czeka na link przejęcia), przypomnienia 60 dni przed końcem ważności baterii lub elektrod, oznaczenie `nieaktualny` po 12 miesiącach bez potwierdzenia |
 | `POST /api/aed/mapper/uruchom` | ministerstwo | ręczne uruchomienie mappera źródeł; odpowiedź: `{"dodano", "zmieniono", "polaczono", "do_przegladu", "wycofano"}`. `do_przegladu` to pary faktycznie dodane do kolejki w tym uruchomieniu (z mappera i z dopasowań do urządzeń zgłoszonych lub potwierdzonych); pary już znane nie są liczone ponownie. `wycofano` to rekordy z importu, których nie ma już w źródłach |
 | `GET /api/aed/zadania` | ministerstwo | historia 20 ostatnich uruchomień, od najnowszego: `id`, `start`, `koniec`, `wyzwalacz` (`harmonogram` \| `ministerstwo`), `rodzaj` (`cykl` \| `mapper` \| `przypomnienia`), `odswiezono`, `mapper`, `przypomnienia`, `bledy` |
 
@@ -150,7 +151,7 @@ Wiadomości w prototypie nie są wysyłane pocztą – trafiają do skrzynki nad
 
 ## Konwerter do standardu (publiczny, bez zapisu)
 
-Narzędzie dla dostawcy, który ma własny plik z defibrylatorami w dowolnym układzie kolumn. Bez logowania; plik jest przetwarzany w pamięci i nie jest zapisywany. Limit rozmiaru jak przy zgłoszeniach (5 MB). Przyjmowane pliki: `.csv` (UTF-8, UTF-16 z BOM albo Windows-1250; separator `,`, `;` lub tabulator – wykrywany z pierwszych wierszy z pominięciem tekstu w cudzysłowach), `.xlsx` (pierwszy arkusz; czytany biblioteką standardową, bez makr i formuł – liczy się zapisana wartość; po rozpakowaniu najwyżej 50 MB, dane najwyżej w 300 kolumnach i najwyżej 2 mln komórek; plik z deklaracją DOCTYPE jest odrzucany), `.geojson`, `.json` (FeatureCollection z punktami). Konwerter niczego nie publikuje: wynikowy plik dostawca sam publikuje jako zasób swojego zbioru na dane.gov.pl z oznaczeniem „Wykaz AED”.
+Narzędzie dla dostawcy, który ma własny plik z defibrylatorami w dowolnym układzie kolumn. Bez logowania; plik jest przetwarzany w pamięci i nie jest zapisywany. Limit rozmiaru jak przy zgłoszeniach (5 MB). Przyjmowane pliki: `.csv` (UTF-8, UTF-16 z BOM albo Windows-1250; separator `,`, `;` lub tabulator – wykrywany z pierwszych wierszy z pominięciem tekstu w cudzysłowach), `.xlsx` (pierwszy arkusz; czytany biblioteką standardową, bez makr i formuł – liczy się zapisana wartość; po rozpakowaniu najwyżej 50 MB, dane najwyżej w 300 kolumnach i najwyżej 2 mln komórek, łącznie najwyżej 20 mln znaków w komórkach; plik z deklaracją DOCTYPE jest odrzucany), `.geojson`, `.json` (FeatureCollection z punktami). Budżet każdego pliku (sprawdzany przed analizą kolumn): najwyżej 300 kolumn, 50 000 wierszy i 1 mln komórek (wiersze × kolumny); większy plik – 422 z komunikatem po polsku. Usługa obsługuje żądania jednym wątkiem, więc te limity chronią też resztę API. Konwerter niczego nie publikuje: wynikowy plik dostawca sam publikuje jako zasób swojego zbioru na dane.gov.pl z oznaczeniem „Wykaz AED”.
 
 | Metoda i ścieżka | Kto | Opis |
 |---|---|---|

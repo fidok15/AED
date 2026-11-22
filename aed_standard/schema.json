@@ -57,7 +57,7 @@
   },
   "reguly": [
     "Rekord o statusie aktywny musi mieć wypełnione pola dostep, godziny_dostepu i data_weryfikacji.",
-    "Współrzędne muszą leżeć w granicach Polski; zamienione szerokość i długość są zgłaszane jako błąd z podpowiedzią.",
+    "Współrzędne muszą leżeć w prostokącie obejmującym Polskę (to przybliżenie, nie granica państwa – punkt tuż za granicą przechodzi sprawdzenie); zamienione szerokość i długość są zgłaszane jako błąd z podpowiedzią.",
     "Daty nie mogą być z przyszłości, z wyjątkiem dat ważności elektrod i baterii.",
     "Minięta data ważności elektrod lub baterii jest ostrzeżeniem, nie błędem.",
     "Para producent i numer_seryjny jest unikalna."

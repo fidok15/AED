@@ -1,9 +1,10 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, inject, input, OnInit, signal } from '@angular/core';
+import { afterNextRender, Component, computed, inject, Injector, input, OnInit, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { SeoService } from '@app/services/seo.service';
 import { ScrollToFirstErrorDirective } from '@app/shared/forms/directives/scroll-to-first-error.directive';
+import { scrollToFirstError } from '@app/shared/forms/utils/scroll-to-first-error';
 import {
   AedApiService,
   AedCondition,
@@ -14,6 +15,7 @@ import {
 } from './aed-api.service';
 import { AedFieldComponent } from './aed-field.component';
 import { AedHoursPickerComponent } from './aed-hours-picker.component';
+import { aedPlural } from './aed-map.component';
 import { aedControl, aedField, aedRequired, aedRequiredForStatus } from './aed-schema';
 import { AED_STATUS_LABELS, AedStatusComponent } from './aed-status.component';
 
@@ -45,6 +47,8 @@ export class AedQrComponent implements OnInit {
   private readonly api = inject(AedApiService);
   private readonly seo = inject(SeoService);
   private readonly focus = aedFocusFactory();
+  private readonly injector = inject(Injector);
+  protected readonly plural = aedPlural;
 
   /** Route parameter and query parameter, bound by the router. */
   readonly id = input<string>();
@@ -82,6 +86,20 @@ export class AedQrComponent implements OnInit {
     return this.expiry.filter((field) => {
       const date = String(this.record()?.[field.name] ?? '');
       return date !== '' && date <= limit;
+    });
+  });
+  /** "Elektrody: ważne do 20 grudnia 2026 r. (zostało 28 dni)" or "…: termin minął …", against today on this phone. */
+  protected readonly expiryNotes = computed(() => {
+    const today = Date.parse(new Date().toLocaleDateString('sv-SE'));
+    return this.expiring().map((field) => {
+      const value = String(this.record()?.[field.name]);
+      const date = new Date(value).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' });
+      const days = Math.round((Date.parse(value) - today) / 86_400_000);
+      const [part, valid] = field.name === 'data_waznosci_baterii' ? ['Bateria', 'ważna'] : ['Elektrody', 'ważne'];
+      if (days < 0) return `${part}: termin minął ${date} r.`;
+      if (days === 0) return `${part}: ${valid} do dziś, ${date} r.`;
+      const left = aedPlural(days, 'został', 'zostały', 'zostało');
+      return `${part}: ${valid} do ${date} r. (${left} ${days} ${aedPlural(days, 'dzień', 'dni', 'dni')})`;
     });
   });
   protected readonly values = new FormGroup(
@@ -182,6 +200,17 @@ export class AedQrComponent implements OnInit {
       },
       { enableHighAccuracy: true, timeout: 15000 },
     );
+  }
+
+  /** Required answers still missing in the confirmation form (re-read on every change detection). */
+  protected missing(): number {
+    return [...Object.values(this.values.controls), this.stan, this.uwagi].filter((control) => control.invalid).length;
+  }
+
+  /** "Do uzupełnienia: …": show the errors and move focus to the first missing field, as a submit would. */
+  protected showMissing(form: HTMLFormElement): void {
+    this.form.markAllAsTouched();
+    afterNextRender(() => scrollToFirstError(form), { injector: this.injector });
   }
 
   protected confirm(): void {

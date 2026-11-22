@@ -3,12 +3,10 @@
 All validation and registry logic lives in aed_standard; this module only stores, authorises and routes.
 """
 import base64
-import csv
 import datetime
 import functools
 import hashlib
 import hmac
-import io
 import json
 import math
 import os
@@ -26,7 +24,8 @@ import segno
 
 import aed_standard
 from aed_standard import konwerter
-from aed_standard.sources import haversine_m
+from aed_standard.sources import OSM_ROW_MESSAGE, from_osm, haversine_m
+from aed_standard.validate import ERROR, issue
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -99,6 +98,8 @@ def migrate(db):
         db.execute("ALTER TABLE devices ADD COLUMN demo INTEGER NOT NULL DEFAULT 0")
     if "powod" not in cols:  # reason a record was withdrawn by the mapper
         db.execute("ALTER TABLE devices ADD COLUMN powod TEXT")
+    # Seed devices of older versions got demo=1 only after the whole seed: repair flags left at 0 by an interrupted run.
+    db.execute("UPDATE devices SET demo=1 WHERE demo=0 AND zgloszenie_id IN (SELECT id FROM zgloszenia WHERE plik='demo')")
     # single-token era: move the one hash per device into the tokens table (once), then clear the old column
     exp = (datetime.datetime.now() + datetime.timedelta(days=TOKEN_DAYS)).replace(microsecond=0).isoformat()
     db.execute("INSERT OR IGNORE INTO tokens(hash,id_aed,utworzono,wygasa) SELECT token_hash,id_aed,?,? FROM devices"
@@ -307,13 +308,27 @@ def demo_passwords_default(db):
     return bool(row) and _is_default_password(pw, bytes(row["salt"]), bytes(row["pass_hash"]))
 
 
+def demo_password(email, default):
+    """AED_MINISTRY_PASSWORD for the ministry account, else AED_DEMO_PASSWORD, else the well-known demo password."""
+    if email == DEMO_ACCOUNTS[0][0] and os.environ.get("AED_MINISTRY_PASSWORD"):
+        return os.environ["AED_MINISTRY_PASSWORD"]
+    return os.environ.get("AED_DEMO_PASSWORD") or default
+
+
 def seed(db, with_registry=True):
     if not db.execute("SELECT 1 FROM accounts LIMIT 1").fetchone():
         for email, pw, name, rola, typ, city, lat, lon in DEMO_ACCOUNTS:
-            pw = os.environ.get("AED_DEMO_PASSWORD") or pw  # public deployments: do not expose the well-known passwords
             salt = secrets.token_bytes(16)
             db.execute("INSERT INTO accounts(email,nazwa,rola,typ_podmiotu,miejscowosc,lat,lon,salt,pass_hash)"
-                       " VALUES(?,?,?,?,?,?,?,?,?)", (email, name, rola, typ, city, lat, lon, salt, hash_password(pw, salt)))
+                       " VALUES(?,?,?,?,?,?,?,?,?)", (email, name, rola, typ, city, lat, lon, salt,
+                                                     hash_password(demo_password(email, pw), salt)))
+    elif os.environ.get("AED_RESET_PASSWORDS", "").lower() in ("1", "true", "yes"):
+        # Password change after the first start: new hashes from the variables above, every session signed out.
+        for email, pw, *_ in DEMO_ACCOUNTS:
+            salt = secrets.token_bytes(16)
+            db.execute("UPDATE accounts SET salt=?, pass_hash=? WHERE email=?",
+                       (salt, hash_password(demo_password(email, pw), salt), email))
+        db.execute("DELETE FROM sessions")
     if with_registry and not db.execute("SELECT 1 FROM devices LIMIT 1").fetchone():
         import_registry(db)
     db.commit()
@@ -337,7 +352,7 @@ def demo_seed(db):
     """Fictional devices created through the real submission and confirmation code (see README). Runs once."""
     if db.execute("SELECT 1 FROM devices WHERE demo=1 OR konto_id IS NOT NULL").fetchone():
         return
-    t, ids = today(), []
+    t = today()
     for email, brand, model, prefix, count, confirmed in DEMO_PLAN:
         account = db.execute("SELECT * FROM accounts WHERE email=?", (email,)).fetchone()
         records = []
@@ -354,9 +369,9 @@ def demo_seed(db):
                 "dysponent_email": "dysponent-%s-%d@demo.example" % (prefix.lower(), i + 1),
                 "_place": (place, city, lat + i * 0.004, lon + i * 0.004, zipcode)})
         clean_recs = [{k: v for k, v in r.items() if k != "_place"} for r in records]
-        out = process_submission(db, account, clean_recs, aed_standard.validate_records(clean_recs, "sprzedaz"), "demo", False)
+        out = process_submission(db, account, clean_recs, aed_standard.validate_records(clean_recs, "sprzedaz"), "demo", False,
+                                 demo=True)
         for i, item in enumerate(out["przyjete"]):
-            ids.append(item["id_aed"])
             if i >= confirmed:
                 continue  # stays "zgloszony": waiting activation link in the outbox
             place, city, lat, lon, zipcode = records[i]["_place"]
@@ -367,7 +382,6 @@ def demo_seed(db):
                 "wewnatrz_budynku": "tak", "dostep": "publiczny", "godziny_dostepu": "Mo-Fr 08:00-18:00",
                 "godziny_dostepu_opis": "Dni robocze, 8:00-18:00", "stan": "sprawny"},
                 on=t - datetime.timedelta(days=200) if (prefix == "PUL" and i == 5) else t)  # device 5: stale verification
-    db.executemany("UPDATE devices SET demo=1 WHERE id_aed=?", [(i,) for i in ids])
     db.commit()
 
 
@@ -463,24 +477,35 @@ def converter_convert(req, resp):
 
 # ---------- submissions ----------
 
-def process_submission(db, account, records, report, filename, dry_run):
-    problems = report["problemy"]
+def process_submission(db, account, records, report, filename, dry_run, demo=False):
+    problems = list(report["problemy"])
     good = set(report["poprawne_wiersze"])
     total = report["podsumowanie"]["wiersze"]
+    errors = report["podsumowanie"]["bledy"]
+    for n, rec in enumerate(records, start=1):
+        # Explicit OpenStreetMap / ODbL row: rejected before the system metadata (CC0) are set (CLAUDE.md, rule 3).
+        if n in good and from_osm(rec):
+            good.discard(n)
+            problems.append(issue(n, "zrodlo", ERROR, "dane_osm", OSM_ROW_MESSAGE))
+            errors += 1
     zg_id = None
     if not dry_run:
         zg_id = db.execute("INSERT INTO zgloszenia(konto_id,utworzono,plik,odpowiedz) VALUES(?,?,?,'')",
                            (account["id"], now(), filename)).lastrowid
-    accepted, duplicates, seen = [], 0, set()
+    accepted, duplicates, seen, foreign = [], 0, set(), {}
     for n, rec in enumerate(records, start=1):
         if n not in good:
             continue
         rec = clean(rec)
         key = norm_key(rec)
-        if key in seen or db.execute("SELECT 1 FROM devices WHERE klucz=?", (key,)).fetchone():
+        # Only the account's own devices count as duplicates: the answer must not tell whether another company's
+        # (or an imported) device with this serial exists. Such a match goes to the ministry's review queue.
+        if key in seen or db.execute("SELECT 1 FROM devices WHERE klucz=? AND konto_id=?", (key, account["id"])).fetchone():
             duplicates += 1
             continue
         seen.add(key)
+        other = db.execute("SELECT id_aed FROM devices WHERE klucz=? AND status!='wycofany' ORDER BY id_aed LIMIT 1",
+                           (key,)).fetchone()
         # Opaque random source id: nothing derived from the serial number may appear in public data.
         opaque = secrets.token_hex(6)
         rec_id = aed_standard.make_id("zgloszenie", opaque)
@@ -489,12 +514,18 @@ def process_submission(db, account, records, report, filename, dry_run):
                    data_aktualizacji=today().isoformat(), data_weryfikacji="", sposob_weryfikacji="")
         rec["kompletnosc"] = str(aed_standard.completeness(rec))
         accepted.append(rec)
+        if other:
+            foreign[rec_id] = other[0]
     przyjete = []
     for rec in accepted:
         item = {"id_aed": rec["id_aed"], "producent": rec["producent"], "model": rec["model"],
                 "numer_seryjny": rec["numer_seryjny"]}
         if not dry_run:
             db.execute(INSERT_SQL, device_row(rec, "zgloszenie", account["id"], zg_id))
+            if demo:  # in the same transaction as the insert: an interrupted seed never leaves demo=0
+                db.execute("UPDATE devices SET demo=1 WHERE id_aed=?", (rec["id_aed"],))
+            if rec["id_aed"] in foreign:
+                queue_pair(db, rec["id_aed"], foreign[rec["id_aed"]], None, 1.0)
             token = new_token(db, rec["id_aed"])
             item["naklejka_url"] = "/api/aed/urzadzenia/%s/naklejka.svg" % rec["id_aed"]
             item["link_aktywacyjny"] = activation_link(rec["id_aed"], token)
@@ -508,7 +539,7 @@ def process_submission(db, account, records, report, filename, dry_run):
     s = report["podsumowanie"]
     out = {"id": zg_id, "utworzono": now(), "sucha_proba": dry_run,
            "podsumowanie": {"wiersze": total, "przyjete": len(przyjete), "odrzucone": total - len(good),
-                            "bledy": s["bledy"], "ostrzezenia": s["ostrzezenia"], "duplikaty": duplicates},
+                            "bledy": errors, "ostrzezenia": s["ostrzezenia"], "duplikaty": duplicates},
            "problemy": problems, "przyjete": przyjete}
     if not dry_run:
         db.execute("UPDATE zgloszenia SET odpowiedz=? WHERE id=?", (json.dumps(out, ensure_ascii=False), zg_id))
@@ -571,7 +602,10 @@ def schema(req, resp):
 def device_get(req, resp, id_aed):
     row = get_device(req.context.db, id_aed)
     rec = json.loads(row["data"])
-    if manager_ok(req.context.db, id_aed, req.get_param("t")):
+    account = need_account(req) if (req.get_header("Authorization") or "").startswith("Bearer ") else None
+    if account and (account["rola"] == "ministerstwo" or account["id"] == row["konto_id"]):
+        resp.media = dict(rec, demo=bool(row["demo"]))  # full record: the ministry, or the company that submitted it
+    elif manager_ok(req.context.db, id_aed, req.get_param("t")):
         resp.media = dict(rec, demo=bool(row["demo"]))
     elif req.get_param("t"):
         raise ApiError(403, "zly_token", "Link jest niepoprawny lub wygasł. Poproś o nowy.")
@@ -864,6 +898,11 @@ def open_states():
 
 def geojson(req, resp):
     where, args = ["dostep != 'prywatny'", "lat IS NOT NULL", "lon IS NOT NULL"], []
+    if req.get_param("status"):
+        where.append("status=?")
+        args.append(req.get_param("status"))
+    else:
+        where.append("status != 'wycofany'")  # as the list: never show a withdrawn device unless asked for it
     bbox = req.get_param("bbox")
     if bbox:
         try:
@@ -922,11 +961,8 @@ def publication_csv(db):
     # Private and fictional demo devices are dropped here; ODbL, validation and the rest are aed_standard's job.
     rows = db.execute("SELECT data FROM devices WHERE dostep != 'prywatny' AND demo=0 AND status != 'wycofany' ORDER BY id_aed")
     exported = [r for r in aed_standard.publication_export([json.loads(r[0]) for r in rows]) if r.get("dostep") != "prywatny"]
-    out = io.StringIO()
-    w = csv.DictWriter(out, fieldnames=aed_standard.field_names(), extrasaction="ignore", lineterminator="\r\n")
-    w.writeheader()
-    w.writerows(exported)  # contacts and serial numbers are already blanked by publication_export
-    return out.getvalue().encode("utf-8"), exported
+    # contacts and serial numbers are already blanked by publication_export; formulas neutralised by to_csv
+    return aed_standard.build.to_csv(exported, "\r\n").encode("utf-8"), exported
 
 
 def export_csv(req, resp):
@@ -1033,13 +1069,25 @@ def decide_duplicate(req, resp, dup_id):
         raise ApiError(404, "nie_znaleziono", "Nie ma takiej pary do przeglądu.")
     if d["decyzja"]:
         raise ApiError(409, "juz_rozstrzygniete", "Ta para została już rozstrzygnięta.")
+    row_a, row_b = get_device(db, d["id_a"]), get_device(db, d["id_b"])
+    if "wycofany" in (row_a["status"], row_b["status"]):
+        # The pair is stale (one record was merged or withdrawn since it was queued): never retire the other one.
+        db.execute("UPDATE duplicates SET decyzja='nieaktualna' WHERE id=?", (dup_id,))
+        db.commit()
+        raise ApiError(409, "para_nieaktualna", "Jeden z rekordów pary został już wycofany lub scalony; para jest nieaktualna.")
     if decision == "polacz":  # keep record A, retire B and remember the link
-        a = json.loads(get_device(db, d["id_a"])["data"])
-        b = json.loads(get_device(db, d["id_b"])["data"])
+        a, b = json.loads(row_a["data"]), json.loads(row_b["data"])
         a["powiazane_zrodla"] = ";".join(x for x in (a.get("powiazane_zrodla"), d["id_b"]) if x)
         b["status"] = "wycofany"
         save_device(db, a)
         save_device(db, b, origin="scalony")
+        # Other open pairs with B now ask about A: B's pair is closed, the same question is queued for A.
+        for o in db.execute("SELECT * FROM duplicates WHERE decyzja IS NULL AND id!=? AND (id_a=? OR id_b=?)",
+                            (dup_id, d["id_b"], d["id_b"])).fetchall():
+            db.execute("UPDATE duplicates SET decyzja='nieaktualna' WHERE id=?", (o["id"],))
+            other = o["id_b"] if o["id_a"] == d["id_b"] else o["id_a"]
+            if other != d["id_a"]:
+                queue_pair(db, d["id_a"], other, o["odleglosc_m"], o["podobienstwo"])
     db.execute("UPDATE duplicates SET decyzja=? WHERE id=?", (decision, dup_id))
     db.commit()
     resp.media = {"id": dup_id, "decyzja": decision}
@@ -1075,7 +1123,8 @@ def reminders(db):
         if not email:
             continue
         last = rec.get("data_weryfikacji") or rec.get("data_aktualizacji") or ""
-        if row["status"] != "niepotwierdzony" and last and last < day(-REQUEST_AFTER_DAYS) \
+        # niepotwierdzony: only after a manager's problem report (an imported record waits for a takeover link)
+        if (row["status"] != "niepotwierdzony" or row["uwagi_zarzadcy"]) and last and last < day(-REQUEST_AFTER_DAYS) \
                 and not sent_recently("prosba", row["id_aed"]):
             link = activation_link(row["id_aed"], new_token(db, row["id_aed"]))
             queue_message(db, "prosba", row["id_aed"], email, "Potwierdź dane urządzenia AED %s" % row["id_aed"],
@@ -1258,6 +1307,11 @@ class Db:
 
     def process_request(self, req, resp):
         req.context.db = self.conn
+
+    def process_response(self, req, resp, resource, req_succeeded):
+        # One transaction per request: an error (500 included) never leaves a half-written one for the next request.
+        if self.conn.in_transaction:
+            self.conn.commit() if req_succeeded else self.conn.rollback()
 
 
 def route(app, path, **methods):

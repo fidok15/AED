@@ -6,7 +6,7 @@
 <!-- Nearest device first: on a phone the location button and the open-now switch are the first controls. -->
 <section class="aed-near" aria-labelledby="aed-near-heading">
   <h2 class="aed-h2" id="aed-near-heading">Najbliższe urządzenia</h2>
-  <button class="btn btn-primary aed-near__locate" type="button" (click)="locate()" [disabled]="locating()">
+  <button class="btn btn-primary aed-near__locate" id="aed-locate" type="button" (click)="locate()" [disabled]="locating()">
     {{ locating() ? 'Ustalam lokalizację…' : 'Użyj mojej lokalizacji' }}
   </button>
   <label class="aed-filter__option aed-near__open">
@@ -21,7 +21,7 @@
     <p class="aed-message aed-message--warn" role="alert">{{ nearError() }}</p>
   }
   @if (origin(); as from) {
-    <p class="aed-near__from">Odległość liczona od: {{ fromText(from) }} (w linii prostej, nie wzdłuż drogi).</p>
+    <p class="aed-near__from">Odległość od {{ fromText(from) }}, w linii prostej.</p>
   }
   <details class="aed-details aed-near__how">
     <summary>Jak używamy lokalizacji i godzin</summary>
@@ -77,7 +77,7 @@
   </div>
 
   <fieldset class="aed-filter">
-    <legend class="aed-filter__legend">Pokaż urządzenia o statusie</legend>
+    <legend class="aed-filter__legend">Filtruj według statusu danych</legend>
     <label class="aed-filter__option">
       <input type="radio" name="aed-status" value="" [checked]="status() === ''" (change)="filter({ status: '' })" />
       <span>Wszystkie</span>
@@ -125,31 +125,19 @@
         @let heading = placeTitle(record['nazwa'], address(record), record['opis_lokalizacji']);
         @let where = address(record) || record['opis_lokalizacji'] || record['dysponent_nazwa'];
         <h3 class="aed-row__name" id="aed-row-{{ record.id_aed }}" tabindex="-1">{{ heading }}</h3>
+        @if (where && where !== heading) {
+          <p class="aed-row__address">{{ where }}</p>
+        }
         @if (record['odleglosc_m'] !== undefined) {
           <p class="aed-row__distance">{{ distanceText(+record['odleglosc_m']) }}</p>
         }
         @let open = openState(record);
         <p class="aed-open aed-open--{{ open }}">{{ schedule[open] }}</p>
-        <dl class="aed-row__access">
-          <div>
-            <dt>{{ title('dostep') }}</dt>
-            <dd>{{ record['dostep'] || 'brak danych' }}</dd>
-          </div>
-          <div>
-            <dt>{{ title('godziny_dostepu') }}</dt>
-            <dd>{{ record['godziny_dostepu'] || 'brak danych' }}</dd>
-          </div>
-        </dl>
-        <app-aed-status [status]="record.status" />
-        @if (where && where !== heading) {
-          <p class="aed-row__address">{{ where }}</p>
-        }
-        <p class="aed-row__id">{{ record.id_aed }}</p>
       </div>
       <div class="aed-row__status">
         @if (hasPoint(record)) {
           <a
-            class="aed-route"
+            class="btn btn-outline-primary aed-route"
             [href]="routeUrl(record['szerokosc_geograficzna'], record['dlugosc_geograficzna'])"
             target="_blank"
             rel="noopener">
@@ -159,14 +147,37 @@
             Pokaż na mapie<span class="visually-hidden">: {{ record['nazwa'] || record.id_aed }}</span>
           </button>
         }
-        @if (record['data_weryfikacji']) {
-          <p class="aed-row__note">{{ title('data_weryfikacji') }}: {{ record['data_weryfikacji'] }}</p>
-        }
       </div>
-      <p class="aed-row__gauge">
-        <span>{{ title('kompletnosc') }} {{ record.kompletnosc }}%</span>
-        <span class="aed-gauge" aria-hidden="true"><span [style.width.%]="record.kompletnosc"></span></span>
-      </p>
+      <div class="aed-row__more">
+        <dl class="aed-row__access">
+          <div>
+            <dt>Status danych</dt>
+            <dd><app-aed-status [status]="record.status" /></dd>
+          </div>
+          <div>
+            <dt>{{ title('dostep') }}</dt>
+            <dd>{{ record['dostep'] || 'brak danych' }}</dd>
+          </div>
+          <div>
+            <dt>{{ title('godziny_dostepu') }}</dt>
+            <dd>{{ record['godziny_dostepu'] || 'brak danych' }}</dd>
+          </div>
+          @if (record['data_weryfikacji']) {
+            <div>
+              <dt>{{ title('data_weryfikacji') }}</dt>
+              <dd>{{ record['data_weryfikacji'] }}</dd>
+            </div>
+          }
+        </dl>
+        <details class="aed-row__details">
+          <summary>Identyfikator i kompletność danych<span class="visually-hidden">: {{ heading }}</span></summary>
+          <p class="aed-row__id">{{ title('id_aed') }}: {{ record.id_aed }}</p>
+          <p class="aed-row__gauge">
+            <span>{{ title('kompletnosc') }} {{ record.kompletnosc }}%</span>
+            <span class="aed-gauge" aria-hidden="true"><span [style.width.%]="record.kompletnosc"></span></span>
+          </p>
+        </details>
+      </div>
     </li>
   } @empty {
     <li class="aed-row aed-row--empty">Nic nie pasuje do wybranych filtrów i szukanej frazy. Zmień jeden z nich.</li>

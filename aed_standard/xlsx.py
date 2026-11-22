@@ -50,8 +50,12 @@ def _number(text):
     return str(int(f)) if f.is_integer() and abs(f) < 1e15 else repr(f)
 
 
-def read_rows(data, max_unpacked):
-    """-> (sheet_name, rows): rows are lists of strings, empty cells as ''."""
+def read_rows(data, max_unpacked, max_chars=None):
+    """-> (sheet_name, rows): rows are lists of strings, empty cells as ''.
+
+    max_chars caps the characters of all cell values (default max_unpacked): a shared string is stored once in
+    the XML but expanded in every cell that refers to it."""
+    max_chars = max_unpacked if max_chars is None else max_chars
     try:
         z = zipfile.ZipFile(io.BytesIO(data))
     except zipfile.BadZipFile:
@@ -113,7 +117,7 @@ def read_rows(data, max_unpacked):
             if (fid.isdigit() and int(fid) in DATE_FORMAT_IDS) or _is_date_format(custom.get(fid, "")):
                 dates.add(str(i))
 
-    rows, total = [], 0
+    rows, total, chars = [], 0, 0
     for row in ws.iter(M + "row"):
         cells = {}
         for pos, c in enumerate(row.findall(M + "c")):
@@ -142,6 +146,10 @@ def read_rows(data, max_unpacked):
                     raise XlsxError("Arkusz ma dane w kolumnie nr %d, a wykaz może mieć najwyżej %d kolumn. Usuń zbędne "
                                     "kolumny albo zapisz arkusz jako CSV." % (col + 1, MAX_COLUMNS))
                 cells[col] = value
+                chars += len(value)
+                if chars > max_chars:
+                    raise XlsxError("Komórki arkusza zawierają razem więcej niż %d mln znaków. Podziel plik albo zapisz "
+                                    "go jako CSV." % (max_chars // 10 ** 6))
         if cells:
             width = max(cells) + 1
             total += width
