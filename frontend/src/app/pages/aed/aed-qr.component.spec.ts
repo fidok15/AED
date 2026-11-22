@@ -117,6 +117,43 @@ describe('AedQrComponent, manager view', () => {
     expect(confirm.mock.calls[0][1]).toMatchObject({ data_waznosci_baterii: next });
   });
 
+  it('does not prefill a point known only from OpenStreetMap and sends the owner contact', () => {
+    open(record({ licencja: 'ODbL 1.0', status: 'niepotwierdzony' }), record());
+    expect(page.querySelector<HTMLInputElement>('#aed-nazwa').value).toBe('');
+    expect(page.querySelector<HTMLInputElement>('#aed-opis_lokalizacji').value).toBe('');
+    expect(page.textContent).toContain('OpenStreetMap');
+
+    type('#aed-nazwa', 'Szkoła nr 1');
+    type('#aed-miejscowosc', 'Fikcyjnowo');
+    type('#aed-szerokosc_geograficzna', '52.2');
+    type('#aed-dlugosc_geograficzna', '21.1');
+    choose('input[name="aed-dostep"][value="publiczny"]');
+    choose('input[name="aed-hours-mode"][value="all"]');
+    type('#aed-dysponent_email', 'aed@urzad.example');
+    choose('input[name="aed-stan"][value="sprawny"]');
+    submit();
+    const body = confirm.mock.calls[0][1];
+    expect(body).toMatchObject({ nazwa: 'Szkoła nr 1', godziny_dostepu: '24/7', dysponent_email: 'aed@urzad.example' });
+    expect('opis_lokalizacji' in body).toBe(false); // the OSM value was never put into the form
+  });
+
+  it('does not ask for the owner contact when the record has one', () => {
+    open(record({ dysponent_email: 'aed@urzad.example' }), record());
+    expect(page.querySelector('#aed-step-owner')).toBeNull();
+  });
+
+  it('asks for the owner contact when the record has none', () => {
+    open(record(), record());
+    expect(page.querySelector('#aed-step-owner')).not.toBeNull();
+    type('#aed-dysponent_email', 'aed@gmina.example');
+    choose('input[name="aed-stan"][value="sprawny"]');
+    submit();
+    expect(confirm.mock.calls[0][1]).toMatchObject({
+      dysponent_email: 'aed@gmina.example',
+      nazwa: 'Urząd Demonstracyjny',
+    });
+  });
+
   it('keeps the battery and electrode step last when no date is close', () => {
     open(record(), record());
     const cards = Array.from(page.querySelectorAll('form .aed-card')).map(

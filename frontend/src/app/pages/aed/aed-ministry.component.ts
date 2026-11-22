@@ -1,11 +1,12 @@
 import { Component, computed, effect, inject, OnInit, signal, untracked } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 
 import { SeoService } from '@app/services/seo.service';
 import {
   AedApiService,
   AedDuplicate,
   aedErrorMessage,
+  AedInvitation,
   AedJobRun,
   aedLinkFactory,
   AedMapperRun,
@@ -21,6 +22,7 @@ import { AED_STATUS_LABELS, AedStatusComponent } from './aed-status.component';
 const MESSAGE_KINDS: Record<string, string> = {
   aktywacja: 'Aktywacja urządzenia',
   prosba: 'Prośba o potwierdzenie danych',
+  przejecie: 'Zaproszenie do przejęcia punktu',
   sygnal: 'Zgłoszenie osoby postronnej',
 };
 
@@ -36,6 +38,7 @@ export class AedMinistryComponent implements OnInit {
   private readonly seo = inject(SeoService);
 
   protected readonly link = aedLinkFactory();
+  private readonly router = inject(Router);
   protected readonly number = (value: number) => value.toLocaleString('pl-PL');
   protected readonly statusLabels = AED_STATUS_LABELS;
   protected readonly kind = (rodzaj: string) =>
@@ -78,6 +81,10 @@ export class AedMinistryComponent implements OnInit {
   };
   protected readonly reminders = signal<AedRemindersRun | null>(null);
   protected readonly mapper = signal<AedMapperRun | null>(null);
+  /** The service moves skipped sources and source errors of a run into the job history (`bledy`), not the answer. */
+  protected readonly lastMapperProblems = computed(() =>
+    this.jobs()[0]?.rodzaj === 'mapper' ? this.jobs()[0].bledy : [],
+  );
 
   private readonly fail = (error: unknown) => {
     this.error.set(aedErrorMessage(error as never));
@@ -138,6 +145,35 @@ export class AedMinistryComponent implements OnInit {
       error: this.fail,
     });
   }
+
+  protected readonly invitation = signal<AedInvitation | null>(null);
+  protected readonly inviteError = signal('');
+
+  /** Manager link for a record nobody responsible has confirmed (e.g. a point known only from OpenStreetMap). */
+  protected invite(id: string, email: string): void {
+    if (this.busy()) return;
+    this.inviteError.set('');
+    this.invitation.set(null);
+    if (!id.trim()) {
+      this.inviteError.set('Podaj identyfikator urządzenia, na przykład AED-7F3K9Q2M4XTB.');
+      return;
+    }
+    this.busy.set(true);
+    this.api.inviteManager(id.trim(), email.trim() || undefined).subscribe({
+      next: (invitation) => {
+        this.invitation.set(invitation);
+        this.busy.set(false);
+        this.load();
+      },
+      error: (error) => {
+        this.inviteError.set(aedErrorMessage(error));
+        this.busy.set(false);
+      },
+    });
+  }
+
+  /** Absolute address of a contract link, to copy into an e-mail. */
+  protected readonly absolute = (link: string) => location.origin + this.router.serializeUrl(this.link(link));
 
   protected runReminders(): void {
     if (this.busy()) return;

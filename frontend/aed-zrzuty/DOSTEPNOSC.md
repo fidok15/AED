@@ -82,3 +82,32 @@ Rejestr, panel ministerstwa i strona dysponenta w trzech trybach – dziewięć 
 - W wysokim kontraście pasek udziału statusów nad filtrem rejestru jest jednobarwny. Jest ozdobnikiem ukrytym przed czytnikami; te same liczby są w filtrze pod nim.
 - Naruszenia w nagłówku i stopce portalu (lista wyżej) wymagają zmian w kodzie forka i treściach CMS.
 - Teksty obszaru AED są tylko po polsku; w angielskiej wersji portalu obszar ma ustawiony `lang="pl"`.
+
+## Przegląd 22.11 (axe-core 4.10.3, reguły WCAG 2.0/2.1/2.2 A i AA)
+
+Środowisko: `ng serve` (konfiguracja dev) + `aed_service` lokalnie, Chromium z Playwright, 1280 px. axe-core 4.10.3 wstrzyknięty z lokalnej kopii (w `frontend/node_modules` nie ma pakietu `axe-core`). Liczby to węzły z naruszeniami; „portal” = elementy szablonu portalu (menu „Więcej”, `ng-progress`, menu stopki: `aria-allowed-attr` 1, `aria-progressbar-name` 1, `aria-required-children` 3, `aria-required-parent` 24, `listitem` 19 – razem 48 na każdej stronie z układem portalu; poza zakresem modułu AED).
+
+| Ekran | Moduł AED przed | Moduł AED po | Portal (bez zmian) | 320 px: przewijanie poziome | Tekst 200% (emulacja) |
+|---|---|---|---|---|---|
+| Strona startowa `/pl/aed` | 0 | 0 | 48 | brak | brak |
+| Logowanie (panel firmy, wylogowany) | 0 | 0 | 48 | brak | brak |
+| Panel firmy z raportem pliku z błędami | 0 | 0 | 48 | brak | brak |
+| Formularz urządzenia | 0 | 0 | 48 | brak | brak |
+| Arkusz naklejek | 0 | 0 | 48 | brak | brak |
+| Ekran QR dysponenta (z tokenem) | 0 | 0 | 0 (układ bez portalu) | brak | brak |
+| Ekran QR bez tokenu (sygnał) | 0 | 0 | 0 | brak | brak |
+| Rejestr (lista i mapa) | 0 | 0 | 48 | brak | brak |
+| Mapa i ranking sprzedawców | 0 | 0 | 48 | brak | brak |
+| Panel ministerstwa | 0 | 0 | 48 | brak | brak |
+| Konwerter (mapowanie i wynik, plik Marek) | 1 (`color-contrast`: przycisk „Pobierz wykaz w standardzie (CSV)” – niebieski tekst na niebieskim tle) | 0 | 48 | przed: 2 px (konwerter), po: brak | brak |
+
+Powiększenie 200% to emulacja (`document.documentElement.style.fontSize = '200%'` przy 1280 px), nie powiększenie przeglądarki. Jedyne „ucięte” elementy przy 200% to etykiety `visually-hidden` (zamierzone).
+
+Klawiatura (Tab od nagłówka strony do stopki): na każdym ekranie fokus widoczny (obrys ≥ 2 px albo cień), kolejność zgodna z kolejnością na ekranie. Konwerter przechodzi samą klawiaturą: wybór pliku → fokus na „Przypisz kolumny…” → listy pól → wartości wspólne → „Przekształć…” (Enter) → fokus na nagłówku wyniku → link „Pobierz wykaz…”. Ekran QR (przejęcie punktu ze zbioru Krosna) potwierdzony samą klawiaturą przy 320 px; przy brakujących odpowiedziach fokus wraca do pierwszego pola z błędem.
+
+Poprawki w tej rundzie:
+
+- `aed.scss`: reguła koloru linków modułu pomija linki w stylu przycisku (`a:not(.btn)`) – naprawia kontrast przycisku pobierania w konwerterze.
+- `aed.scss`: `.aed-scroll` ma `position: relative`, więc ukryte etykiety pól w tabeli konwertera nie poszerzają strony przy 320 px.
+
+Nie sprawdzono: czytnik ekranu, prawdziwy telefon, powiększenie przeglądarki (zamiast emulacji), tryby kontrastu portalu w tej rundzie.

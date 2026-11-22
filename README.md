@@ -2,7 +2,12 @@
 
 Prototyp na HackNation 2026 (zadanie Ministerstwa Cyfryzacji): proces i narzędzia, dzięki którym ministerstwo zbiera w dane.gov.pl jeden, ujednolicony zbiór danych o defibrylatorach AED.
 
-Jak to działa: producent lub sprzedawca zgłasza urządzenie z konta firmy (plik CSV albo formularz) → system nadaje identyfikator i naklejkę z kodem QR → zarządca obiektu skanuje kod, uzupełnia i potwierdza miejsce oraz godziny dostępu → rekord trafia do zbioru krajowego. Równolegle mapper pobiera istniejące otwarte źródła, sprowadza je do wspólnego standardu i usuwa duplikaty.
+Jak to działa – dwa kanały, jeden standard (`aed_standard/schema.json`):
+
+1. **Wykaz AED w portalu** (wzorem wykazu DGA): samorząd, instytucja lub firma publikuje w swoim zbiorze na dane.gov.pl zasób „Wykaz AED”. Portal sprawdza plik przy zapisie i codziennie scala wszystkie wykazy w jeden zasób zbiorczy ministerstwa, publicznie do odczytu (`GET /aed-aggregated`, tabela, mapa, API). Kod: `backend/mcod/aed/`, opis: `docs/wykaz-aed-w-portalu.md`.
+2. **Usługa AED**: producent lub sprzedawca zgłasza urządzenie z konta firmy (CSV albo formularz) → identyfikator i naklejka z kodem QR → zarządca skanuje kod i potwierdza miejsce oraz godziny dostępu → rekord trafia do rejestru ministerstwa, który wraca do portalu jako wykaz ministerstwa albo zasilanie XML dla harvestera.
+
+Stan początkowy daje mapper istniejących otwartych źródeł z deduplikacją.
 
 ## Uruchomienie jedną komendą
 
@@ -16,6 +21,8 @@ Potem otwórz `http://localhost:8080/pl/aed`. Pierwsza budowa trwa kilka minut. 
 
 Strony portalu poza obszarem AED pobierają dane tylko do odczytu z publicznego API dane.gov.pl. Nie loguj się w nich kontem portalu.
 
+Pełny fork portalu (frontend, API, panel administracyjny, wykaz AED) z usługą AED pod domeną z HTTPS: `docs/wdrozenie-serwer.md`.
+
 ## Co jest w repozytorium
 
 | Katalog | Zawartość |
@@ -23,7 +30,7 @@ Strony portalu poza obszarem AED pobierają dane tylko do odczytu z publicznego 
 | `aed_standard/` | standard danych (`schema.json`), walidator, mapper źródeł, deduplikacja – czysty Python bez zależności |
 | `aed_service/` | usługa API: konta firm, zgłoszenia CSV, naklejki QR, potwierdzenia, rejestr (`docs/api-aed.md`) |
 | `frontend/` | fork frontendu dane.gov.pl z modułem AED (`src/app/pages/aed/`) |
-| `backend/` | fork backendu dane.gov.pl (niezmieniony; notatka integracyjna w `docs/integracja-portal-backend.md`) |
+| `backend/` | fork backendu dane.gov.pl; zmiany wydzielone w `mcod/aed/` (wykaz AED) plus pole zasobu `contains_aed_list` (model, formularz, migracja); wdrożenie pod domeną: `docker-compose.aed-domain.yml`, `aed-domain/` |
 | `wzorzec/` | `wzorzec-aed.xlsx` – wzorcowy zakres danych – oraz przykładowe pliki CSV |
 | `datasets/` | surowe źródła (`raw/`) i wynik mappera (`out/`) |
 | `kampania/` | materiały akcji promocyjnej |

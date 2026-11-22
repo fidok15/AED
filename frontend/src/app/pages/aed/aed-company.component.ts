@@ -7,6 +7,7 @@ import {
   AedAccepted,
   AedApiService,
   aedErrorMessage,
+  aedFileTooLarge,
   aedFocusFactory,
   aedLinkFactory,
   AedSellers,
@@ -111,7 +112,8 @@ export class AedCompanyComponent implements OnInit {
     this.file.set(input.files?.[0] ?? null);
     this.report.set(null);
     this.saved.set(false);
-    if (this.file()) this.send(false);
+    this.error.set(aedFileTooLarge(this.file()));
+    if (this.file() && !this.error()) this.send(false);
   }
 
   /** `save = false` asks only for the report; `save = true` adds the correct rows to the registry. */

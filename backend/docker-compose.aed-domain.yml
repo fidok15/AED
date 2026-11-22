@@ -1,0 +1,149 @@
+# Full portal fork (dane.gov.pl / mcod) + AED service under one public domain, HTTPS via Caddy (Let's Encrypt).
+# Instruction: docs/wdrozenie-serwer.md. In backend/:
+#   sh aed-domain/init-env.sh aed.example.pl            # .env with fresh secrets and COMPOSE_FILE for both files
+#   cp mcod/settings/local.py.sample mcod/settings/local.py
+#   docker compose up -d --build
+# Addresses: https://<domain>/pl/aed, https://admin.<domain>, https://api.<domain>, https://cms.<domain>
+#
+# Changes against docker-compose.local.yml: nothing but Caddy listens on the host; production servers (gunicorn)
+# instead of werkzeug --debug / runserver; settings for the real domain (aed-domain/settings.py); forum, flower and
+# websockets off; AED service and frontend build added to the portal network.
+
+x-aed-portal: &aed-portal
+  environment: &aed-portal-env
+    AED_DOMAIN: ${AED_DOMAIN:?run aed-domain/init-env.sh first}
+    DJANGO_SETTINGS_MODULE: aed_domain_settings
+    PYTHONPATH: /usr/src/mcod_backend
+    DISCOURSE_FORUM_ENABLED: "false"
+    BASE_URL: https://${AED_DOMAIN:?run aed-domain/init-env.sh first}
+    FRONTEND_BASE_URL: https://${AED_DOMAIN}
+    API_URL: https://api.${AED_DOMAIN}
+    ADMIN_URL: https://admin.${AED_DOMAIN}
+    CMS_URL: https://cms.${AED_DOMAIN}
+    API_URL_INTERNAL: http://mcod-local-api:8000
+    BOKEH_ALLOW_WS_ORIGIN: ${AED_DOMAIN}
+    NO_REPLY_EMAIL: no-reply@${AED_DOMAIN}
+  volumes:
+    - ./aed-domain/settings.py:/usr/src/mcod_backend/aed_domain_settings.py:ro
+  restart: unless-stopped
+
+services:
+  mcod-local-admin:
+    <<: *aed-portal
+    volumes:
+      - ./aed-domain/settings.py:/usr/src/mcod_backend/aed_domain_settings.py:ro
+      - ../datasets:/usr/src/mcod_backend/aed_datasets:ro  # demo files for the AED lists (docs/wdrozenie-serwer.md, sec. 6)
+    command: ["gunicorn", "mcod.wsgi", "--bind", "0.0.0.0:8001", "--workers", "3", "--timeout", "3600"]
+
+  mcod-local-cms:
+    <<: *aed-portal
+    command: ["gunicorn", "mcod.wsgi", "--bind", "0.0.0.0:8002", "--workers", "2", "--timeout", "3600"]
+
+  mcod-local-api:
+    <<: *aed-portal
+    command: ["gunicorn", "mcod.api:app", "--bind", "0.0.0.0:8000", "--workers", "3"]
+
+  mcod-local-celery:
+    <<: *aed-portal
+    environment:
+      <<: *aed-portal-env
+      # Default: no scheduler, jobs run by hand (docs/wdrozenie-serwer.md). Daily jobs incl. the AED list merge
+      # at 03:45: AED_CELERY_OPTS=-l INFO -B --scheduler django_celery_beat.schedulers:DatabaseScheduler
+      CELERY_OPTS: ${AED_CELERY_OPTS:--l INFO}
+
+  mcod-local-run:
+    <<: *aed-portal
+    restart: "no"
+
+  # Only Caddy is reachable from outside: no host ports for the infrastructure (default passwords, no auth).
+  mcod-db:
+    ports: !reset []
+    restart: unless-stopped
+  mcod-rabbitmq:
+    ports: !reset []
+    restart: unless-stopped
+  mcod-redis:
+    ports: !reset []
+    restart: unless-stopped
+  mcod-elasticsearch:
+    ports: !reset []
+    restart: unless-stopped
+  mcod-smtp:
+    ports: !reset []
+    restart: unless-stopped
+  mcod-rdfdb:
+    ports: !reset []
+    restart: unless-stopped
+  mcod-nginx:  # dependency of the app containers in docker-compose.local.yml; idle here, Caddy routes instead
+    ports: !reset []
+    restart: unless-stopped
+
+  mcod-flower:
+    ports: !reset []
+    profiles: [off]
+  mcod-discourse:
+    profiles: [off]
+  mcod-discourse-sidekiq:
+    profiles: [off]
+  mcod-local-ws:
+    profiles: [off]
+
+  aed-service:
+    build:
+      context: ..
+      dockerfile: aed_service/Dockerfile
+    environment:
+      AED_BASE_URL: https://${AED_DOMAIN}  # QR stickers, activation links, harvester XML feed
+      AED_CORS_ORIGINS: https://${AED_DOMAIN}
+      AED_DEMO_PASSWORD: ${AED_DEMO_PASSWORD:-}
+    volumes:
+      - aed-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8085/api/aed/statystyki', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [backend]
+    restart: unless-stopped
+
+  aed-web:
+    build:
+      context: ../frontend
+      dockerfile: ../docker/web.Dockerfile
+      additional_contexts:
+        docker: ../docker
+        standard: ../aed_standard
+    environment:
+      AED_SERVICE_URL: http://aed-service:8085
+    volumes:
+      - ./aed-domain/web.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./media:/srv/media:ro
+    depends_on:
+      aed-service:
+        condition: service_healthy
+      mcod-local-api:
+        condition: service_started
+      mcod-local-cms:
+        condition: service_started
+    networks: [backend]
+    restart: unless-stopped
+
+  caddy:
+    image: public.ecr.aws/docker/library/caddy:2
+    environment:
+      AED_DOMAIN: ${AED_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./aed-domain/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./statics:/srv/statics:ro
+      - ./media:/srv/media:ro
+      - caddy-data:/data  # certificates survive restarts (Let's Encrypt rate limits)
+    depends_on: [aed-web, mcod-local-admin, mcod-local-api, mcod-local-cms]
+    networks: [backend]
+    restart: unless-stopped
+
+volumes:
+  aed-data:
+  caddy-data:

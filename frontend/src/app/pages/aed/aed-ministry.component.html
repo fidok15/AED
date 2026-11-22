@@ -76,6 +76,11 @@
       <p>
         <a [href]="api.exportUrl" download>Pobierz zbiór do publikacji na dane.gov.pl (CSV)</a>
       </p>
+      <p>
+        Zasilanie dla harvestera dane.gov.pl: <a [href]="api.feedUrl">plik XML</a> i
+        <a [href]="api.feedMd5Url">suma kontrolna MD5</a>. Portal pobiera je cyklicznie i aktualizuje zbiór ministerstwa
+        sam, gdy zmieni się zawartość eksportu.
+      </p>
       <p class="aed-note">
         Do zbioru trafiają tylko rekordy gotowe do publikacji. Rekordy znane wyłącznie z OpenStreetMap (licencja ODbL)
         oraz urządzenia z dostępem prywatnym zostają w rejestrze.
@@ -149,6 +154,59 @@
     }
   </section>
 
+  <section aria-labelledby="aed-invite-heading">
+    <h2 class="aed-h2" id="aed-invite-heading">Zaproś dysponenta do przejęcia punktu</h2>
+    <p>
+      Dla urządzenia, którego nikt odpowiedzialny nie potwierdził (na przykład znanego tylko z OpenStreetMap), wystaw
+      link dysponenta. Dysponent poda dane sam; po potwierdzeniu rekord trafi do zbioru na dane.gov.pl.
+    </p>
+    <form class="aed-invite" novalidate (submit)="$event.preventDefault(); invite(inviteId.value, inviteEmail.value)">
+      <div class="aed-field form-field">
+        <label class="aed-field__label" for="aed-invite-id">
+          Identyfikator urządzenia <span class="aed-field__required">(wymagane)</span>
+        </label>
+        <input class="form-control" id="aed-invite-id" type="text" autocomplete="off" #inviteId />
+      </div>
+      <div class="aed-field form-field">
+        <label class="aed-field__label" for="aed-invite-email">E-mail dysponenta (nieobowiązkowe)</label>
+        <p class="aed-field__hint" id="aed-invite-email-hint">
+          Adres instytucji. Gdy go podasz, wiadomość z linkiem trafi do skrzynki nadawczej poniżej.
+        </p>
+        <input
+          class="form-control"
+          id="aed-invite-email"
+          type="email"
+          autocomplete="off"
+          aria-describedby="aed-invite-email-hint"
+          #inviteEmail />
+      </div>
+      <button class="btn btn-primary" type="submit" [attr.aria-disabled]="busy() || null">
+        Wystaw link dysponenta
+      </button>
+    </form>
+    <div aria-live="polite">
+      @if (inviteError()) {
+        <p class="aed-message aed-message--error">{{ inviteError() }}</p>
+      }
+      @if (invitation(); as invitation) {
+        <div class="aed-message aed-message--ok">
+          <p>
+            Link dla urządzenia {{ invitation.id_aed }} jest ważny {{ invitation.waznosc_dni }} dni.
+            {{ invitation.wyslano_na ? 'Wiadomość trafiła do skrzynki nadawczej: ' + invitation.wyslano_na + '.' : '' }}
+          </p>
+          <label class="aed-field__label" for="aed-invite-link">Link do skopiowania</label>
+          <input
+            class="form-control"
+            id="aed-invite-link"
+            type="text"
+            readonly
+            [value]="absolute(invitation.link_aktywacyjny)"
+            (focus)="$any($event.target).select()" />
+        </div>
+      }
+    </div>
+  </section>
+
   <section aria-labelledby="aed-jobs-heading">
     <h2 class="aed-h2" id="aed-jobs-heading">Zadania cykliczne</h2>
     <p>
@@ -193,8 +251,15 @@
           @if (mapper(); as result) {
             <p class="aed-message aed-message--ok">
               Dodane rekordy: {{ result.dodano }}. Zmienione: {{ result.zmieniono }}. Połączone automatycznie:
-              {{ result.polaczono }}. Do ręcznego przeglądu: {{ result.do_przegladu }}.
+              {{ result.polaczono }}. Do ręcznego przeglądu: {{ result.do_przegladu }}. Wycofane, bo zniknęły ze źródeł:
+              {{ result.wycofano }}.
             </p>
+            @if (lastMapperProblems().length) {
+              <p class="aed-message aed-message--warn">
+                Pominięte źródła i błędy: {{ lastMapperProblems().join(' ') }} Rekordy pominiętych źródeł zostają w
+                rejestrze bez zmian.
+              </p>
+            }
           }
         </div>
       </div>
@@ -214,7 +279,7 @@
               <th scope="col">Uruchomienie</th>
               <th scope="col">Zadanie</th>
               <th scope="col">Wynik</th>
-              <th scope="col">Problemy</th>
+              <th scope="col">Pominięte źródła i błędy</th>
             </tr>
           </thead>
           <tbody>
@@ -231,7 +296,7 @@
                 <td>
                   @if (job.mapper; as mapper) {
                     Mapper: dodane {{ mapper.dodano }}, zmienione {{ mapper.zmieniono }}, połączone
-                    {{ mapper.polaczono }}, do przeglądu {{ mapper.do_przegladu }}.
+                    {{ mapper.polaczono }}, do przeglądu {{ mapper.do_przegladu }}, wycofane {{ mapper.wycofano ?? 0 }}.
                   }
                   @if (job.przypomnienia; as reminders) {
                     Przypomnienia: prośby o potwierdzenie {{ reminders.prosby_o_potwierdzenie }}, o terminach

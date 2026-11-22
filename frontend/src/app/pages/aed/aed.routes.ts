@@ -4,6 +4,7 @@ import { LocalizeRouterService } from '@gilsdav/ngx-translate-router';
 
 import { AedApiService } from './aed-api.service';
 import { AedCompanyComponent } from './aed-company.component';
+import { AedConverterComponent } from './aed-converter.component';
 import { AedDeviceFormComponent } from './aed-device-form.component';
 import { AedHomeComponent } from './aed-home.component';
 import { AedMinistryComponent } from './aed-ministry.component';
@@ -33,6 +34,7 @@ export const AED_ROUTES: Route[] = [
       { path: '!company/!stickers', component: AedStickersComponent, canActivate: [signedIn] },
       { path: '!ministry', component: AedMinistryComponent },
       { path: '!sellers', component: AedSellersComponent },
+      { path: '!konwerter', component: AedConverterComponent },
       { path: '!portal-accounts', component: AedPortalAccountsOffComponent },
     ],
   },

@@ -1,20 +1,29 @@
 """Modelled on mcod/resources/tests/test_main_dga.py. Needs the portal test stack (Postgres, Docker)."""
+import datetime
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from mcod.aed import constants as C
 from mcod.aed.aed_utils import (
     build_main_aed_list,
+    clean_up_after_main_aed_resource_creation,
+    create_main_aed_file,
     create_main_aed_resource_with_dataset,
     get_all_aed_list_resources,
     main_aed_tabular_schema,
     update_or_create_aggr_aed_info_and_delete_old_main_aed,
 )
 from mcod.aed.models import AggregatedAEDInfo
+from mcod.core.tests.helpers.tasks import run_on_commit_events
+from mcod.datasets.factories import DatasetFactory
 from mcod.organizations.factories import OrganizationFactory
+from mcod.resources.dga_utils import check_all_resource_validations_status
 from mcod.resources.factories import ResourceFactory
-from mcod.resources.models import Resource
+from mcod.resources.forms import ChangeResourceForm
+from mcod.resources.models import Resource, ResourceFile
 
 GOOD_LIST = (
     "nazwa,miejscowosc,szerokosc_geograficzna,dlugosc_geograficzna,dostep\n"
@@ -77,3 +86,52 @@ def test_update_aggr_aed_info_replaces_old_resource():
     info = AggregatedAEDInfo.objects.get()
     assert info.resource == new and info.report == {"wykazy": []}
     assert not Resource.objects.filter(pk=old.pk).exists()
+
+
+DATA_DIR = Path(__file__).parent / "data"  # copies of real dane.gov.pl files from datasets/raw/dane_gov_pl/
+
+
+def _aed_list_resource(file_name: str) -> Resource:
+    resource = Resource.objects.create(
+        title=file_name, description="Wykaz AED z prawdziwego pliku.", dataset=DatasetFactory.create(), format="csv",
+        status="published", data_date=datetime.date.today(), contains_aed_list=True,
+    )
+    content = (DATA_DIR / file_name).read_bytes()
+    ResourceFile.objects.create(resource=resource, is_main=True, file=SimpleUploadedFile(file_name, content))
+    return resource
+
+
+@pytest.mark.elasticsearch
+def test_main_aed_resource_end_to_end_with_portal_validation(aed_owner):
+    """The task's steps on real files, with the portal's own file and tabular data validation (eager Celery)."""
+    legionowo = _aed_list_resource("legionowo_resource_2625221.csv")
+    krosno = _aed_list_resource("krosno_resource_54632.csv")
+    run_on_commit_events()
+
+    file_path, report = create_main_aed_file()
+    resource_pk, _ = create_main_aed_resource_with_dataset(file_path)
+    run_on_commit_events()  # the portal processes the new file here
+    resource = Resource.objects.get(pk=resource_pk)
+    check_all_resource_validations_status(resource)  # raises if the portal rejected the file
+    update_or_create_aggr_aed_info_and_delete_old_main_aed(resource, report)
+    clean_up_after_main_aed_resource_creation(exception_occurred=False)
+
+    statuses = {w["zasob"]: w["status"] for w in report["wykazy"]}
+    assert statuses == {legionowo.pk: "przyjety", krosno.pk: "odrzucony"}
+    resource.refresh_from_db()
+    assert resource.format == "csv"
+    assert resource.tabular_data_schema["geo"]["b"]["col_name"] == "szerokosc_geograficzna"
+    assert {f["name"]: f["type"] for f in resource.tabular_data_schema["fields"]}["dlugosc_geograficzna"] == "number"
+    assert AggregatedAEDInfo.objects.get().main_aed_resource == resource
+
+
+def test_admin_form_rejects_bad_aed_list_with_polish_messages():
+    resource = ResourceFactory.create()
+    dataset = resource.dataset
+    form = ChangeResourceForm(instance=resource)
+    krosno = SimpleUploadedFile("krosno.csv", (DATA_DIR / "krosno_resource_54632.csv").read_bytes())
+    form.cleaned_data = {"contains_aed_list": True, "file": krosno}
+    form._errors = {}
+    form._validate_aed_list_file(form.cleaned_data, dataset)
+    messages = form.errors["contains_aed_list"]
+    assert any("nie występuje w standardzie" in m for m in messages), messages

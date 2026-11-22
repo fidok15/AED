@@ -1,6 +1,6 @@
 # Panel portalu krok po kroku: zbiór „Krajowy rejestr AED”
 
-Instrukcja dla osoby, u której działa lokalny fork portalu (`backend/`, panel `http://localhost:8001`, API `http://localhost:8000`, uruchomione z `docker-compose.aed-ports.yml`). Cel: zrobić zrzuty, które pokazują, że zbiór krajowy trafia do portalu jego własnymi mechanizmami. Dostawcą zbioru jest ministerstwo.
+Instrukcja dla osoby, u której działa lokalny fork portalu (`backend/`, panel `http://localhost:8001`, API `http://localhost:8000`, uruchomione z `docker-compose.aed-ports.yml`). Na serwerze pod domeną (`docs/wdrozenie-serwer.md`) panel to `https://admin.<domena>`, API `https://api.<domena>`, a obejście HTTPS z rozdziału 3 jest niepotrzebne. Cel: zrobić zrzuty, które pokazują, że zbiór krajowy trafia do portalu jego własnymi mechanizmami. Dostawcą zbioru jest ministerstwo.
 
 Odwołania `plik:linia` dotyczą katalogu `backend/mcod/`, chyba że podano inaczej. Na końcu jest lista tego, co sprawdzono uruchomieniem, a co tylko w kodzie.
 
@@ -74,7 +74,7 @@ Licencja: portal nie ma pola „licencja” do wyboru wprost. Zaznaczenie warunk
    Reguły formularza: każda rola najwyżej raz (`forms.py:94-109`), role tylko z jednego zestawu (`forms.py:111-129`), zestaw kompletny (`forms.py:131-158`), `l` i `b` muszą mieć typ liczbowy (`forms.py:160-168`). Kolumny adresu (`kod_pocztowy`, `miejscowosc`) zostaw bez roli, bo mieszanie zestawów jest błędem.
 5. Zapisz i odczekaj na ponowne przetworzenie. Na stronie zasobu w portalu pojawia się widok tabeli i mapa.
 
-Uwaga do pliku: `datasets/out/aed_dane_gov_pl.csv` ma w kolumnach `dysponent_email` i `dysponent_telefon` trzy wartości instytucjonalne (szkoły z Przemyśla). Eksport usługi (`http://localhost:8080/api/aed/eksport/dane-gov-pl.csv`) te kolumny czyści. Zasady (CLAUDE.md, zasada 6) dopuszczają kontakt instytucjonalny, ale oba pliki powinny mieć jedną zasadę – do decyzji zespołu. Na zrzuty bezpieczniej wgrać eksport usługi.
+Uwaga do pliku: od PR #16 `datasets/out/aed_dane_gov_pl.csv` i eksport usługi (`http://localhost:8080/api/aed/eksport/dane-gov-pl.csv`) mają tę samą regułę – kolumny `numer_seryjny`, `dysponent_email` i `dysponent_telefon` są puste (`HIDDEN_PUBLIC` w `aed_standard/build.py`). Można wgrać którykolwiek z nich.
 
 ## 3. Wariant B – automatycznie: harvester XML (5 min)
 

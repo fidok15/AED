@@ -1,0 +1,67 @@
+# One TLS entry point for the full-portal deployment (docker-compose.aed-domain.yml).
+# Caddy gets Let's Encrypt certificates for all four names; DNS of each must point at this server.
+#   <domain>        portal frontend (fork) + AED module, /api/aed -> aed-service, /api -> portal API
+#   api.<domain>    portal API (resource files under /media, GET /aed-aggregated)
+#   admin.<domain>  portal admin panel (Django)
+#   cms.<domain>    portal CMS (Wagtail)
+# Static files and media are served from the backend/ folders, as backend/docker/nginx does locally.
+# Reports and meeting attachments need the portal's login check (X-Accel in 03-admin.conf.template), which this
+# proxy does not replay - they are blocked on every host instead.
+
+(protected_media) {
+	@protected path /media/reports/* /media/meetings/*
+	respond @protected 403
+}
+
+{$AED_DOMAIN} {
+	encode gzip
+	import protected_media
+	reverse_proxy aed-web:80
+}
+
+api.{$AED_DOMAIN} {
+	encode gzip
+	import protected_media
+	handle_path /media/* {
+		root * /srv/media
+		file_server
+	}
+	handle {
+		reverse_proxy mcod-local-api:8000
+	}
+}
+
+admin.{$AED_DOMAIN} {
+	encode gzip
+	import protected_media
+	handle_path /static/* {
+		root * /srv/statics
+		file_server
+	}
+	# ponytail: resource files are served straight from disk, as on the API host upstream; the admin host's
+	# X-Accel publish check for /media/resources is skipped. Replay it with handle_response if drafts must stay private.
+	handle_path /media/* {
+		root * /srv/media
+		file_server
+	}
+	handle {
+		reverse_proxy mcod-local-admin:8001
+	}
+}
+
+cms.{$AED_DOMAIN} {
+	encode gzip
+	import protected_media
+	redir / /admin/
+	handle_path /static/* {
+		root * /srv/statics
+		file_server
+	}
+	handle_path /media/* {
+		root * /srv/media
+		file_server
+	}
+	handle {
+		reverse_proxy mcod-local-cms:8002
+	}
+}
