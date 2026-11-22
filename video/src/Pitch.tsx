@@ -57,7 +57,8 @@ const N = {
   osm: zrodla.openstreetmap.przed,
   polaczenia: raport.polaczenia.razem,
   eksport: raport.eksport_dane_gov_pl.rekordy,
-  potwierdzone: (raport.statusy as Record<string, number>).aktywny ?? 0,
+  // "aktywny" is the name of this status in reports made before schema 0.3.0
+  potwierdzone: ((s: Record<string, number>) => s.zweryfikowany ?? s.aktywny ?? 0)(raport.statusy),
 };
 
 const fmt = (n: number) =>

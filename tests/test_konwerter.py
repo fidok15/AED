@@ -36,6 +36,20 @@ def auto(path):
 
 
 class ConverterTest(unittest.TestCase):
+    def test_an_error_after_many_warnings_stays_in_the_cut_report(self):
+        """The portal form decides from the first MAX_PROBLEMS problems whether a list can be saved."""
+        _, (text, _) = auto(KROSNO)
+        rows = list(csv.reader(io.StringIO(text)))
+        name, lat = rows[0].index("dysponent_nazwa"), rows[0].index("szerokosc_geograficzna")
+        for row in rows[1:]:
+            row[name] = "Jan Kowalski"  # a personal name: one warning per row, 21 rows
+        rows[-1][lat] = "abc"
+        out = io.StringIO()
+        csv.writer(out, lineterminator="\n").writerows(rows)
+        _, report = read_wykaz(out.getvalue().encode("utf-8"), SOURCE)
+        self.assertGreater(report["problemy_razem"], len(report["problemy"]))
+        self.assertEqual(report["problemy"][0]["poziom"], "blad")
+
     def test_krosno_becomes_a_valid_list(self):
         a, (text, rep) = auto(KROSNO)
         proposal = {c["kolumna"]: c["pole"] for c in a["kolumny"]}
