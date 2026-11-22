@@ -391,6 +391,25 @@
       margin: 0;
       padding: 0;
       list-style: none;
+
+      // Narrow screens: one row that scrolls sideways instead of three rows above the title.
+      @media (max-width: 479.98px) {
+        flex-wrap: nowrap;
+        gap: 0 1.25rem;
+        max-width: 100%;
+        padding-inline: 0.25rem;
+        overflow-x: auto;
+        scrollbar-width: thin;
+
+        li {
+          flex: none;
+        }
+
+        // the scrolling row clips anything drawn outside it, so the focus ring goes inside the link
+        .aed-nav__link:focus-visible {
+          outline-offset: -3px;
+        }
+      }
     }
 
     &__link {
