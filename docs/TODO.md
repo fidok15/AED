@@ -8,7 +8,7 @@ Co działa i ma dowód:
 - pełny fork portalu lokalnie: migracje, testy Django `mcod/aed` (8) i regresji DGA, panelu i Celery (148), scalanie przez Celery uruchomione ręcznie, zasób zbiorczy z tabelą i mapą, `/aed-aggregated`, e-mail do dostawcy o odrzuconym wykazie w MailHog (`docs/wykaz-aed-w-portalu.md`);
 - nakładka domenowa uruchomiona lokalnie pod `aed.localhost` (`docs/wdrozenie-serwer.md`, rozdz. 11);
 - XSD harvestera 1.14 z `containsAedList` w forku (test parsera i serializera); usługa wystawia 1.13;
-- prezentacja `docs/prezentacja/misja-aed.pptx` (14 slajdów) ze wszystkimi zrzutami, w tym render karty „Słownik pól” (`docs/zrzuty/wzorzec-slownik-pol.png`);
+- prezentacja `prezentacja-html/prezentacja.html` (17 slajdów, wersja zespołu); stara, wygenerowana prezentacja PPTX została usunięta z repozytorium;
 - liczby zbioru: stan z `datasets/out/raport.json` (rejestr z mappera, eksport, pary do przeglądu) – nie przepisujemy ich tutaj.
 
 Nakład: S – do godziny, M – kilka godzin, L – dzień albo więcej.
@@ -50,16 +50,16 @@ Otwarte po przeglądzie formatów:
 - [ ] **Przypomnienie dostarczone do skrzynki zarządcy** (M): dziś wiadomości zostają w skrzynce nadawczej usługi; pokazać wysyłkę do kontrolowanej skrzynki i ponowne potwierdzenie z linku z wiadomości.
 - [ ] **Testy na telefonie** (M): QR z wydrukowanej naklejki (ok. 4 cm), geolokalizacja i odmowa geolokalizacji, rejestr przy 320 px; VoiceOver na ścieżce dysponenta i panelu firmy; prawdziwy zoom 200%.
 - [ ] **Pilotaż spoza Warszawy** (L): wykaz potwierdzony przez dysponenta spoza Warszawy (dziś większość eksportu to API Warszawy, a cały rejestr z mappera jest `niepotwierdzony`); na slajdzie zasięg, data i udział rekordów zweryfikowanych.
-- [ ] Obejrzeć `docs/prezentacja/misja-aed.pptx` po renderze w PowerPoincie albo Keynote, slajd po slajdzie (generator nie renderuje).
+- [ ] Porównać liczby i nazwy w `prezentacja-html/index.html` ze stanem po wejściu standardu 0.3.0 (średnie kompletności z `datasets/out/raport.json`, wartość statusu `zweryfikowany`, nowe ekrany rejestru) i przebudować: `python3 prezentacja-html/build.py`.
 - [ ] Potwierdzić u organizatora godzinę i sposób oddania.
 
 ## Kampania – 25% oceny (zespół)
 
-- [ ] Wybrać nazwę i hasło akcji (kandydaci: `kampania/nazwa-i-haslo.md`); sprawdzić domenę i rejestry znaków. „Misja AED – Dane na ratunek” to nazwa zadania, nie akcji.
-- [ ] Narysować logo; eksport do `.svg`, `.png`, `.jpg`, `.pdf`; warianty kolorowy, monochromatyczny, negatyw (`kampania/brief-logo.md`).
+- [x] Nazwa i hasło akcji: **Opiekun AED** – „Dbasz o AED? Pokaż to w danych.” (sprawdzenie domeny i rejestrów znaków nadal otwarte, `kampania/nazwa-i-haslo.md`).
+- [x] Logo w `kampania/logo/` (`svg`, `png`, `jpg`, `pdf`; układ pełny i sygnet; kolor, mono, negatyw).
 - [ ] Zapisać znak jako `aed_service/naklejka-logo.svg` – usługa wstawi go na naklejkę QR.
-- [ ] Księga znaku w PDF na podstawie `kampania/ksiega-znaku-szablon.md`.
-- [ ] Wpisać nazwę, hasło i logo w `docs/prezentacja/slajdy.json` i przebudować prezentację; wstawić nazwę akcji i znak do interfejsu modułu AED i do tytułu w `docs/opis-projektu.md`.
+- [x] Księga znaku: `kampania/opiekun-aed-ksiega-znaku.pdf`.
+- [ ] Wstawić nazwę akcji i znak do interfejsu modułu AED oraz do tytułu w `docs/opis-projektu.md`.
 
 ## Decyzje
 
