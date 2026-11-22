@@ -430,7 +430,7 @@ def read_upload(req, exts=(".csv",), form=None):
 
 # ---------- converter (public, nothing stored) ----------
 
-CONVERTER_FILES = (".csv", ".geojson", ".json")
+CONVERTER_FILES = (".csv", ".xlsx", ".geojson", ".json")
 
 
 def converter_analyze(req, resp):

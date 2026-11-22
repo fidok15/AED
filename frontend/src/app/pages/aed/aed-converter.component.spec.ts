@@ -80,6 +80,16 @@ describe('AedConverterComponent', () => {
         problemy: [],
         problemy_razem: 0,
         poprawki: [],
+        normalizacje: [
+          {
+            kolumna: 'Dostęp',
+            pole: 'dostep',
+            liczba: 1,
+            z: 'Publiczny',
+            na: 'publiczny',
+            komunikat: 'Kolumna „Dostęp” (Dostęp): ujednolicono zapis 1 z 2 wartości, np. „Publiczny” → „publiczny”.',
+          },
+        ],
       },
     });
     fixture.detectChanges();
@@ -87,6 +97,7 @@ describe('AedConverterComponent', () => {
     expect(link.textContent).toContain('Pobierz wykaz w standardzie (CSV)');
     expect(link.getAttribute('download')).toBe('krosno-wykaz-aed.csv');
     expect(page.textContent).toContain('Wykaz AED: TAK');
+    expect(page.textContent).toContain('„Publiczny” → „publiczny”');
   });
 
   it('does not send a mapping with one field for two columns', () => {

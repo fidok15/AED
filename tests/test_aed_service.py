@@ -173,8 +173,16 @@ class ServiceTest(unittest.TestCase):
         mp = multipart(krosno, "krosno.csv", {"mapowanie": json.dumps({"Nazwa": "nazwa", "Lokalizacja": "nazwa"})})
         bad = c.simulate_post("/api/aed/konwerter/konwersja", headers=mp["headers"], body=mp["body"])
         self.assertEqual((bad.status_code, bad.json["blad"]["kod"]), (422, "zle_mapowanie"))
-        mp = multipart(b"x", "a.xlsx")
+        mp = multipart(b"x", "a.xls")
         self.assertEqual(c.simulate_post("/api/aed/konwerter/analiza", headers=mp["headers"], body=mp["body"]).status_code, 415)
+        # XLSX is accepted; a file that is not a zip is a readable Polish 422, not a crash.
+        mp = multipart(b"x", "a.xlsx")
+        bad = c.simulate_post("/api/aed/konwerter/analiza", headers=mp["headers"], body=mp["body"])
+        self.assertEqual((bad.status_code, bad.json["blad"]["kod"]), (422, "plik_nieczytelny"))
+        template = read_bytes(os.path.join(ROOT, "wzorzec", "wzorzec-aed.xlsx"))
+        mp = multipart(template, "wzorzec-aed.xlsx")
+        a = c.simulate_post("/api/aed/konwerter/analiza", headers=mp["headers"], body=mp["body"])
+        self.assertEqual((a.status_code, a.json["format"]), (200, "xlsx"), a.text)
 
     def test_sticker_text_fits_and_logo_placeholder(self):
         """Rule (rendering cannot be tested here): every text line needs chars * font-size * 0.75 <= width - 2 * 20,

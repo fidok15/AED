@@ -21,7 +21,7 @@ export interface AedConverterColumn {
 
 export interface AedConverterAnalysis {
   plik: string;
-  format: 'csv' | 'geojson';
+  format: 'csv' | 'xlsx' | 'geojson';
   kodowanie: string;
   separator: string | null;
   wiersze: number;
@@ -30,6 +30,16 @@ export interface AedConverterAnalysis {
   pola_stale: { pole: string; tytul: string; wartosci: string[] | null }[];
   uwagi: string[];
   ostrzezenia: string[];
+}
+
+/** One column whose values were rewritten to the standard's spelling (e.g. „Publiczny” → „publiczny”). */
+export interface AedConverterNormalization {
+  kolumna: string;
+  pole: string;
+  liczba: number;
+  z: string;
+  na: string;
+  komunikat: string;
 }
 
 export interface AedConverterResult {
@@ -45,6 +55,7 @@ export interface AedConverterResult {
     problemy: AedProblem[];
     problemy_razem: number;
     poprawki: string[];
+    normalizacje: AedConverterNormalization[];
   };
 }
 
@@ -85,6 +96,8 @@ export class AedConverterComponent implements OnInit {
   protected readonly targetTitle = (name: string) =>
     this.analysis()?.pola.find((field) => field.pole === name)?.tytul ?? name;
   protected readonly number = (value: number) => value.toLocaleString('pl-PL');
+  protected readonly formatName = (format: AedConverterAnalysis['format']) =>
+    ({ csv: 'CSV', xlsx: 'XLSX', geojson: 'GeoJSON' })[format];
 
   ngOnInit(): void {
     this.seo.setPageTitle(['Konwerter do standardu AED', 'Rejestr AED']);

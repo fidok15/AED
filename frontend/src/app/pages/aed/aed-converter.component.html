@@ -14,16 +14,16 @@
   <p class="aed-step">Krok 1 z 3</p>
   <h2 class="aed-h2" id="aed-conv-step1">Wgraj swój plik</h2>
   <div class="aed-field">
-    <label class="aed-field__label" for="aed-conv-plik">Plik z defibrylatorami (CSV albo GeoJSON)</label>
+    <label class="aed-field__label" for="aed-conv-plik">Plik z defibrylatorami (CSV, XLSX albo GeoJSON)</label>
     <p class="aed-field__hint" id="aed-conv-plik-hint">
       Dowolny układ kolumn. CSV w kodowaniu UTF-8 lub Windows-1250, z przecinkiem, średnikiem albo tabulatorem jako
-      separatorem. Najwyżej 5 MB.
+      separatorem. Z pliku XLSX czytamy pierwszy arkusz. Najwyżej 5 MB.
     </p>
     <input
       class="form-control"
       id="aed-conv-plik"
       type="file"
-      accept=".csv,.geojson,.json,text/csv,application/geo+json,application/json"
+      accept=".csv,.xlsx,.geojson,.json,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/geo+json,application/json"
       aria-describedby="aed-conv-plik-hint"
       #plik
       (change)="choose(plik)" />
@@ -44,10 +44,7 @@
       </div>
       <div>
         <dt>Format</dt>
-        <dd>
-          {{ analysis.format === 'geojson' ? 'GeoJSON' : 'CSV'
-          }}{{ analysis.separator ? ', ' + analysis.separator : '' }}
-        </dd>
+        <dd>{{ formatName(analysis.format) }}{{ analysis.separator ? ', ' + analysis.separator : '' }}</dd>
       </div>
       <div>
         <dt>Kodowanie</dt>
@@ -208,6 +205,15 @@
         Wiersze poprawne, ale poza zbiorem krajowym (np. urządzenia z dostępem prywatnym):
         {{ result.raport.poza_wykazem_krajowym }}.
       </p>
+    }
+    @if (result.raport.normalizacje.length) {
+      <h3 class="aed-h3">Ujednolicony zapis wartości</h3>
+      <p class="aed-field__hint">Zmieniliśmy tylko zapis, nie treść. Sprawdź przykłady, zanim opublikujesz wykaz.</p>
+      <ul>
+        @for (item of result.raport.normalizacje; track item.kolumna) {
+          <li>{{ item.komunikat }}</li>
+        }
+      </ul>
     }
     @if (result.raport.poprawki.length) {
       <details class="aed-details">

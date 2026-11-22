@@ -1,4 +1,4 @@
-"""Converter: a provider's own AED file (any column layout, CSV or GeoJSON) -> a list (wykaz) in the standard.
+"""Converter: a provider's own AED file (any column layout; CSV, XLSX or GeoJSON) -> a list (wykaz) in the standard.
 
 Two steps, both in memory (nothing is stored):
     analyze(data, filename)                       -> columns, sample rows, proposed mapping column -> target
@@ -7,17 +7,20 @@ Two steps, both in memory (nothing is stored):
 The mapping is turned into a registry entry like those in sources.json and run through the same generic
 mapper (sources.map_rows) and the same check as the portal (wykaz.read_wykaz). Pure Python 3.8.
 """
+import calendar
 import codecs
 import csv
+import datetime
 import json
 import re
 from collections import Counter
 
 from . import schema as S
+from . import xlsx
 from .build import publication_reasons, to_csv
 from .registry import REGISTRY_PATH, load_registry
-from .sources import map_rows, parse_csv, parse_geojson
-from .validate import EMAIL_RE, LAT, LON, WARNING, issue
+from .sources import _clean, map_rows, parse_csv, parse_geojson
+from .validate import EMAIL_RE, EXPIRY_DATES, LAT, LON, WARNING, issue
 from .wykaz import read_wykaz
 
 ADDRESS = "_adres"        # target: whole address in one column, split by sources.parse_address
@@ -48,6 +51,14 @@ ADDRESS_HINT_RE = re.compile(r"\d{2}-\d{3}\s+\S")
 FREE_MAIL = ("gmail.", "wp.pl", "o2.pl", "onet.", "interia.", "poczta.fm", "op.pl", "yahoo.", "outlook.", "hotmail.", "icloud.")
 PERSON_WORDS = ("imie", "nazwisko", "osoba", "kontakt", "opiekun")
 SAMPLES = 3
+XLSX_MAX_UNPACKED = 50 * 2 ** 20   # the upload is at most 5 MB; text XML packs ~10x
+# Spreadsheet spellings of yes/no, mapped to the schema's trueValues/falseValues.
+YES_WORDS = {"tak", "t", "1", "true", "prawda", "x", "yes", "y"}
+NO_WORDS = {"nie", "n", "0", "false", "falsz", "no"}
+YMD_RE = re.compile(r"^(\d{4})([./-])(\d{1,2})\2(\d{1,2})(?:[ T]00:00(?::00)?)?$")
+DMY_RE = re.compile(r"^(\d{1,2})([./-])(\d{1,2})\2(\d{4})$")
+YM_RE = re.compile(r"^(\d{4})[./-](\d{1,2})$")
+POSTCODE_LOOSE_RE = re.compile(r"^(\d{2})\s*-?\s*(\d{3})$")
 
 
 class ConverterError(ValueError):
@@ -114,12 +125,40 @@ def _point(value):
     return g if isinstance(g, dict) and g.get("type") == "Point" else None
 
 
+def _xlsx(data, notes):
+    """-> (csv_text, None, None) when every row is one CSV line in one cell (Marki), else (None, columns, rows)."""
+    try:
+        sheet, lines = xlsx.read_rows(data, XLSX_MAX_UNPACKED)
+    except xlsx.XlsxError as ex:
+        raise ConverterError(str(ex))
+    lines = [line for line in lines if any(v.strip() for v in line)]
+    if not lines:
+        raise ConverterError("Pierwszy arkusz pliku XLSX jest pusty.")
+    notes.append("Odczytano pierwszy arkusz pliku XLSX%s." % (" („%s”)" % sheet if sheet else ""))
+    if len(lines[0]) == 1 and any(sep in lines[0][0] for sep in ",;\t"):
+        notes.append("Każdy wiersz arkusza ma cały wiersz CSV w jednej komórce – odczytano go jako CSV.")
+        return "\n".join(line[0] if line else "" for line in lines), None, None
+    width = max(len(line) for line in lines)
+    header = [h.strip() for h in lines[0]] + [""] * (width - len(lines[0]))
+    keep = [i for i in range(width) if header[i] or any(i < len(line) and line[i].strip() for line in lines[1:])]
+    columns = [header[i] or "Kolumna %d" % (i + 1) for i in keep]
+    rows = [(n, {columns[k]: (line[i].strip() if i < len(line) else "") for k, i in enumerate(keep)})
+            for n, line in enumerate(lines[1:], start=1)]
+    return None, columns, rows
+
+
 def read_table(data, filename=""):
     """-> dict(format, kodowanie, separator, columns, rows=[(n, {col: value}, geometry)], notes)."""
     if not data.strip():
         raise ConverterError("Plik jest pusty.")
-    text, encoding = _decode(data)
     notes = []
+    if filename.lower().endswith(".xlsx") or data.startswith(b"PK\x03\x04"):
+        text, columns, rows = _xlsx(data, notes)
+        encoding = "nie dotyczy (XLSX)"
+        if text is None:
+            return _finish("xlsx", encoding, None, columns, [(n, row, None) for n, row in rows], notes)
+    else:
+        text, encoding = _decode(data)
     stripped = text.lstrip()
     if filename.lower().endswith((".geojson", ".json")) or stripped.startswith("{"):
         try:
@@ -140,7 +179,12 @@ def read_table(data, filename=""):
         except csv.Error as ex:
             raise ConverterError("Pliku nie da się odczytać jako CSV (%s)." % ex)
         rows = [(n, row, None) for n, row in rows]
-        fmt = "csv"
+        fmt = "xlsx" if filename.lower().endswith(".xlsx") else "csv"
+    return _finish(fmt, encoding, sep, columns, rows, notes)
+
+
+def _finish(fmt, encoding, sep, columns, rows, notes):
+    if fmt != "geojson":
         # A column holding GeoJSON points (Przemyśl CSV) becomes the row geometry.
         for col in columns:
             vals = [row.get(col) for _, row, _ in rows if row.get(col)]
@@ -265,6 +309,105 @@ def analyze(data, filename=""):
 
 # ---------- step 2: conversion ----------
 
+def _key(text):
+    return _norm(text).replace(" ", "")
+
+
+def _enum_value(field, value):
+    """Dictionary value by key or label from schema.json, ignoring case, Polish letters, spaces and underscores;
+    also when the first word is the key ("Ograniczony dostęp")."""
+    f = S.BY_NAME[field]
+    lookup = {}
+    for k in S.enum(field):
+        label = f.get("etykiety", {}).get(k, "")
+        for alias in (k, label, label.split("–")[0]):
+            if _key(alias):
+                lookup.setdefault(_key(alias), k)
+    words = _norm(value).split()
+    return lookup.get(_key(value)) or (lookup.get(words[0]) if words and words[0] in S.enum(field) else None) or value
+
+
+def _date_value(field, value):
+    """D.M.RRRR, D-M-RRRR, D/M/RRRR, RRRR/M/D -> RRRR-MM-DD; RRRR-MM -> last day of the month for expiry dates.
+    Ambiguous (3/4/2027: DD/MM or MM/DD) and impossible dates stay as they are, so the validator names them."""
+    m = YMD_RE.match(value)
+    if m:
+        y, mo, d = int(m.group(1)), int(m.group(3)), int(m.group(4))
+    else:
+        m = DMY_RE.match(value)
+        if m:
+            d, mo, y = int(m.group(1)), int(m.group(3)), int(m.group(4))
+            if m.group(2) == "/" and d <= 12 and mo <= 12 and d != mo:
+                return value
+        else:
+            m = YM_RE.match(value)
+            if not (m and field in EXPIRY_DATES and 1 <= int(m.group(2)) <= 12):
+                return value
+            y, mo = int(m.group(1)), int(m.group(2))
+            d = calendar.monthrange(y, mo)[1]
+    try:
+        return datetime.date(y, mo, d).isoformat()
+    except ValueError:
+        return value
+
+
+def normalize_value(field, value):
+    """One cell -> the spelling the standard expects; unchanged when there is no unambiguous one."""
+    value = _clean(value)
+    if re.match(r"^'[+\d]", value):   # leading apostrophe: a spreadsheet's "keep as text" marker
+        value = value[1:]
+    f = S.BY_NAME.get(field)
+    if not f or not value:
+        return value
+    t = f.get("type", "string")
+    if S.enum(field):
+        return _enum_value(field, value)
+    if t == "boolean":
+        word = _key(value)
+        return (f.get("trueValues") or [S.TRUE_VALUE])[0] if word in YES_WORDS else \
+            (f.get("falseValues") or [S.FALSE_VALUE])[0] if word in NO_WORDS else value
+    if t == "date":
+        return _date_value(field, value)
+    if t == "number":
+        number = re.sub(r"\s+", "", value).replace(",", ".")
+        try:
+            float(number)
+            return number
+        except ValueError:
+            return value
+    if field == "kod_pocztowy":
+        m = POSTCODE_LOOSE_RE.match(value)
+        return "%s-%s" % m.groups() if m else value
+    return value
+
+
+def _cell(value):
+    if isinstance(value, bool):   # GeoJSON properties may be true/false or numbers
+        return "true" if value else "false"
+    return "" if value is None else str(value)
+
+
+def normalize_rows(rows, mapping):
+    """Normalise mapped cells in place. -> [{kolumna, pole, liczba, z, na, komunikat}], one per changed column."""
+    out = []
+    for col, target in mapping.items():
+        if target not in S.BY_NAME:
+            continue
+        changed, first = 0, None
+        for _, row, _ in rows:
+            before = _cell(row.get(col))
+            after = normalize_value(target, before)
+            if after != _clean(before):
+                changed += 1
+                first = first or (before, after)
+            row[col] = after
+        if changed:
+            filled = sum(1 for _, row, _ in rows if row.get(col))
+            out.append({"kolumna": col, "pole": target, "liczba": changed, "z": first[0], "na": first[1],
+                        "komunikat": "Kolumna „%s” (%s): ujednolicono zapis %d z %d wartości, np. „%s” → „%s”."
+                                     % (col, TARGET_TITLES[target], changed, filled, first[0], first[1])})
+    return out
+
 def _entry(columns, mapping):
     """Mapping {column: target} -> registry entry for sources.map_rows."""
     unknown = [c for c in mapping if c not in columns]
@@ -303,6 +446,8 @@ def convert(data, filename, mapping, constants=None, today=None):
     bad = [k for k in constants if k not in CONSTANT_TARGETS]
     if bad:
         raise ConverterError("Wartości stałej nie można ustawić dla pól: %s." % ", ".join(bad))
+    constants = {k: normalize_value(k, v) for k, v in constants.items()}
+    normalized = normalize_rows(t["rows"], mapping)
     records, notes = map_rows(t["rows"], t["columns"], {"resource_id": "plik"}, entry, "")
     for rec in records:
         # System columns stay empty: the portal fills them from the dataset when it reads the list.
@@ -326,5 +471,6 @@ def convert(data, filename, mapping, constants=None, today=None):
         "problemy": rep["problemy"] + [issue(None, None, WARNING, "dane_osobowe", w) for w in warnings],
         "problemy_razem": rep["problemy_razem"] + len(warnings),
         "poprawki": t["notes"] + notes,
+        "normalizacje": normalized,
     }
     return text, report
