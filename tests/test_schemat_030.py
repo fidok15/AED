@@ -203,6 +203,18 @@ class ServiceTest(unittest.TestCase):
         # moving the point without saying how clears the old method
         r = self.c.simulate_post(dev + "/potwierdzenie", json=dict(base, stan="sprawny", szerokosc_geograficzna=52.391))
         self.assertEqual((r.json["rekord"]["sposob_ustalenia_polozenia"], r.json["stan_urzadzenia"]), ("", "gotowy"))
+        # a problem report on verified data: place edits are ignored, the floor stays, but "private" is always taken
+        r = self.c.simulate_post(dev + "/potwierdzenie", json={"t": t, "stan": "problem", "uwagi": "x",
+                                                               "szerokosc_geograficzna": 50.0, "godziny_dostepu": "Mo 08:00-09:00"})
+        rec = r.json["rekord"]
+        self.assertEqual((rec["szerokosc_geograficzna"], rec["godziny_dostepu"], rec["pietro"]), ("52.391", "24/7", "0"))
+        r = self.c.simulate_post(dev + "/potwierdzenie", json={"t": t, "stan": "problem", "uwagi": "przeniesiony do domu",
+                                                               "dostep": "prywatny"})
+        self.assertEqual(r.json["rekord"]["dostep"], "prywatny")
+        self.assertNotIn(item["id_aed"], self.c.simulate_get("/api/aed/eksport/dane-gov-pl.csv").text)
+        self.assertEqual(self.c.simulate_get("/api/aed/urzadzenia").json["razem"], 0)   # gone from the public list
+        r = self.c.simulate_post(dev + "/potwierdzenie", json=dict(base, stan="sprawny"))   # back for the checks below
+        self.assertEqual(r.json["rekord"]["dostep"], "publiczny")
         s = self.c.simulate_get("/api/aed/sprzedawcy").json["dane"][0]
         self.assertEqual(s["udzial_zweryfikowanych"], s["udzial_aktywnych"])
 

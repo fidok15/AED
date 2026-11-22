@@ -820,10 +820,12 @@ def apply_confirmation(db, id_aed, data, on=None):
     if stan == "problem" and rec.get("status") == VERIFIED:
         # A problem report on verified data changes the device condition only: edits sent with it would be shown
         # under the old verification date. To change place or access the manager confirms again ("sprawny").
-        fields = ()
+        # One edit is always taken: making the device private (CLAUDE.md rule 6) - it must leave the public data
+        # at once, whether or not the manager can certify the device as ready.
+        fields = ("dostep",) if given.get("dostep") == "prywatny" else ()
     moved = any(k in fields and k in data and to_float(given[k]) != to_float(rec.get(k)) for k in (LAT, LON))
     rec.update({k: v for k, v in given.items() if k in fields and k in data})
-    if rec.get("wewnatrz_budynku") == "nie":
+    if "wewnatrz_budynku" in fields and "wewnatrz_budynku" in data and rec.get("wewnatrz_budynku") == "nie":
         rec["pietro"] = ""   # a floor makes no sense outdoors; the form omits the field then
     if moved and POSITION_METHOD not in data:
         rec[POSITION_METHOD] = ""   # new coordinates without a method: the old method no longer describes them
