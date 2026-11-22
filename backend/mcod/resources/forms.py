@@ -15,6 +15,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile, SimpleUploadedF
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
+from mcod.aed import constants as aed_constants
 from mcod.datasets.models import Dataset
 from mcod.lib.field_validators import ContainsLetterValidator
 from mcod.lib.forms.mixins import HighValueDataFormValidatorMixin, UnEscapeWidgetMixin
@@ -273,6 +274,8 @@ class ResourceForm(forms.ModelForm, HighValueDataFormValidatorMixin):
             "Wskazanie TAK dla opublikowanego zasobu oznacza, że zasób jest wykazem defibrylatorów AED tej "
             "instytucji w strukturze standardu AED (CSV UTF-8, przecinek, nazwy kolumn ze standardu). Portal "
             "sprawdza plik przy zapisie i codziennie włącza wszystkie wykazy AED do Krajowego wykazu AED."
+            + (f' <a href="{aed_constants.LIST_HELP_URL}" target="_blank">Wzorzec i konwerter wykazu AED</a>'
+               if aed_constants.LIST_HELP_URL else "")
         ),
         widget=CheckboxSelect(attrs={"class": "inline"}),
     )
@@ -357,7 +360,6 @@ class ResourceForm(forms.ModelForm, HighValueDataFormValidatorMixin):
 
     def _validate_aed_list_file(self, data: dict, dataset: Optional[Dataset]) -> None:
         """AED list check with aed_standard (mcod/aed). XLSX is checked when lists are merged."""
-        from mcod.aed import constants as aed_constants
         from mcod.aed.aed_utils import REMOTE_DISABLED, list_size_error, validate_aed_list_file
 
         if not (data.get("contains_aed_list") and dataset):

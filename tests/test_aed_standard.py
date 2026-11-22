@@ -433,6 +433,7 @@ class AuditTest(unittest.TestCase):
         self.assertIn("status zgloszony – dysponent jeszcze nie potwierdził miejsca i dostępu",
                       A.build.publication_reasons(r))
         self.assertEqual(len(publication_export([self.published()])), 1)  # import record (niepotwierdzony) unchanged
+        self.assertEqual(publication_export([self.published(status="wycofany")]), [])  # same rule in every export
 
 
 class DateHintTest(unittest.TestCase):

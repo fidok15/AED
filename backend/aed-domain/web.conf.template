@@ -42,7 +42,7 @@ server {
     location ~ ^/media/resources/waiting/ {
         return 403;
     }
-    location ~ ^/media/(resources|images|showcases|academy|newsletter|lab_reports|datasets|dcat)/ {
+    location ~ ^/media/(resources|images|showcases|academy|newsletter|lab_reports|datasets|dcat|original_images|documents)/ {
         root /srv;
         # Editors upload these files (the portal accepts HTML and SVG): never let one run as a page of this origin.
         add_header Content-Security-Policy "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:" always;

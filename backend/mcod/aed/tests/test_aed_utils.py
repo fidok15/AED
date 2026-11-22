@@ -15,6 +15,7 @@ from mcod.aed.aed_utils import (
     get_all_aed_list_resources,
     main_aed_tabular_schema,
     update_or_create_aggr_aed_info_and_delete_old_main_aed,
+    validate_aed_list_file,
 )
 from mcod.aed.models import AggregatedAEDInfo
 from mcod.core.tests.helpers.tasks import run_on_commit_events
@@ -54,6 +55,33 @@ def test_build_main_aed_list_skips_bad_and_unreadable_lists():
     assert statuses == {good.pk: "przyjety", bad.pk: "odrzucony", gone.pk: "odrzucony"}
     assert report["rekordy_w_wykazie_krajowym"] == 2
     assert content.splitlines()[0].startswith("id_aed,nazwa,szerokosc_geograficzna,dlugosc_geograficzna")
+
+
+def test_identical_list_of_the_same_institution_is_not_merged_twice():
+    """Real Legionowo file (BOM, LF) published twice by Legionowo, the copy without BOM and with CRLF: counted once,
+    the copy is "powtorzony".
+    The same file from another institution and a list that only overlaps are merged as before."""
+    legionowo = (Path(__file__).parent / "data" / "legionowo_resource_2625221.csv").read_bytes()
+    assert legionowo.startswith(b"\xef\xbb\xbf") and b"\r" not in legionowo
+    copy = legionowo[3:].replace(b"\n", b"\r\n")
+    partial = legionowo.rsplit(b"\n", 2)[0] + b"\n"  # without the last row
+    dataset = DatasetFactory.create(organization=OrganizationFactory.create())
+    first, second, overlap = (ResourceFactory.create(contains_aed_list=True, status="published", dataset=dataset)
+                              for _ in range(3))
+    other = ResourceFactory.create(contains_aed_list=True, status="published")
+    answers = {first.pk: legionowo, second.pk: copy, overlap.pk: partial, other.pk: legionowo}
+
+    with patch("mcod.aed.aed_utils.read_resource_bytes", side_effect=lambda r: (answers[r.pk], None)):
+        _, report = build_main_aed_list(get_all_aed_list_resources())
+        _, alone = build_main_aed_list([first])
+
+    entries = {w["zasob"]: w for w in report["wykazy"]}
+    assert entries[second.pk]["status"] == "powtorzony" and entries[second.pk]["powtorzenie_zasobu"] == first.pk
+    assert entries[first.pk]["status"] == entries[overlap.pk]["status"] == entries[other.pk]["status"] == "przyjety"
+    assert report["wykazy_powtorzone"] == 1 and report["wykazy_razem"] == 4
+    rows = alone["rekordy_z_wykazow"]
+    assert rows == 24 and report["rekordy_z_wykazow"] == rows + (rows - 1) + rows
+    assert second.pk not in {u["zasob_id"] for u in report["wykorzystane_zasoby"]}
 
 
 def test_create_main_aed_resource_with_dataset(aed_owner, tmp_path):
@@ -138,3 +166,10 @@ def test_admin_form_rejects_bad_aed_list_with_polish_messages():
     form._validate_aed_list_file(form.cleaned_data, dataset)
     messages = form.errors["contains_aed_list"]
     assert any("nie występuje w standardzie" in m for m in messages), messages
+
+
+def test_form_messages_point_to_the_converter():
+    resource = ResourceFactory.create(status="published")
+    with patch("mcod.aed.constants.LIST_HELP_URL", "https://example.org/pl/aed/!konwerter"):
+        messages = validate_aed_list_file(BAD_LIST, resource, resource.dataset)
+    assert messages[-1] == "Plik można przekształcić do standardu AED w konwerterze: https://example.org/pl/aed/!konwerter"

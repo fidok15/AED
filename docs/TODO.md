@@ -1,6 +1,6 @@
 # Do zrobienia
 
-Stan na 22.11.2026, 04:45, `main` = PR #31. Testy: usługa 130 przechodzi (Python 3.13), frontend AED 59, linter i build OK; portal w kontenerze: 26 testów AED + 3 widoków (regresja DGA 137 – ostatni pełny przebieg przed dwiema zmianami w `mcod/aed`). Zbiór krajowy: 18 814 rekordów, eksport 781, 195 par do przeglądu.
+Stan na 22.11.2026, 05:35, `main` = PR #34. Testy: usługa 143 przechodzą (Python 3.13; jeden test sieciowy pomijany bez sieci), frontend AED 60, linter i build OK; portal w kontenerze: 28 testów AED, 4 widoków, regresja DGA/panelu/Celery 137 – wszystkie po ostatniej zmianie. Zbiór krajowy z mappera: 18 814 rekordów, eksport 781, 195 par do przeglądu; wykaz krajowy w lokalnym portalu: 782 (781 + urządzenie demonstracyjne `AED-PRIFSO7R4SNZ`).
 
 Co działa i ma dowód:
 
@@ -26,23 +26,23 @@ Zrobione po uwagach właściciela z 22.11 ok. 04:20 (PR #30–#31):
 
 Nieobejrzane na ekranie po zmianach (tylko testy komponentów): panel firmy i panel ministerstwa na wąskim ekranie, tabela mapowania konwertera przy 320 px.
 
-W toku (agent z Dockerem): stały adres zasobu zbiorczego, wykrywanie ponownie wgranego wykazu, test Celery Beat, jeden rekord od naklejki do wykazu krajowego, mapa w buildzie produkcyjnym w pełnym forku, kontrola publikacji plików, przegląd panelu administratora w przeglądarce.
+Zrobione 22.11 ok. 05:30 (PR #32–#34): geokodowanie adresów i kody TERYT przez państwową usługę GUGiK (opcja na żądanie); stały adres wykazu krajowego (`/aed-aggregated/resource`, `/aed-aggregated/file`); wykaz o identycznej treści w tej samej instytucji oznaczany jako „powtórzony"; harmonogram scalania potwierdzony uruchomieniem przez Celery Beat (pora w UTC: 03:45 UTC = 04:45 czasu polskiego zimą); jeden rekord od naklejki QR do wykazu krajowego w portalu; mapa w buildzie produkcyjnym frontendu; przegląd panelu administratora w przeglądarce na kontach jury i admina (poprawione: TAK i NIE dawały się zaznaczyć naraz; odnośnik do konwertera przy odrzuceniu); ósmy przegląd kodu Codexem (7 znalezisk, poprawione); ocena struktury danych (`docs/ewaluacja-codex/struktura-danych.md`).
 
 Otwarte po przeglądzie formatów:
 
-- [ ] Geokodowanie wierszy z samym adresem danymi państwowymi (PRG/TERYT) – opisane w `docs/formaty-zbiorow-aed.md`, niezaimplementowane; dziś takie wiersze (np. lista Krakowa) nie wchodzą do wykazu.
+- [x] Geokodowanie wierszy z samym adresem danymi państwowymi (PRG/TERYT) – opisane w `docs/formaty-zbiorow-aed.md`, niezaimplementowane; dziś takie wiersze (np. lista Krakowa) nie wchodzą do wykazu.
 - [ ] Portale otwartych danych Gdańska, Wrocławia, Poznania i Lublina nie odpowiedziały na zapytania – sprawdzić ręcznie, czy publikują AED.
 - [ ] Zbiory Koszalina i Krakowa nie mają podanej licencji – przed dodaniem do źródeł potrzebna zgoda albo licencja.
 
 
 - [x] **Widok publikacyjny w XLSX** (S): w `wzorzec-aed.xlsx` arkusz z polami dopuszczonymi do udostępnienia (bez kontaktu dysponenta i numeru seryjnego) i przykładowym wierszem; generator `scripts/build_template.py`.
-- [ ] **Jeden identyfikator od QR do portalu** (M): zgłoszenie → naklejka → potwierdzenie → eksport usługi → wykaz ministerstwa w forku → scalanie → ten sam `id_aed` w zasobie zbiorczym; zapis kroków i zrzut.
-- [ ] **Stały adres zasobu zbiorczego** (M): ponowne scalanie dziś tworzy nowy zasób, stary zwraca 404; zachować identyfikator zasobu albo stały adres do bieżącego wyniku; test po dwóch scaleniach.
-- [ ] **Ponowne wgranie identycznego wykazu zawyża wynik** (M): ten sam plik Legionowa jako drugi zasób dał 805 zamiast 781; wykrywać duplikat wykazu tego samego dostawcy po skrócie znormalizowanej treści (urządzenia z jednego budynku zostają osobno).
-- [ ] **Test Celery Beat** (S): w środowisku testowym ustawić porę scalania na najbliższą minutę, zachować log Beat, wykonanie przez worker i odczyt zaktualizowanego zasobu.
+- [x] **Jeden identyfikator od QR do portalu** (M): zgłoszenie → naklejka → potwierdzenie → eksport usługi → wykaz ministerstwa w forku → scalanie → ten sam `id_aed` w zasobie zbiorczym; zapis kroków i zrzut.
+- [x] **Stały adres zasobu zbiorczego** (M): ponowne scalanie dziś tworzy nowy zasób, stary zwraca 404; zachować identyfikator zasobu albo stały adres do bieżącego wyniku; test po dwóch scaleniach.
+- [x] **Ponowne wgranie identycznego wykazu zawyża wynik** (M): ten sam plik Legionowa jako drugi zasób dał 805 zamiast 781; wykrywać duplikat wykazu tego samego dostawcy po skrócie znormalizowanej treści (urządzenia z jednego budynku zostają osobno).
+- [x] **Test Celery Beat** (S): w środowisku testowym ustawić porę scalania na najbliższą minutę, zachować log Beat, wykonanie przez worker i odczyt zaktualizowanego zasobu.
 - [ ] **Pliki robocze zasobów serwowane z dysku** (M): Caddy podaje `/media/resources/` bez sprawdzenia stanu publikacji; przywrócić kontrolę (`X-Accel-Redirect` jak w nginx portalu) i sprawdzić anonimowy odczyt zasobu opublikowanego i roboczego. Do tego czasu nie wgrywać na serwer niczego, co nie ma być jawne.
 - [x] Uwagi UI A6–A8 (S–M): tabele błędów, duplikatów i mapowania na wąskich ekranach.
-- [ ] Mapa w buildzie produkcyjnym frontendu (`build:aed`) w pełnym forku – sprawdzono tylko `ng serve --no-prebundle` (S).
+- [x] Mapa w buildzie produkcyjnym frontendu (`build:aed`) w pełnym forku – sprawdzono tylko `ng serve --no-prebundle` (S).
 
 ## Dla człowieka
 
@@ -62,6 +62,11 @@ Otwarte po przeglądzie formatów:
 - [ ] Wpisać nazwę, hasło i logo w `docs/prezentacja/slajdy.json` i przebudować prezentację; wstawić nazwę akcji i znak do interfejsu modułu AED i do tytułu w `docs/opis-projektu.md`.
 
 ## Decyzje
+
+- [ ] **Struktura danych** (ocena własna i Codexa, zgodne): osobne pole stanu urządzenia (dziś `status` miesza weryfikację danych z gotowością urządzenia), piętro, sposób ustalenia położenia, terminy baterii i elektrod także jako `RRRR-MM`, `kompletnosc` liczona tylko z pól publikowanych, `kod_terc` 7 cyfr (usługa GUGiK zwraca 6), lista dozwolonych pól zamiast zakazanych. To zmiana standardu – czeka na zgodę. Na slajd „co dalej": osobne identyfikatory egzemplarza, punktu i instalacji; historia zmian w rejestrze.
+- [ ] Ten sam wykaz opublikowany przez DWIE różne instytucje nadal liczy się podwójnie (powtórzenie wykrywane jest w obrębie jednej instytucji).
+- [ ] Pliki robocze zasobów: host `api.` podaje cały katalog plików także w oryginalnym portalu; pełne zamknięcie wymaga odejścia od konfiguracji ministerstwa.
+- [ ] Geokodowanie: przyjmować dopasowanie przy innym kodzie pocztowym (dziś tak, z adnotacją)? Podstawa prawna użycia danych adresowych PRG – do potwierdzenia przez prawnika.
 
 - [ ] „Zweryfikowany" zmieniono jako słowo dla ludzi; w danych (kolumna `status` w CSV, API, baza, kod portalu) zostaje wartość `aktywny`. Czy zmienić także wartość w danych? To migracja danych i kontraktu z portalem.
 - [ ] Bez wybranego statusu lista rejestru pokazuje także rekordy `wycofany`, a mapa nie – ujednolicić?
