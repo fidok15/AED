@@ -23,7 +23,8 @@ from . import schema as S
 from . import formaty, uklady, xlsx
 from .build import HIDDEN_PUBLIC, publication_reasons, to_csv
 from .registry import REGISTRY_PATH, load_registry
-from .sources import ODBL, OSM, _clean, map_rows, parse_csv
+from .geokod import SOURCE_NOTE as GEOCODED_NOTE
+from .sources import ODBL, OSM, STREET_TYPES, _clean, map_rows, parse_csv
 from .validate import EMAIL_RE, EXPIRY_DATES, LAT, LON, WARNING, issue
 from .wykaz import read_wykaz
 
@@ -72,6 +73,10 @@ YMD_RE = re.compile(r"^(\d{4})([./-])(\d{1,2})\2(\d{1,2})(?:[ T]00:00(?::00)?)?$
 DMY_RE = re.compile(r"^(\d{1,2})([./-])(\d{1,2})\2(\d{4})$")
 YM_RE = re.compile(r"^(\d{4})[./-](\d{1,2})$")
 POSTCODE_LOOSE_RE = re.compile(r"^(\d{2})\s*-?\s*(\d{3})$")
+# Address without a postcode ("ul. Bosacka 18", "Mikołów, Gliwicka 3"), which sources.parse_address does not take.
+STREET_ONLY_RE = re.compile(r"^(?:(?P<miasto>[^,\d]+),\s*)?(?:(?P<cecha>ul|al|pl|os)\.+\s*)?(?P<ulica>[^,]*?[^\W\d][^,]*?)"
+                            r"\s+(?P<nr>\d+[A-Za-z]?(?:/\d+[A-Za-z]?)?)$", re.IGNORECASE)
+LISTED = 100   # rows named in the geocoding report
 
 
 class ConverterError(ValueError):
@@ -604,6 +609,65 @@ def _entry(columns, mapping):
     return entry
 
 
+def _street_only(rows, records, col, notes):
+    """Fill street, number (and town) from an address column without a postcode, where parse_address found nothing."""
+    done = 0
+    for (_, row, _), rec in zip(rows, records):
+        m = STREET_ONLY_RE.match(_clean(_cell(row.get(col))))
+        if m and not (rec["nazwa_ulicy"] or rec["nr_budynku"]):
+            rec.update(cecha_ulicy=rec["cecha_ulicy"] or STREET_TYPES.get((m.group("cecha") or "").lower(), ""),
+                       nazwa_ulicy=m.group("ulica").strip(), nr_budynku=m.group("nr"),
+                       miejscowosc=rec["miejscowosc"] or (m.group("miasto") or "").strip())
+            done += 1
+    if done:
+        notes.append("Kolumna „%s”: w %d wierszach adres bez kodu pocztowego rozdzielono na ulicę i numer." % (col, done))
+
+
+def _geocode(records, geocoder):
+    """Rows without a position but with an address -> address point of the building (GUGiK); rows lacking TERYT codes
+    -> codes of the address point (the geocoded one, or the nearest within 100 m in the same town). -> report part."""
+    filled, failed, coded = [], [], 0
+    for n, r in enumerate(records, start=1):
+        if r[LAT] and r[LON] or not any(r[f] for f in ("nazwa_ulicy", "nr_budynku", "kod_pocztowy")):
+            continue
+        street = r["nazwa_ulicy"]
+        if street and r["cecha_ulicy"] not in ("", "ulica") and not _key(street).startswith(_key(r["cecha_ulicy"])):
+            street = "%s %s" % (r["cecha_ulicy"], street)   # PRG names keep "Aleja", "Plac", "Osiedle"
+        res, why = geocoder.address(r["miejscowosc"], street, r["nr_budynku"], r["kod_pocztowy"])
+        if not res:
+            failed.append({"wiersz": n, "nazwa": r["nazwa"], "powod": why})
+            continue
+        r[LAT], r[LON] = repr(res["lat"]), repr(res["lon"])
+        r["opis_lokalizacji"] = r["opis_lokalizacji"] or GEOCODED_NOTE
+        coded += _codes(r, res)
+        filled.append({"wiersz": n, "nazwa": r["nazwa"], "adres": res["adres"], "szerokosc": res["lat"],
+                       "dlugosc": res["lon"], "uwaga": res.get("uwaga", "")})
+    geocoded = {f["wiersz"] for f in filled}
+    for n, r in enumerate(records, start=1):
+        if n not in geocoded and r[LAT] and r[LON] and not (r["kod_terc"] and r["kod_simc"]) and r["miejscowosc"]:
+            res, _ = geocoder.codes(r[LAT], r[LON])
+            if res and _key(res["miejscowosc"]) == _key(r["miejscowosc"]):   # a point near a town border: skip
+                coded += _codes(r, res)
+    return {
+        "zrodlo": "GUGiK – Usługa Uniwersalnego Geokodowania (punkty adresowe PRG), services.gugik.gov.pl/uug",
+        "uzupelnione": len(filled), "nieuzupelnione": len(failed), "kody_uzupelnione": coded,
+        "zapytania": geocoder.calls,
+        "wiersze_uzupelnione": filled[:LISTED], "wiersze_nieuzupelnione": failed[:LISTED],
+        "komunikat": ("Adresy z pliku wysłano do usługi GUGiK. Położenie uzupełniono w %d wierszach, w %d nie. "
+                      "Uzupełnione położenie to punkt adresowy budynku, nie miejsce montażu urządzenia – zapisaliśmy to "
+                      "w kolumnie opis_lokalizacji tam, gdzie była pusta. Sprawdź je na miejscu (naklejka QR). "
+                      "Kody TERC/SIMC uzupełniono w %d wierszach." % (len(filled), len(failed), coded)),
+    }
+
+
+def _codes(r, res):
+    """Fill empty kod_terc / kod_simc from a geocoding result. -> 1 when anything was filled."""
+    before = (r["kod_terc"], r["kod_simc"])
+    r["kod_terc"] = r["kod_terc"] or res["teryt"]
+    r["kod_simc"] = r["kod_simc"] or res["simc"]
+    return int((r["kod_terc"], r["kod_simc"]) != before)
+
+
 def _osm_rows(columns, rows):
     """Numbers of rows whose own source or licence column says OpenStreetMap / ODbL (a list exported from OSM)."""
     marks = {_key(S.BY_NAME[f]["name"]): f for f in ("zrodlo", "licencja")}
@@ -616,8 +680,9 @@ def _osm_rows(columns, rows):
     return {n for n, row, _ in rows if any(marked(_cell(row.get(c))) for c in cols)}
 
 
-def convert(data, filename, mapping, constants=None, today=None):
-    """-> (csv_text, report). mapping: {column: target or ""}; constants: {field: value} filled into empty cells."""
+def convert(data, filename, mapping, constants=None, today=None, geocoder=None):
+    """-> (csv_text, report). mapping: {column: target or ""}; constants: {field: value} filled into empty cells;
+    geocoder: geokod.Geocoder to fill positions and TERYT codes from the state service (only on the user's request)."""
     t = read_table(data, filename)
     entry = _entry(t["columns"], mapping)
     constants = {k: str(v).strip() for k, v in (constants or {}).items() if str(v).strip()}
@@ -644,6 +709,9 @@ def convert(data, filename, mapping, constants=None, today=None):
             rec[k] = rec[k] or v
         # The file is meant for dane.gov.pl: the same columns stay empty as in every public export.
         rec.update({f: "" for f in HIDDEN_PUBLIC})
+    if "address_text" in entry:
+        _street_only(t["rows"], records, entry["address_text"], notes)
+    geo = _geocode(records, geocoder) if geocoder else None
     text = to_csv(records)
     # Address without a position: the row stays in the file to be completed, but the list check rejects it.
     no_position = sum(1 for r in records if not (r[LAT] and r[LON])
@@ -668,6 +736,7 @@ def convert(data, filename, mapping, constants=None, today=None):
                                         "uzupełnisz położenia. Pobrany plik zawiera je z pustymi kolumnami "
                                         "szerokosc_geograficzna i dlugosc_geograficzna do uzupełnienia (np. odczytem "
                                         "z mapy albo telefonu przy urządzeniu)." % no_position) if no_position else "",
+        "geokodowanie": geo,
         "ukryte_pola": hidden,
         "ukryte_komunikat": ("Kolumny %s są w pobranym pliku puste: kontakt i numer seryjny nie trafiają do pliku "
                              "publicznego. Przekaż je ministerstwu kanałem rejestru (konto firmy albo potwierdzenie "

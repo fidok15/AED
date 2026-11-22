@@ -170,6 +170,15 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual((r.json["raport"]["status"], r.json["nazwa_pliku"]), ("przyjety", "krosno-wykaz-aed.csv"))
         self.assertEqual(next(csv.reader(io.StringIO(r.json["plik_csv"]))), aed_standard.field_names())
         self.assertEqual(self.db.execute("SELECT COUNT(*) FROM devices").fetchone()[0], before)
+        self.assertIsNone(r.json["raport"]["geokodowanie"])   # geocoding only on request
+        self.assertTrue(a.json["geokodowanie_dostepne"])
+        os.environ["AED_GEOKODOWANIE"] = "0"   # server switch: no address leaves the server
+        try:
+            mp = multipart(krosno, "krosno.csv", {"mapowanie": json.dumps(mapping), "geokodowanie": "1"})
+            r = c.simulate_post("/api/aed/konwerter/konwersja", headers=mp["headers"], body=mp["body"])
+            self.assertTrue(r.json["raport"]["geokodowanie"]["wylaczone"])
+        finally:
+            del os.environ["AED_GEOKODOWANIE"]
         mp = multipart(krosno, "krosno.csv", {"mapowanie": json.dumps({"Nazwa": "nazwa", "Lokalizacja": "nazwa"})})
         bad = c.simulate_post("/api/aed/konwerter/konwersja", headers=mp["headers"], body=mp["body"])
         self.assertEqual((bad.status_code, bad.json["blad"]["kod"]), (422, "zle_mapowanie"))

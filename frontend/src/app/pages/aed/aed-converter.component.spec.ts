@@ -68,6 +68,8 @@ describe('AedConverterComponent', () => {
     const body = request.request.body as FormData;
     expect(JSON.parse(body.get('mapowanie') as string)).toEqual({ Nazwa: '', Lokalizacja: 'nazwa', Adres: '_adres' });
     expect(JSON.parse(body.get('stale') as string)).toEqual({ dostep: 'publiczny' });
+    expect(body.get('geokodowanie')).toBeNull();
+    expect(page.querySelector('#aed-conv-geo-note')).toBeNull(); // the server did not offer geocoding
     request.flush({
       nazwa_pliku: 'krosno-wykaz-aed.csv',
       plik_csv: 'nazwa\nBasen\n',
@@ -106,6 +108,54 @@ describe('AedConverterComponent', () => {
     expect(page.textContent).toContain('Wykaz AED: TAK');
     expect(page.textContent).toContain('„Publiczny” → „publiczny”');
     expect(page.textContent).toContain('nie trafiają do pliku publicznego');
+  });
+
+  it('sends addresses to GUGiK only when the user ticks the box, and lists the filled rows', () => {
+    const input = page.querySelector<HTMLInputElement>('#aed-conv-plik');
+    Object.defineProperty(input, 'files', { value: [new File(['a\n1\n'], 'krakow.docx')] });
+    input.dispatchEvent(new Event('change'));
+    http.expectOne('/api/aed/konwerter/analiza').flush({ ...analysis, geokodowanie_dostepne: true });
+    fixture.detectChanges();
+    const box = page.querySelector<HTMLInputElement>('input[aria-describedby="aed-conv-geo-note"]');
+    expect(box.checked).toBe(false);
+    expect(page.querySelector('#aed-conv-geo-note').textContent).toContain('GUGiK');
+    box.click();
+    page.querySelector<HTMLButtonElement>('button.btn-primary').click();
+    const request = http.expectOne('/api/aed/konwerter/konwersja');
+    expect((request.request.body as FormData).get('geokodowanie')).toBe('1');
+    request.flush({
+      nazwa_pliku: 'krakow-wykaz-aed.csv',
+      plik_csv: 'nazwa\n',
+      raport: {
+        status: 'czesciowo',
+        wiersze: 2,
+        poprawne: 1,
+        odrzucone: 1,
+        poza_wykazem_krajowym: 0,
+        kompletnosc_srednia: 30,
+        problemy: [],
+        problemy_razem: 0,
+        poprawki: [],
+        normalizacje: [],
+        ukryte_pola: [],
+        ukryte_komunikat: '',
+        bez_wspolrzednych: 1,
+        bez_wspolrzednych_komunikat: '',
+        geokodowanie: {
+          komunikat: 'Adresy z pliku wysłano do usługi GUGiK.',
+          uzupelnione: 1,
+          nieuzupelnione: 1,
+          wiersze_uzupelnione: [
+            { wiersz: 1, nazwa: 'Dworzec', adres: 'Kraków, Bosacka 18', szerokosc: 50.07, dlugosc: 19.95, uwaga: '' },
+          ],
+          wiersze_nieuzupelnione: [{ wiersz: 2, nazwa: 'Urząd', powod: 'usługa nie znalazła punktu adresowego' }],
+        },
+      },
+    });
+    fixture.detectChanges();
+    expect(page.textContent).toContain('wysłano do usługi GUGiK');
+    expect(page.textContent).toContain('punkt adresowy Kraków, Bosacka 18');
+    expect(page.textContent).toContain('Wiersz 2 (Urząd): usługa nie znalazła punktu adresowego');
   });
 
   it('drops the answer for a file replaced before the analysis came back', () => {
