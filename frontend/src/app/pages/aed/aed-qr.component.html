@@ -1,8 +1,18 @@
 <div class="aed-qr">
   @if (loadError()) {
-    <h1 class="aed-qr__title">Nie znaleźliśmy tego urządzenia</h1>
-    <p class="aed-message aed-message--error" role="alert">{{ loadError() }}</p>
-    <p>Sprawdź, czy adres z naklejki jest wpisany w całości, albo zeskanuj kod jeszcze raz.</p>
+    @if (badLink()) {
+      <h1 class="aed-qr__title">Ten link nie działa</h1>
+      <p class="aed-message aed-message--error" role="alert">{{ loadError() }}</p>
+      <p>
+        Każdy link dla dysponenta jest ważny 90 dni. Użyj najnowszego linku z wiadomości e-mail albo poczekaj na kolejną
+        prośbę o potwierdzenie danych.
+      </p>
+      <p><a [href]="publicPage()">Zobacz publiczną stronę urządzenia</a></p>
+    } @else {
+      <h1 class="aed-qr__title">Nie znaleźliśmy tego urządzenia</h1>
+      <p class="aed-message aed-message--error" role="alert">{{ loadError() }}</p>
+      <p>Sprawdź, czy adres z naklejki jest wpisany w całości, albo zeskanuj kod jeszcze raz.</p>
+    }
   }
 
   @if (record(); as record) {
@@ -62,6 +72,12 @@
     } @else if (t()) {
       <h1 class="aed-qr__title">Potwierdź dane defibrylatora</h1>
       <p class="aed-qr__lede">Trzy kroki, około minuty. Najlepiej zrób to, stojąc przy urządzeniu.</p>
+      @if (takeover()) {
+        <p class="aed-message aed-message--warn">
+          Ten punkt znaleźliśmy w otwartej mapie (OpenStreetMap). Nie przepisujemy z niej danych: podaj nazwę miejsca,
+          położenie, adres, dostęp i godziny sam. Od potwierdzenia dane w rejestrze pochodzą od Ciebie.
+        </p>
+      }
 
       <form [formGroup]="form" appScrollToFirstError novalidate (ngSubmit)="confirm()">
         <!-- Battery and electrodes: at the top when a date is close or past (the manager came from a reminder). -->
@@ -127,6 +143,20 @@
           }
           <p class="aed-note">Nie podawaj danych osób ani kodów do szafek. Te informacje będą publiczne.</p>
         </section>
+
+        @if (takeover()) {
+          <section class="aed-card" aria-labelledby="aed-step-owner">
+            <p class="aed-step">Nieobowiązkowe, ale potrzebne do przypomnień</p>
+            <h2 class="aed-card__title" id="aed-step-owner">Kontakt do dysponenta</h2>
+            <p>
+              Na ten adres wyślemy prośby o potwierdzenie i przypomnienia o terminach baterii oraz elektrod. Podaj
+              kontakt instytucji, nie osoby prywatnej. Kontakt nie trafia do zbioru otwartego.
+            </p>
+            @for (field of ownerFields; track field.name) {
+              <app-aed-field [field]="field" [control]="owner.controls[field.name]" />
+            }
+          </section>
+        }
 
         <section class="aed-card" aria-labelledby="aed-step-2">
           <p class="aed-step">Krok 2 z 3</p>

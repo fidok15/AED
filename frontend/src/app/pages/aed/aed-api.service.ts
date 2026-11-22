@@ -4,7 +4,7 @@ import { Router, UrlTree } from '@angular/router';
 import { LocalizeRouterService } from '@gilsdav/ngx-translate-router';
 import { map, Observable, tap } from 'rxjs';
 
-import { AedValue } from './aed-schema';
+import { aedField, AedValue } from './aed-schema';
 
 // Client of the AED service. Paths, field names and JSON shapes follow docs/api-aed.md one to one.
 
@@ -106,6 +106,14 @@ export interface AedMessage {
   data: string;
 }
 
+/** Answer of POST /urzadzenia/{id_aed}/link-aktywacyjny. */
+export interface AedInvitation {
+  id_aed: string;
+  link_aktywacyjny: string;
+  waznosc_dni: number;
+  wyslano_na: string | null;
+}
+
 export interface AedRemindersRun {
   nieaktualne: number;
   prosby_o_potwierdzenie: number;
@@ -117,6 +125,8 @@ export interface AedMapperRun {
   zmieniono: number;
   polaczono: number;
   do_przegladu: number;
+  /** Imported records withdrawn because they are gone from the sources. */
+  wycofano: number;
 }
 
 /** One run of the cyclic jobs (GET /zadania): by the schedule or started from the ministry panel. */
@@ -178,13 +188,19 @@ export interface AedSignal {
 
 /**
  * Message from the error body `{"blad": {"kod", "komunikat", "problemy"}}` (problems come with HTTP 422),
- * with a fallback for network failures.
+ * with a fallback for network failures. `keep` narrows the listed problems further.
  */
-export function aedErrorMessage(error: HttpErrorResponse): string {
+export function aedErrorMessage(error: HttpErrorResponse, keep: (problem: AedProblem) => boolean = () => true): string {
   const blad = error?.error?.blad;
   if (!blad) return 'Nie udało się połączyć z rejestrem. Spróbuj ponownie za chwilę.';
-  const problems: AedProblem[] = blad.problemy ?? [];
-  return [blad.komunikat, ...problems.map((problem) => `${problem.pole}: ${problem.komunikat}`)].join(' ');
+  // Warnings never block a request; listing them in an error message only hides the real errors.
+  const problems: AedProblem[] = (blad.problemy ?? []).filter(
+    (problem: AedProblem) => problem.poziom === 'blad' && keep(problem),
+  );
+  return [
+    blad.komunikat,
+    ...problems.map((problem) => `${aedField(problem.pole)?.title ?? problem.pole}: ${problem.komunikat}`),
+  ].join(' ');
 }
 
 /**
@@ -302,6 +318,9 @@ export class AedApiService {
 
   /** GET /eksport/dane-gov-pl.csv: public, so a plain link is enough. */
   readonly exportUrl = `${API}/eksport/dane-gov-pl.csv`;
+  /** GET /eksport/dane-gov-pl.xml and .md5: the XML feed for the portal harvester and its checksum. */
+  readonly feedUrl = `${API}/eksport/dane-gov-pl.xml`;
+  readonly feedMd5Url = `${API}/eksport/dane-gov-pl.md5`;
 
   // GET /duplikaty
   duplicates(): Observable<{ dane: AedDuplicate[]; razem: number }> {
@@ -311,6 +330,15 @@ export class AedApiService {
   // POST /duplikaty/{id}: `polacz` keeps record A and withdraws record B
   decideDuplicate(id: number, decyzja: 'polacz' | 'rozdziel'): Observable<unknown> {
     return this.http.post(`${API}/duplikaty/${id}`, { decyzja }, this.auth());
+  }
+
+  // POST /urzadzenia/{id_aed}/link-aktywacyjny: a manager link for a record already in the registry
+  inviteManager(id: string, email?: string): Observable<AedInvitation> {
+    return this.http.post<AedInvitation>(
+      `${API}/urzadzenia/${encodeURIComponent(id)}/link-aktywacyjny`,
+      email ? { email } : {},
+      this.auth(),
+    );
   }
 
   // GET /wiadomosci
