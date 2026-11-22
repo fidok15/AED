@@ -17,6 +17,14 @@ from .validate import LAT, LON
 OSM = "openstreetmap"
 ODBL = "ODbL 1.0"
 WARSAW = "um.warszawa.pl"
+OSM_ROW_MESSAGE = ("Wiersz pochodzi z OpenStreetMap (licencja ODbL 1.0), a takich danych nie łączymy z danymi "
+                   "otwieranymi przez ministerstwo. Usuń wiersz albo podaj dane z własnej ewidencji.")
+
+
+def from_osm(values):
+    """A row that itself says it comes from OpenStreetMap / ODbL (CLAUDE.md, rule 3). A link to an OSM node in
+    powiazane_zrodla is allowed; OSM values are not. One rule for provider lists and company submissions."""
+    return (values.get("zrodlo") or "").strip().casefold() == OSM or (values.get("licencja") or "").strip() == ODBL
 # Sources are compared on the coordinates, so only these keys need "_" meta fields:
 # "_ref_warszawa" = Warsaw defibrillator_id that an OSM node points to (tag ref:api-um-warszawa-pl).
 

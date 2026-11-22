@@ -45,6 +45,10 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 PL_DATE_RE = re.compile(r"^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$")
 INT_RE = re.compile(r"^-?\d+$")
 EMAIL_RE = re.compile(r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$")
+# Hard rule 6: a cabinet code ("kod do szafki 1234", "PIN: 4590") in a free-text field; "kod pocztowy" is not one.
+LOCK_CODE_RE = re.compile(r"\b(?:kod(?:u|em|y)?|pin(?:u|em)?|szyfr(?:u|em)?)\b(?!\s*pocztow)\D{0,20}?(?<!\d)\d{3,8}(?!\d)",
+                          re.IGNORECASE)
+LOCK_CODE_FIELDS = ("nazwa", "opis_lokalizacji", "godziny_dostepu_opis")
 
 
 def issue(row, field, level, code, message):
@@ -152,6 +156,13 @@ def check_record(record, profile, row=None, today=None, columns=None):
                 out.append(issue(row, name, ERROR, "wymagane_dla_aktywnego",
                                  "Rekord o statusie „aktywny” musi mieć wypełnione pole %s. Uzupełnij je albo zmień status."
                                  % _label(name)))
+
+    if profile == "publikacja":
+        for name in LOCK_CODE_FIELDS:
+            if LOCK_CODE_RE.search(val[name]):
+                out.append(issue(row, name, ERROR, "kod_do_szafki",
+                                 "Pole %s wygląda na kod do szafki. Kod do szafki nie może trafić do danych otwartych – "
+                                 "przekaż go kanałem dyspozytorskim." % _label(name)))
 
     if (val[LAT] or val[LON]) and not (val[LAT] and val[LON]):
         missing = LON if val[LAT] else LAT

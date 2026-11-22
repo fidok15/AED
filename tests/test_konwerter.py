@@ -228,6 +228,20 @@ class XlsxTest(unittest.TestCase):
                 analyze(data if isinstance(data, bytes) else xlsx_file(data), "plik.xlsx")
             self.assertIn(words, str(ctx.exception))
 
+    def test_budgets_refuse_expensive_files_before_analysis(self):
+        # Audit P1: a wide header over many short rows (columns x rows scans) and one long shared string
+        # repeated in many cells (expanded far beyond the XML size) are refused with a Polish error.
+        sparse = (",".join("k%d" % i for i in range(250)) + "\n" + "1\n" * 20000).encode()
+        self.assertLess(len(sparse), 5 * 2 ** 20)
+        repeated = xlsx_file("".join('<row r="%d"><c r="A%d" t="s"><v>0</v></c></row>' % (i, i) for i in range(1, 3001)),
+                             shared=["x" * 20000])
+        self.assertLess(len(repeated), 5 * 2 ** 20)
+        for data, name, words in ((sparse, "a.csv", "komórek"), (repeated, "a.xlsx", "znaków")):
+            for fn in (lambda: analyze(data, name), lambda: convert(data, name, {})):
+                with self.assertRaises(ConverterError) as ctx:
+                    fn()
+                self.assertIn(words, str(ctx.exception))
+
     def test_unsafe_or_broken_xlsx_is_refused(self):
         bomb = xlsx_file("<row><c><v>1</v></c></row>", shared=None, extra={"xl/sharedStrings.xml": "<sst>" + " " * (60 * 2 ** 20) + "</sst>"})
         self.assertLess(len(bomb), 5 * 2 ** 20)

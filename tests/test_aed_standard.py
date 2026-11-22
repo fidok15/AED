@@ -374,5 +374,53 @@ class ReviewPairsTest(unittest.TestCase):
         self.assertEqual(len(keys), len(set(keys)))
 
 
+class AuditTest(unittest.TestCase):
+    """Findings of docs/ewaluacja-codex/audyt-uslugi.md that live in aed_standard."""
+
+    def published(self, **kw):
+        r = rec("um.warszawa.pl", "1", 52.23, 21.01, nazwa="Urząd", miejscowosc="Warszawa")
+        r.update(kw)
+        r["id_aed"] = A.make_id(r["zrodlo"], r["zrodlo_id"])
+        return r
+
+    def test_lock_code_in_free_text_blocks_publication(self):  # finding 4
+        self.assertEqual(len(publication_export([self.published()])), 1)
+        for field, text in (("opis_lokalizacji", "Szafka zamknięta, kod do szafki 4590"),
+                            ("godziny_dostepu_opis", "Po godzinach PIN: 1234#"), ("nazwa", "Urząd (szyfr 98765)")):
+            r = self.published(**{field: text})
+            self.assertEqual(publication_export([r]), [], text)
+            self.assertIn("kod_do_szafki", {p["kod"] for p in check_record(r, "publikacja")})
+        for text in ("Kod pocztowy 00-950", "kod pocztowy 00950", "Centrum Szyfrów Enigma, 1 piętro", "OSP Kodrąb 123"):
+            self.assertEqual(len(publication_export([self.published(opis_lokalizacji=text)])), 1, text)
+
+    def test_private_record_never_fills_public_one(self):  # finding 5
+        city = rec("dane.gov.pl/4581", "1", 52.0, 21.0, nazwa="Szkoła", miejscowosc="X", dostep="publiczny")
+        home = rec("dane.gov.pl/3624", "2", 52.00001, 21.0, nazwa="Szkoła", nr_lokalu="7", dostep="prywatny")
+        merged, pairs, _ = deduplicate([city, home])
+        self.assertEqual(len(merged), 2)
+        self.assertEqual([p["powod"] for p in pairs], ["konflikt_dostepu"])
+        self.assertEqual({r["nr_lokalu"] for r in merged if r["dostep"] == "publiczny"}, {""})
+
+    def test_osm_rule_is_shared(self):  # finding 6
+        self.assertTrue(M.from_osm({"zrodlo": "OpenStreetMap"}))
+        self.assertTrue(M.from_osm({"licencja": "ODbL 1.0"}))
+        self.assertFalse(M.from_osm({"zrodlo": "zgloszenie", "licencja": "CC0 1.0", "powiazane_zrodla": "openstreetmap:node/1"}))
+
+    def test_formulas_are_neutralised_in_csv(self):  # finding 7
+        r = self.published(nazwa="=HYPERLINK(\"http://x\")", opis_lokalizacji="@SUM(A1)", model="-2+3",
+                           dysponent_telefon="+48 22 123 45 67 wew. 12", dlugosc_geograficzna="-1.5")
+        row = next(iter(__import__("csv").DictReader(to_csv([r]).splitlines())))
+        self.assertEqual((row["nazwa"], row["opis_lokalizacji"]), ("'=HYPERLINK(\"http://x\")", "'@SUM(A1)"))
+        self.assertEqual((row["model"], row["dysponent_telefon"], row["dlugosc_geograficzna"]),
+                         ("-2+3", "+48 22 123 45 67 wew. 12", "-1.5"))
+
+    def test_submitted_record_waits_for_the_manager(self):  # finding 8
+        r = self.published(status="zgloszony")
+        self.assertEqual(publication_export([r]), [])
+        self.assertIn("status zgloszony – zarządca jeszcze nie potwierdził miejsca i dostępu",
+                      A.build.publication_reasons(r))
+        self.assertEqual(len(publication_export([self.published()])), 1)  # import record (niepotwierdzony) unchanged
+
+
 if __name__ == "__main__":
     unittest.main()

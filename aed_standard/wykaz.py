@@ -13,7 +13,7 @@ from collections import Counter
 from . import schema as S
 from .build import publication_export, publication_reasons
 from .dedup import LICENCE_ORDER, deduplicate, make_id
-from .sources import ODBL, OSM
+from .sources import ODBL, OSM_ROW_MESSAGE, from_osm
 from .validate import ERROR, WARNING, completeness, issue, validate_csv, validate_records
 
 PROFILE = "publikacja"
@@ -44,11 +44,6 @@ def rejected(source, message, code="odczyt"):
     return _source_report(source, "odrzucony", problems=[issue(None, None, ERROR, code, message)])
 
 
-def _from_osm(values):
-    # A link to an OSM node in powiazane_zrodla is allowed (CLAUDE.md, rule 3); OSM values are not.
-    return values.get("zrodlo") == OSM or values.get("licencja") == ODBL
-
-
 def read_wykaz(data, source, today=None):
     """Read one provider's list (CSV bytes). -> (records, report).
 
@@ -70,10 +65,8 @@ def read_wykaz(data, source, today=None):
     filled = []
     for n, rec in enumerate(raw, start=1):
         values = {f: (rec.get(f) or "").strip() for f in S.FIELD_NAMES}
-        if _from_osm(values):
-            problems.append(issue(n, "zrodlo", ERROR, "dane_osm",
-                                  "Wiersz pochodzi z OpenStreetMap (licencja ODbL 1.0), a takich danych nie łączymy z danymi "
-                                  "otwieranymi przez ministerstwo. Usuń wiersz albo podaj dane z własnej ewidencji."))
+        if from_osm(values):
+            problems.append(issue(n, "zrodlo", ERROR, "dane_osm", OSM_ROW_MESSAGE))
         values["zrodlo"] = source["zrodlo"]
         values["zrodlo_id"] = values["zrodlo_id"] or "%s:%d" % (source.get("zasob"), n)
         values["id_aed"] = values["id_aed"] or make_id(values["zrodlo"], values["zrodlo_id"])

@@ -54,6 +54,11 @@ FREE_MAIL = ("gmail.", "wp.pl", "o2.pl", "onet.", "interia.", "poczta.fm", "op.p
 PERSON_WORDS = ("imie", "nazwisko", "osoba", "kontakt", "opiekun")
 SAMPLES = 3
 XLSX_MAX_UNPACKED = 50 * 2 ** 20   # the upload is at most 5 MB; text XML packs ~10x
+# Work budget of one file, checked before the column analysis (columns x rows scans). The largest real list
+# (Warsaw API, 708 rows x ~30 columns) is far below; the public endpoint must not be blocked by a sparse file.
+MAX_ROWS = 50000
+MAX_CELLS = 10 ** 6       # rows x columns
+MAX_CHARS = 20 * 2 ** 20  # characters of all values; only XLSX can expand (one shared string in many cells)
 # Spreadsheet spellings of yes/no, mapped to the schema's trueValues/falseValues.
 YES_WORDS = {"tak", "t", "1", "true", "prawda", "x", "yes", "y"}
 NO_WORDS = {"nie", "n", "0", "false", "falsz", "no"}
@@ -154,7 +159,7 @@ def _separator(text):
 def _xlsx(data, notes):
     """-> (csv_text, None, None) when every row is one CSV line in one cell (Marki), else (None, columns, rows)."""
     try:
-        sheet, lines = xlsx.read_rows(data, XLSX_MAX_UNPACKED)
+        sheet, lines = xlsx.read_rows(data, XLSX_MAX_UNPACKED, MAX_CHARS)
     except xlsx.XlsxError as ex:
         raise ConverterError(str(ex))
     lines = [line for line in lines if any(v.strip() for v in line)]
@@ -208,7 +213,18 @@ def read_table(data, filename=""):
     return _finish(fmt, encoding, sep, columns, rows, notes)
 
 
+def _check_budget(columns, rows):
+    if len(columns) > xlsx.MAX_COLUMNS:
+        raise ConverterError("Plik ma %d kolumn, a wykaz może mieć najwyżej %d. Usuń zbędne kolumny." % (len(columns), xlsx.MAX_COLUMNS))
+    if len(rows) > MAX_ROWS:
+        raise ConverterError("Plik ma %d wierszy, a konwerter przyjmuje najwyżej %d. Podziel plik na części." % (len(rows), MAX_ROWS))
+    if len(rows) * len(columns) > MAX_CELLS:
+        raise ConverterError("Plik ma %d wierszy i %d kolumn, czyli więcej niż %d komórek. Usuń zbędne kolumny albo "
+                             "podziel plik." % (len(rows), len(columns), MAX_CELLS))
+
+
 def _finish(fmt, encoding, sep, columns, rows, notes):
+    _check_budget(columns, rows)
     if fmt != "geojson":
         # A column holding GeoJSON points (Przemyśl CSV) becomes the row geometry.
         for col in columns:

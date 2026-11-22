@@ -57,6 +57,13 @@ function dayMatches(days: string, today: string, holiday: boolean): boolean {
   });
 }
 
+/** Minute of the day for "HH:MM", or null when out of range. 24:00 only as the end of a span. */
+function minuteOf(time: string, end: boolean): number | null {
+  const [h, m] = time.split(':').map(Number);
+  if (m > 59 || h > 24 || (h === 24 && (m > 0 || !end))) return null;
+  return h * 60 + m;
+}
+
 export function aedOpenNow(hours: string | null | undefined, now = aedWarsawNow()): AedOpenState {
   const value = (hours ?? '').trim();
   if (!value) return 'nieznane';
@@ -86,10 +93,11 @@ export function aedOpenNow(hours: string | null | undefined, now = aedWarsawNow(
       span
         .trim()
         .split('-')
-        .map((time) => +time.split(':')[0] * 60 + +time.split(':')[1]),
+        .map((time, end) => minuteOf(time, end === 1)),
     );
-    if (spans.some(([from, to]) => to <= from)) return 'nieznane'; // past midnight: not read
-    open = spans.some(([from, to]) => minute >= from && minute < to);
+    if (spans.some((span) => span.includes(null))) return 'nieznane'; // 08:75, 25:00, 24:00 as a start: not a time
+    if (spans.some(([from, to]) => to! <= from!)) return 'nieznane'; // past midnight: not read
+    open = spans.some(([from, to]) => minute >= from! && minute < to!);
   }
   return open ? 'dostepny' : 'zamkniety';
 }

@@ -3,6 +3,7 @@ import csv
 import io
 import json
 import os
+import re
 from collections import Counter, defaultdict
 
 from . import schema as S
@@ -18,6 +19,8 @@ def publication_reasons(record):
         reasons.append("licencja ODbL 1.0 (dane OpenStreetMap)")
     if record.get("dostep") == "prywatny":
         reasons.append("dostep prywatny")
+    if record.get("status") == "zgloszony":  # record lifecycle: public once the manager confirmed place and access
+        reasons.append("status zgloszony – zarządca jeszcze nie potwierdził miejsca i dostępu")
     codes = sorted({"%s: %s" % (p["kod"], p["pole"]) for p in check_record(record, "publikacja") if p["poziom"] == ERROR})
     return reasons + ["profil publikacja – " + c for c in codes]
 
@@ -88,11 +91,26 @@ def build_registry(raw_dir, registry_path=None):
     return records, pairs, report
 
 
-def to_csv(records):
+FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+# Exceptions: number-like text (-12.5) holds no function or reference, so nothing can run; a phone number
+# "+48 ..." (also "+48 22 123 45 67 wew. 12") stays as written - the column is never in the public export.
+NUMBER_LIKE_RE = re.compile(r"^[+-]?[\d\s.,;()/+-]*$")
+PHONE_RE = re.compile(r"^\+\d")
+TEXT_FIELDS = {f["name"] for f in S.FIELDS if f.get("type", "string") == "string"}  # numbers and dates are validated
+
+
+def csv_safe(record):
+    """Text cells that a spreadsheet would run as a formula get a leading apostrophe (CSV injection)."""
+    return {k: "'" + v if k in TEXT_FIELDS and isinstance(v, str) and v.startswith(FORMULA_START)
+            and not NUMBER_LIKE_RE.match(v) and not (k == "dysponent_telefon" and PHONE_RE.match(v))
+            else v for k, v in record.items()}
+
+
+def to_csv(records, lineterminator="\n"):
     buf = io.StringIO()
-    w = csv.DictWriter(buf, fieldnames=S.FIELD_NAMES, extrasaction="ignore", lineterminator="\n")
+    w = csv.DictWriter(buf, fieldnames=S.FIELD_NAMES, extrasaction="ignore", lineterminator=lineterminator)
     w.writeheader()
-    w.writerows(records)
+    w.writerows(csv_safe(r) for r in records)
     return buf.getvalue()
 
 
