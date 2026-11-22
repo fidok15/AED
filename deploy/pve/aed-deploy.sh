@@ -52,6 +52,9 @@ apply() {
     sed '/"timeout": 1,/d' mcod/settings/local.py.sample | cat - aed-domain/settings.py > mcod/settings/local.py.new
     mv mcod/settings/local.py.new mcod/settings/local.py
 
+    # A broken Caddyfile would take the whole site down (Caddy restarts in a loop, the tunnel answers 502):
+    # check it first, while the old Caddy still runs.
+    docker compose run --rm --no-deps -T caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
     docker compose up -d --build  # no --remove-orphans: env.sample sets COMPOSE_IGNORE_ORPHANS
     # Portal code and the Caddyfile are bind-mounted, so unchanged containers keep the old files: restart them.
     docker compose restart mcod-local-admin mcod-local-api mcod-local-cms mcod-local-celery caddy
