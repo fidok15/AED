@@ -391,6 +391,48 @@ class ServiceTest(unittest.TestCase):
         by_id = self.client.simulate_get("/api/aed/urzadzenia?q=aed-neartest0003").json
         self.assertEqual([r["id_aed"] for r in by_id["dane"]], ["AED-NEARTEST0003"])
 
+    def test_extra_filters_shared_by_list_and_map(self):
+        def rec(i, **kw):
+            base = {n: "" for n in aed_standard.field_names()}
+            base.update(id_aed="AED-FILTTEST%04d" % i, nazwa="Punkt %d" % i, szerokosc_geograficzna="49.5",
+                        dlugosc_geograficzna="22.5", miejscowosc="Ustrzyki", status="niepotwierdzony", zrodlo="filtry",
+                        zrodlo_id=str(i), licencja="CC BY 4.0", dostep="publiczny", kompletnosc="40")
+            base.update(kw)
+            return base
+        recs = [rec(1, producent="Philips", model="FRx", godziny_dostepu="24/7", wewnatrz_budynku="tak"),
+                rec(2, producent="PHILIPS", model="HS1", godziny_dostepu="Mo-Fr 08:00-16:00", dostep="ograniczony"),
+                rec(3, producent="ZOLL", model="AED Plus", wewnatrz_budynku="nie", miejscowosc="Łódź"),
+                rec(4, producent="Philips", model="FRx", godziny_dostepu="24/7", dostep="prywatny"),
+                rec(5, producent="Zoll", model="AED 3", status="nieaktualny")]
+        with mock.patch.object(aed_standard, "build_registry", return_value=(recs, [], {"polaczenia": {"razem": 0}})):
+            self.client.simulate_post("/api/aed/mapper/uruchom", headers=self.ministry())
+
+        def both(query):
+            listed = self.client.simulate_get("/api/aed/urzadzenia?zrodlo=filtry&" + query).json
+            mapped = self.client.simulate_get("/api/aed/urzadzenia.geojson?zrodlo=filtry&" + query).json
+            ids = sorted(r["id_aed"][-1] for r in listed["dane"])
+            self.assertEqual(ids, sorted(f["properties"]["id_aed"][-1] for f in mapped["features"]), query)
+            return ids
+        self.assertEqual(both("producent=philips"), ["1", "2"])  # letter case ignored; a private device never
+        self.assertEqual(both("producent=Philips&model=frx"), ["1"])
+        self.assertEqual(both("calodobowo=1"), ["1"])
+        self.assertEqual(both("z_godzinami=1"), ["1", "2"])
+        self.assertEqual(both("dostep=ograniczony"), ["2"])
+        self.assertEqual(both("wewnatrz_budynku=nie"), ["3"])
+        self.assertEqual(both("miejscowosc=Łódź"), ["3"])
+        self.assertEqual(both("producent=philips&lat=49.5&lon=22.5"), ["1", "2"])
+        self.assertEqual(both("producent=philips&dostep=publiczny&calodobowo=1"), ["1"])
+        paged = self.client.simulate_get("/api/aed/urzadzenia?zrodlo=filtry&producent=philips&na_stronie=1&strona=2").json
+        self.assertEqual(([r["id_aed"][-1] for r in paged["dane"]], paged["razem"]), (["2"], 2))
+        self.assertEqual(both("status=nieaktualny&producent=zoll"), ["5"])
+        options = self.client.simulate_get("/api/aed/filtry").json
+        philips = [p for p in options["producent"] if p["wartosc"].lower() == "philips"]
+        self.assertEqual(len(philips), 1)  # one value for both spellings
+        self.assertGreaterEqual(philips[0]["liczba"], 2)
+        self.assertIn({"wartosc": "filtry", "etykieta": "filtry", "liczba": 4}, options["zrodlo"])
+        self.assertEqual(svc.source_labels()["openstreetmap"], "OpenStreetMap")  # names from sources.json
+        self.assertNotIn("numer_seryjny", options)  # serial numbers are not public: no filter for them
+
     def test_duplicate_decisions_survive_mapper_runs(self):
         def rec(i, **kw):
             base = {n: "" for n in aed_standard.field_names()}

@@ -45,7 +45,7 @@
         </svg>
         <h1 class="aed-qr__title" id="aed-done" tabindex="-1">Zgłoszenie problemu zapisane</h1>
         <p>
-          Zapisaliśmy dane urządzenia i opis problemu. Urządzenie nie jest teraz pokazywane jako aktywne – ma status „{{
+          Zapisaliśmy dane urządzenia i opis problemu. Urządzenie nie jest teraz pokazywane jako zweryfikowane – ma status „{{
             statusLabels[record.status]
           }}”.
         </p>
@@ -64,7 +64,7 @@
         @if (done() === 'potwierdzenie') {
           <h1 class="aed-qr__title" id="aed-done" tabindex="-1">Dane potwierdzone</h1>
           <p>
-            Urządzenie ma teraz status „aktywny”. Data potwierdzenia: {{ record['data_weryfikacji'] }}. Kompletność
+            Urządzenie ma teraz status „{{ statusLabels.aktywny }}”. Data weryfikacji: {{ record['data_weryfikacji'] }}. Kompletność
             danych: {{ record.kompletnosc }}%.
           </p>
           <p>Gdy zbliży się termin kolejnego potwierdzenia, wyślemy wiadomość na adres e-mail dysponenta.</p>

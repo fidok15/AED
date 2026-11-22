@@ -17,7 +17,7 @@ import {
 } from '@angular/core';
 import * as L from 'leaflet';
 
-import { AedApiService, aedErrorMessage, AedMapFeature, AedRecord, AedStatus } from './aed-api.service';
+import { AedApiService, aedErrorMessage, AedFilters, AedMapFeature, AedRecord, AedStatus } from './aed-api.service';
 import { AED_SCHEDULE_LABELS, aedOpenNow, AedOpenState, aedWarsawNow } from './aed-hours';
 import { aedField } from './aed-schema';
 import { AED_MARKS, AED_STATUS_LABELS, aedMarkSvg, AedStatusComponent } from './aed-status.component';
@@ -90,31 +90,6 @@ const latLng = (feature: AedMapFeature) => L.latLng(feature.geometry.coordinates
     @if (error()) {
       <p class="aed-message aed-message--error" role="alert">{{ error() }}</p>
     }
-    <details class="aed-legend" open>
-      <summary>Legenda mapy</summary>
-      <ul class="aed-legend__list">
-        @for (item of legend; track item) {
-          <li>
-            <app-aed-status [status]="item" />
-            @if (item === 'wycofany') {
-              <span class="aed-note">(widoczny po wybraniu tego statusu)</span>
-            }
-          </li>
-        }
-        <li>
-          <span class="aed-cluster aed-cluster--sample" aria-hidden="true">12</span>
-          <span>Grupa urządzeń – wybierz, aby przybliżyć</span>
-        </li>
-        <li>
-          <span class="aed-here aed-here--sample" aria-hidden="true"></span>
-          <span>{{ originName(origin()) }}</span>
-        </li>
-      </ul>
-      <p class="aed-note">
-        Klawiatura: Tab przechodzi po znacznikach, Enter otwiera opis urządzenia albo przybliża grupę, Escape zamyka
-        opis. Gdy mapa ma fokus, strzałki ją przesuwają, a plus i minus zmieniają powiększenie.
-      </p>
-    </details>
     <p class="aed-count">{{ summary() }}</p>
     @if (picking()) {
       <p class="aed-message" role="status">
@@ -187,6 +162,37 @@ const latLng = (feature: AedMapFeature) => L.latLng(feature.geometry.coordinates
         </section>
       }
     </div>
+    <!-- Under the map, so the map comes first; folded on a phone. -->
+    <details class="aed-legend" [open]="wide">
+      <summary>Legenda mapy</summary>
+      <ul class="aed-legend__list">
+        @for (item of legend; track item) {
+          <li>
+            <app-aed-status [status]="item" />
+            @if (item === 'wycofany') {
+              <span class="aed-note">(widoczny po wybraniu tego statusu)</span>
+            }
+          </li>
+        }
+        <li>
+          <span class="aed-cluster aed-cluster--sample" aria-hidden="true">12</span>
+          <span>Grupa urządzeń – wybierz, aby przybliżyć</span>
+        </li>
+        <li>
+          <span class="aed-here aed-here--sample" aria-hidden="true"></span>
+          <span>{{ originName(origin()) }}</span>
+        </li>
+      </ul>
+      <p class="aed-note">
+        {{ labels.aktywny }} – dysponent potwierdził miejsce, dostęp i godziny dostępu; datę tej weryfikacji podaje opis
+        urządzenia. Mapa pokazuje te same urządzenia i filtry co lista pod nią.
+      </p>
+      <p class="aed-note">
+        Klawiatura: Tab przechodzi po znacznikach, potem po przyciskach powiększenia i „Moja lokalizacja”, Enter otwiera
+        opis urządzenia albo przybliża grupę, Escape zamyka opis. Gdy mapa ma fokus, strzałki ją przesuwają, a plus i
+        minus zmieniają powiększenie.
+      </p>
+    </details>
   `,
 })
 export class AedMapComponent implements AfterViewInit, OnDestroy {
@@ -196,10 +202,12 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
   private readonly canvas = viewChild.required<ElementRef<HTMLElement>>('canvas');
   private readonly panelTitle = viewChild<ElementRef<HTMLElement>>('panelTitle');
 
-  /** Status chosen in the registry filter; the map follows it. */
-  readonly status = input<AedStatus | ''>('');
-  /** "Dostępny teraz" chosen above the list; same rule as `dostepny_teraz=1` of the API (aed_standard/hours.py). */
-  readonly openNow = input(false);
+  /** Filters of the list (status, "Dostępny teraz", extra filters); the service applies them to the map points too. */
+  readonly filters = input<AedFilters>({});
+  /** True while the registry asks the browser for the position; the map's location button shows it. */
+  readonly locating = input(false);
+  /** "Moja lokalizacja" next to + and −: the same action as "Użyj mojej lokalizacji" above the list. */
+  readonly locate = output<void>();
   /** Point chosen above the list ("Użyj mojej lokalizacji" or picked here); the map centres on it. */
   readonly origin = input<AedOrigin | null>(null);
   /** While true, a click (or Enter on the map) picks the point under it and emits `picked`. */
@@ -215,6 +223,7 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
   protected readonly placeTitle = aedPlaceTitle;
   protected readonly routeUrl = aedRouteUrl;
   protected readonly originName = aedOriginName;
+  protected readonly wide = globalThis.matchMedia?.('(min-width: 576px)').matches ?? true;
   protected readonly summary = signal('Wczytuję mapę…');
   protected readonly error = signal('');
   /** Devices shown in the panel: one device, or several at the same coordinates. */
@@ -242,12 +251,20 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
   /** Device asked for by "Pokaż na mapie", opened once its point is loaded. */
   private pending = '';
   private openStates = new Map<string, AedOpenState>();
+  private locateButton?: HTMLButtonElement;
 
   constructor() {
     effect(() => {
-      this.status();
-      this.openNow();
-      untracked(() => this.draw()); // draw() writes the summary signal
+      this.filters();
+      untracked(() => {
+        // Other filters, other points: forget the loaded area and ask the service again.
+        this.loaded = undefined;
+        if (this.map) this.load();
+      });
+    });
+    effect(() => {
+      const busy = this.locating();
+      this.locateButton?.setAttribute('aria-disabled', String(busy));
     });
     effect(() => {
       const origin = this.origin();
@@ -266,6 +283,7 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
     this.zone.runOutsideAngular(() => {
       this.map = L.map(this.canvas().nativeElement, { maxZoom: 18, minZoom: 5 });
       this.map.attributionControl.setPrefix(false);
+      this.addLocateButton();
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(this.map);
@@ -285,6 +303,24 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.map?.remove();
+  }
+
+  /** "Moja lokalizacja" in the bar of + and −; a native button, so Enter and Space work and Tab moves on. */
+  private addLocateButton(): void {
+    const button = L.DomUtil.create('button', 'aed-map__locate', this.map.zoomControl.getContainer());
+    button.type = 'button';
+    button.title = 'Moja lokalizacja';
+    button.setAttribute('aria-label', 'Moja lokalizacja – pokaż najbliższe urządzenia');
+    button.setAttribute('aria-disabled', String(this.locating()));
+    button.innerHTML =
+      '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">' +
+      '<circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2" class="aed-map__locate-dot"/>' +
+      '<path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4"/></svg>';
+    L.DomEvent.disableClickPropagation(button); // a click here never picks a point or pans the map
+    L.DomEvent.on(button, 'click', () => {
+      if (!this.locating()) this.zone.run(() => this.locate.emit());
+    });
+    this.locateButton = button;
   }
 
   /** "Pokaż na mapie" of the list: zoom in on the device and open its panel. */
@@ -367,7 +403,7 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
     const area = view.pad(0.5);
     const bbox = [area.getWest(), area.getSouth(), area.getEast(), area.getNorth()].map((v) => v.toFixed(4)).join();
     const request = ++this.request;
-    this.api.mapPoints(bbox).subscribe({
+    this.api.mapPoints(bbox, this.filters()).subscribe({
       next: (features) => {
         if (request !== this.request) return; // an older answer arrived late
         this.features = features;
@@ -381,8 +417,6 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
 
   private draw(): void {
     if (!this.map || !this.loaded) return;
-    const status = this.status();
-    const open = this.openNow();
     this.openStates.clear(); // the current minute decides; rebuilt once per drawing
 
     const zoom = this.map.getZoom();
@@ -395,10 +429,7 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
     let count = 0;
     for (const feature of this.features) {
       const [lng, lat] = feature.geometry.coordinates;
-      const { properties } = feature;
-      if (!view.contains([lat, lng])) continue;
-      if (status ? properties.status !== status : properties.status === 'wycofany') continue;
-      if (open && this.openState(properties.godziny_dostepu) !== 'dostepny') continue;
+      if (!view.contains([lat, lng])) continue; // status, hours and the other filters are applied by the service
       count++;
       const point = this.map.project([lat, lng], zoom);
       const gx = Math.floor(point.x / radius);

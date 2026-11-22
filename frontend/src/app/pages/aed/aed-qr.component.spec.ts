@@ -61,17 +61,17 @@ describe('AedQrComponent, manager view', () => {
     fixture.detectChanges();
   };
 
-  it('says the device is active only when the service made it active', () => {
+  it('says the device is verified only when the service made it active', () => {
     open(record(), record({ status: 'aktywny' }));
     choose('input[name="aed-stan"][value="sprawny"]');
     submit();
 
     expect(page.querySelector('#aed-done').textContent).toContain('Dane potwierdzone');
-    expect(page.querySelector('.aed-result').textContent).toContain('status „aktywny”');
+    expect(page.querySelector('.aed-result').textContent).toContain('status „Zweryfikowany”');
     expect(page.querySelector('.aed-result__mark--problem')).toBeNull();
   });
 
-  it('reports a problem as a problem: no "aktywny", no success mark', () => {
+  it('reports a problem as a problem: no "Zweryfikowany", no success mark', () => {
     open(record(), record({ status: 'niepotwierdzony' }));
     choose('input[name="aed-stan"][value="problem"]');
     type('#aed-uwagi', 'Mija termin ważności baterii');
@@ -79,9 +79,9 @@ describe('AedQrComponent, manager view', () => {
 
     expect(confirm.mock.calls[0][1]).toMatchObject({ stan: 'problem', uwagi: 'Mija termin ważności baterii' });
     expect(page.querySelector('#aed-done').textContent).toContain('Zgłoszenie problemu zapisane');
-    expect(page.querySelector('.aed-result').textContent).toContain('nie jest teraz pokazywane jako aktywne');
+    expect(page.querySelector('.aed-result').textContent).toContain('nie jest teraz pokazywane jako zweryfikowane');
     expect(page.querySelector('.aed-result').textContent).toContain('Niepotwierdzony');
-    expect(page.querySelector('.aed-result').textContent).not.toContain('status „aktywny”');
+    expect(page.querySelector('.aed-result').textContent).not.toContain('status „Zweryfikowany”');
     expect(page.querySelector('.aed-result__mark--problem')).not.toBeNull();
   });
 

@@ -522,7 +522,7 @@
       "type": "string",
       "grupa": "weryfikacja",
       "waga": 0,
-      "description": "Stan rekordu: zgloszony (znane urządzenie, miejsce niepotwierdzone), aktywny (potwierdzony przez dysponenta), niepotwierdzony (z importu, nikt odpowiedzialny nie potwierdził), nieaktualny (brak potwierdzenia w terminie), wycofany.",
+      "description": "Stan rekordu: zgloszony (znane urządzenie, miejsce niepotwierdzone), aktywny (etykieta „Zweryfikowany”: dysponent potwierdził miejsce, dostęp i godziny dostępu; data w polu data_weryfikacji), niepotwierdzony (z importu, nikt odpowiedzialny nie potwierdził), nieaktualny (brak potwierdzenia w terminie), wycofany.",
       "constraints": {
         "enum": [
           "zgloszony",
@@ -537,7 +537,7 @@
       "wypelnia": "system",
       "etykiety": {
         "zgloszony": "Zgłoszony",
-        "aktywny": "Aktywny",
+        "aktywny": "Zweryfikowany",
         "niepotwierdzony": "Niepotwierdzony",
         "nieaktualny": "Nieaktualny",
         "wycofany": "Wycofany"
