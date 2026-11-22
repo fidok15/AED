@@ -11,8 +11,16 @@ DEBUG = env.bool("AED_DEBUG", default=False)  # noqa: F405
 TEMPLATES[0]["OPTIONS"]["debug"] = DEBUG  # noqa: F405
 
 # local.py pins cookies to mcod.local over plain HTTP; the browser would drop them on the real domain.
+# The shared parent domain stays: the frontend logs in through the API and writes the admin panel's sessionid
+# for the whole domain (frontend/src/app/services/rest.service.ts setToken), which is how the panel sees that login.
 SESSION_COOKIE_DOMAIN = AED_DOMAIN
 SESSION_COOKIE_SECURE = True
+# base.py: False. Django's own session cookie is not readable by scripts on sibling hosts. Not tested under a real
+# domain: the frontend's logout deletes sessionid from JS, which a browser refuses for an HttpOnly cookie.
+SESSION_COOKIE_HTTPONLY = True
+ALLOWED_HOSTS = [AED_DOMAIN] + ["%s.%s" % (sub, AED_DOMAIN) for sub in ("api", "admin", "cms")] + [
+    "mcod-local-api", "mcod-local-admin", "mcod-local-cms", "localhost",  # container-to-container calls
+]
 CSRF_COOKIE_SECURE = True
 NO_REPLY_EMAIL = "no-reply@" + AED_DOMAIN  # local.py: no-reply@mcod.local
 API_CSRF_COOKIE_DOMAINS = [AED_DOMAIN]

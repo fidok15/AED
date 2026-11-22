@@ -11,6 +11,7 @@ from django.core.mail import EmailMultiAlternatives, get_connection
 from django.template.loader import render_to_string
 from django.utils import translation
 
+from aed_standard import schema as S
 from aed_standard.validate import ERROR
 from mcod.aed import constants as C
 
@@ -20,6 +21,18 @@ PROBLEM_STATUSES = ("odrzucony", "czesciowo")
 
 
 PENDING_KEY = "powiadomienie_oczekuje"  # set on a report entry whose message failed; the next merge retries it
+
+
+def public_problem(p: Dict[str, Any]) -> Dict[str, Any]:
+    """A problem without the provider's raw values (public report, e-mail): row, schema field, code and a fixed
+    description of the code. aed_standard's own messages quote the values ("Otrzymano: ...")."""
+    return {
+        "wiersz": p.get("wiersz"),
+        "pole": p.get("pole") if p.get("pole") in S.FIELD_NAMES else None,  # an unknown column is the file's text
+        "poziom": p.get("poziom"),
+        "kod": p.get("kod"),
+        "opis": C.PROBLEM_DESCRIPTIONS.get(p.get("kod"), C.PROBLEM_DESCRIPTION_DEFAULT),
+    }
 
 
 def _signature(entry: Dict[str, Any]):
@@ -55,6 +68,7 @@ def build_message(entry: Dict[str, Any], resource) -> Optional[EmailMultiAlterna
         logger.warning("AED list %s: no institutional e-mail, provider not notified.", resource.pk)
         return None
     problems = sorted(entry.get("problemy", []), key=lambda p: p["poziom"] != ERROR)[: C.FORM_MAX_MESSAGES]
+    problems = [dict(public_problem(p), komunikat=public_problem(p)["opis"]) for p in problems]
     context = {
         "entry": entry,
         "rejected_rows": entry.get("wiersze", 0) - entry.get("przyjete", 0),
@@ -91,16 +105,25 @@ def notify_aed_list_providers(old_report: Optional[Dict[str, Any]], new_report: 
     try:
         entries = lists_to_notify(old_report, new_report)
         resources = apps.get_model("resources", "Resource").raw.select_related("dataset__organization")
-        connection = get_connection(settings.EMAIL_BACKEND)
     except Exception as exc:
         logger.error("AED list notifications skipped: %s", exc)
+        return 0
+    try:
+        connection = get_connection(settings.EMAIL_BACKEND)
+    except Exception as exc:  # no mail backend: every message is owed to the next merge
+        logger.error("AED list notifications: mail backend unavailable: %s", exc)
+        for entry in entries:
+            entry[PENDING_KEY] = True
         return 0
     for entry in entries:
         try:
             message = build_message(entry, resources.get(pk=entry["zasob"]))
             if message:
                 message.connection = connection
-                sent += message.send()
+                delivered = message.send()
+                sent += delivered
+                if not delivered:
+                    entry[PENDING_KEY] = True
         except Exception as exc:
             entry[PENDING_KEY] = True
             logger.error("AED list %s: provider notification failed: %s", entry.get("zasob"), exc)

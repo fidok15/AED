@@ -97,9 +97,14 @@
     </div>
     @if (pair(); as pair) {
       <p>
-        Para {{ position() + 1 }} z {{ number(duplicates().length) }}. Odległość między punktami:
-        <strong>{{ number(pair.odleglosc_m) }} m</strong>. Podobieństwo nazwy i adresu:
-        <strong>{{ number(pair.podobienstwo * 100) }}%</strong>.
+        Para {{ position() + 1 }} z {{ number(duplicates().length) }}.
+        @if (pair.odleglosc_m === null) {
+          Ten sam producent i numer seryjny; <strong>odległość nieznana</strong> (nowe zgłoszenie nie ma jeszcze
+          położenia).
+        } @else {
+          Odległość między punktami: <strong>{{ number(pair.odleglosc_m) }} m</strong>. Podobieństwo nazwy i adresu:
+          <strong>{{ number(pair.podobienstwo * 100) }}%</strong>.
+        }
       </p>
       <div class="aed-scroll" tabindex="0" role="region" aria-labelledby="aed-pair-caption">
         <table class="aed-table aed-compare">

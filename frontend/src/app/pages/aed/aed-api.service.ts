@@ -93,7 +93,8 @@ export interface AedDuplicate {
   id: number;
   rekord_a: AedRecord;
   rekord_b: AedRecord;
-  odleglosc_m: number;
+  /** null: matched by manufacturer and serial number, the new submission has no position yet */
+  odleglosc_m: number | null;
   podobienstwo: number;
 }
 

@@ -3,20 +3,26 @@ import datetime
 import os
 
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from mcod.aed import constants as C
 from mcod.datasets.models import Dataset
 from mcod.organizations.models import Organization
 from mcod.resources.models import Resource, ResourceFile
+from mcod.users.models import User
 
 LISTS = [
     # (institution pk, institution, type, dataset, file under --data-dir)
-    (C.OWNER_ORGANIZATION_PK, "Ministerstwo Cyfryzacji", "state", "Rejestr zgłoszeń AED", "out/aed_dane_gov_pl.csv"),
+    (None, "Ministerstwo Cyfryzacji", "state", "Rejestr zgłoszeń AED", "out/aed_dane_gov_pl.csv"),
     (90001, "Gmina Miejska Legionowo", "local", "Defibrylatory AED w Legionowie",
      "raw/dane_gov_pl/legionowo/resource_2625221.csv"),
     (90002, "Gmina Krosno", "local", "Defibrylatory AED w Krośnie", "raw/dane_gov_pl/krosno/resource_54632.csv"),
+    # Jury account's own institution: an empty dataset the juror adds an AED list to (no file here).
+    (90003, "Gmina Demo (konto jury)", "local", "Defibrylatory AED – Gmina Demo", None),
 ]
+# Editor (not superuser) of the jury institution. Demo passwords are public by the team's decision.
+JURY_EMAIL = "jury@aed.example"
+JURY_PASSWORD = "jury-demo-2026"
 
 
 class Command(BaseCommand):
@@ -26,7 +32,11 @@ class Command(BaseCommand):
         parser.add_argument("--data-dir", default="/usr/src/mcod_backend/aed_datasets")
 
     def handle(self, *args, **options):
+        if C.OWNER_ORGANIZATION_PK is None:
+            raise CommandError("Ustaw MAIN_AED_DATASET_OWNER_ORGANIZATION_PK w backend/.env (np. 2844) i utwórz "
+                               "kontenery od nowa - to właściciel zbioru Krajowy wykaz AED.")
         for org_pk, org_title, org_type, ds_title, rel_path in LISTS:
+            org_pk = org_pk or C.OWNER_ORGANIZATION_PK
             org, _ = Organization.objects.get_or_create(
                 pk=org_pk,
                 defaults=dict(
@@ -43,7 +53,9 @@ class Command(BaseCommand):
                     has_research_data=False, update_notification_recipient_email="admin@mcod.local",
                 ),
             )
-            if dataset.resources.filter(contains_aed_list=True).exists():
+            if org_pk == 90003:
+                self._jury_account(org, dataset)
+            if rel_path is None or dataset.resources.filter(contains_aed_list=True).exists():
                 continue
             with open(os.path.join(options["data_dir"], rel_path), "rb") as f:
                 upload = SimpleUploadedFile(os.path.basename(rel_path), f.read(), content_type="text/csv")
@@ -55,3 +67,17 @@ class Command(BaseCommand):
             )
             ResourceFile.objects.create(resource=resource, is_main=True, file=upload)
             self.stdout.write("%s: zbiór %s, zasób %s (%s)" % (org_title, dataset.pk, resource.pk, rel_path))
+
+    def _jury_account(self, org, dataset):
+        user = User.objects.filter(email=JURY_EMAIL).first() or User(email=JURY_EMAIL)
+        user.fullname = "Juror (konto demo)"
+        user.phone = "0048221234567"  # full name and phone are required for an editor (ComplementUserDataMiddleware)
+        user.is_staff, user.is_superuser, user.state, user.is_active = True, False, "active", True
+        if not user.check_password(JURY_PASSWORD):  # re-running keeps the juror logged in
+            user.set_password(JURY_PASSWORD)
+        user.save()
+        user.organizations.set([org])
+        self.stdout.write(
+            "Konto jury: %s / %s - redaktor instytucji %s (pk %s), zbiór %s (pk %s)."
+            % (JURY_EMAIL, JURY_PASSWORD, org.title, org.pk, dataset.title, dataset.pk)
+        )

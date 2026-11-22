@@ -1,6 +1,6 @@
 # Wdrożenie pełnego forka portalu pod domeną
 
-Cel: na serwerze kolegi, pod kupioną domeną, działa fork dane.gov.pl (frontend, API, panel administracyjny, CMS, Celery) razem z usługą AED. Jury otwiera adresy w przeglądarce bez żadnej konfiguracji.
+Cel: na serwerze kolegi, pod kupioną domeną, działa fork dane.gov.pl (frontend, API, panel administracyjny, CMS, Celery) razem z usługą AED, a jury otwiera adresy w przeglądarce bez żadnej konfiguracji. Ten cel nie jest jeszcze osiągnięty – serwer publiczny pozostaje do zrobienia przez zespół.
 
 **Stan: uruchomione lokalnie na Macu (22.11, ok. 02:10–02:30) pod domeną testową `aed.localhost`, na serwerze jeszcze nie.** Wszystkie 14 kontenerów wystartowało z tej nakładki (plus obejścia z `docker-compose.aed-mac.yml`), Caddy z lokalnym urzędem certyfikacji zamiast Let's Encrypt, baza z danymi demo z wcześniejszego uruchomienia lokalnego. Co sprawdzono w działaniu: rozdział 11. Miejsca, które wynikają z kodu, ale nie były sprawdzone w działaniu, mają oznaczenie **[nie uruchomiono]**.
 
@@ -73,7 +73,9 @@ Ustalone z kodu:
 - Django rozpoznaje HTTPS po nagłówku `X-Forwarded-Proto` (`settings/base.py:512`), który Caddy dokłada sam;
 - `mcod/settings/local.py` ustawia ciasteczka na sztywno na `mcod.local` i bez `Secure`. Na innej domenie przeglądarka by je odrzuciła i logowanie do panelu nie działałoby. Poprawia to `aed-domain/settings.py`. Ten sam plik ustawia też domenę dla ciasteczka CSRF API i listy zaufanych adresów (`core/api/middlewares.py:459–469`).
 
-Uproszczenie: Caddy podaje `/media` prosto z dysku. Lokalny nginx portalu sprawdza wcześniej w Django, czy plik należy do opublikowanego zasobu (`X-Accel-Redirect`, `docker/nginx/config-templates/03-admin.conf.template`). Na demonstracji to sprawdzenie pomijamy. Pliki zasobów i tak są publiczne pod `api.<domena>/media`.
+Media: Caddy (`public_media` w `aed-domain/Caddyfile`) i nginx frontendu (`web.conf.template`) podają z dysku **tylko** jawnie publiczne katalogi `MEDIA_ROOT` z `settings/base.py`: `resources`, `images`, `showcases`, `academy`, `newsletter`, `lab_reports`, `datasets`, `dcat`. Wszystko inne pod `/media` – `reports`, `meetings`, `to_be_removed`, `dga_temp`, `main_aed` (plik roboczy scalania AED), `submission_staging`, `resources/waiting` – dostaje 403. Uproszczenie, które zostaje: lokalny nginx portalu sprawdza dla `admin.` w Django, czy plik należy do opublikowanego zasobu (`X-Accel-Redirect`, `docker/nginx/config-templates/03-admin.conf.template`); tu tego nie odtwarzamy. Plik zasobu w wersji roboczej jest więc dostępny dla kogoś, kto zna jego ścieżkę – tak samo jak w oryginalnym portalu na hoście API (`mcod/api.py` podaje cały `MEDIA_ROOT`, a `02-api.conf.template` cały `/media`). Plik roboczy AED leży pod `MEDIA_ROOT/main_aed` tak jak plik DGA (`MAIN_DGA_RESOURCE_XLSX_CREATION_ROOT`); tego wzorca nie zmieniamy, a katalog nie jest serwowany. Konfigurację Caddy sprawdzono `caddy validate` (22.11); zachowania pod prawdziwą domeną **[nie uruchomiono]**.
+
+Sesja panelu: `aed-domain/settings.py` ustawia `SESSION_COOKIE_HTTPONLY = True` (w `base.py` jest `False`) i jawne `ALLOWED_HOSTS` (domena, `api.`, `admin.`, `cms.` i nazwy kontenerów) zamiast `["*"]` z `local.py`. Wspólna domena ciasteczka zostaje, bo frontend po zalogowaniu przez API sam zapisuje `sessionid` panelu dla całej domeny (`frontend/src/app/services/rest.service.ts`, `setToken`) – na tym opiera się wspólne logowanie frontendu i panelu. Ryzyko: wylogowanie we frontendzie usuwa `sessionid` z JavaScriptu, a przeglądarka nie pozwala tego zrobić dla ciasteczka `HttpOnly`, więc sesja panelu może przetrwać wylogowanie we frontendzie. Logowania do panelu pod prawdziwą domeną z tymi ustawieniami **[nie uruchomiono]**; konfiguracji CSRF Django i Falcona osobno nie testowano.
 
 Panel, API i CMS działają pod gunicornem zamiast `runserver` i `werkzeug --debug`. Debugger werkzeuga wystawiony do internetu pozwalałby wykonać kod na serwerze. Polecenia są takie jak w `docker/app/start-api.sh` i `start-django.sh`; gunicorn bierze też `GUNICORN_CMD_ARGS` z `.env` (workery gevent). Sprawdzone lokalnie 22.11 (rozdział 11).
 
@@ -88,8 +90,9 @@ Wszystko ustawia skrypt `sh aed-domain/init-env.sh <domena>`. Bierze `backend/en
 | `DJANGO_SECRET_KEY`, `JWT_SECRET_KEY` | losowe | domyślne wartości są wpisane w `settings/base.py:61` i `:325`, czyli publicznie znane |
 | `POSTGRES_PASSWORD`, `SPARQL_PASSWORD`, `FIELD_ENCRYPTION_KEYS` | losowe | w `env.sample` są znane wartości |
 | `DISCOURSE_FORUM_ENABLED` | `false` | obraz forum jest w prywatnym rejestrze |
-| `AED_DEMO_PASSWORD` | losowe | hasło trzech kont demo usługi AED |
-| `MAIN_AED_DATASET_OWNER_ORGANIZATION_PK` | `2838` | właściciel zbioru „Krajowy wykaz AED”: instytucja z danych startowych portalu (w kroku 6 zmieniamy jej nazwę na ministerstwo) |
+| `AED_DEMO_PASSWORD` | domyślnie nieustawiona (wiersz zakomentowany) | hasło trzech kont demo usługi AED. Bez niej obowiązują jawne hasła `…-demo` (decyzja 22.11: publiczne na czas pokazu, każdy z internetu wejdzie do panelu ministerstwa prototypu). Odkomentuj wiersz w `init-env.sh` przed pierwszym startem usługi, żeby ustawić własne hasło |
+| `MAIN_AED_DATASET_OWNER_ORGANIZATION_PK` | `2838` | właściciel zbioru „Krajowy wykaz AED”: instytucja z danych startowych portalu (w kroku 6 zmieniamy jej nazwę na ministerstwo). **Wymagana**: bez niej albo przy nieistniejącej instytucji scalanie kończy się błędem konfiguracji, zanim odczyta jakikolwiek wykaz (nie ma już domyślnego przejęcia właściciela DGA) |
+| `MAIN_AED_ALLOW_REMOTE_LISTS` (opcjonalna) | domyślnie `false` | `true` pozwala scalaniu pobierać wykazy z zasobów typu link (bez przekierowań, do 20 MB, do 30 s na całe pobranie). Domyślnie portal czyta wyłącznie pliki ze swojego magazynu, a zasób-link oznaczony jako wykaz jest odrzucany w formularzu i w raporcie – inaczej worker pobierałby adresy wskazane przez dostawcę (SSRF) |
 | `AED_CELERY_OPTS` (opcjonalna) | `-l INFO -B --scheduler django_celery_beat.schedulers:DatabaseScheduler` | włącza harmonogram: scalanie wykazów AED o 03:45, harvester o 03:00 i pozostałe zadania dzienne portalu. Domyślnie wyłączony, zadania uruchamiamy ręcznie |
 | `AED_DEBUG` (opcjonalna) | `yes` | strony błędów Django; tylko na czas diagnozy |
 
@@ -101,11 +104,15 @@ Wszystko ustawia skrypt `sh aed-domain/init-env.sh <domena>`. Bierze `backend/en
 | hasło PostgreSQL `mcod`, hasło Fuseki `Britenet.1`, klucz szyfrowania pól | `env.sample` | skrypt (hasło bazy działa tylko przy **pierwszym** starcie wolumenu) |
 | konto panelu `admin@mcod.local` / `testadmin123!` (superużytkownik) | dane startowe `mcod/core/fixtures/basic_data.json` | **człowiek**, krok 5 |
 | konto panelu `pelnomocnik@mcod.local` / `User123!` | jw. | **człowiek**, krok 5 |
-| konta demo usługi AED (`…-demo`) | `aed_service/README.md` | skrypt (`AED_DEMO_PASSWORD`); działa tylko przy pierwszym utworzeniu bazy usługi |
+| konta demo usługi AED (`…-demo`) | `aed_service/README.md` | zostają jawne (decyzja 22.11); własne hasło – odkomentuj `AED_DEMO_PASSWORD` w skrypcie, działa tylko przy pierwszym utworzeniu bazy usługi |
+| konto jury w panelu `jury@aed.example` / `jury-demo-2026` (redaktor instytucji „Gmina Demo (konto jury)”) | `seed_aed_demo` | jawne na czas pokazu (decyzja 22.11); zmiana: `changepassword jury@aed.example` |
+| poczta wychodząca | nakładka dziedziczy z `docker-compose.local.yml` testową skrzynkę MailHog (`mcod-smtp`), która przechwytuje wszystkie wiadomości | **człowiek**: przed wysyłką powiadomień do prawdziwych dostawców ustaw prawdziwy serwer SMTP (`EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS` w `.env`); do tego czasu powiadomienia o wykazach trafiają tylko do MailHog |
 | RabbitMQ `guest`, Redis i Elasticsearch bez hasła, Flower bez logowania | obrazy | nie zmieniamy: porty nie są wystawione, Flower jest wyłączony |
 | klucze Discourse w `env.sample` | `env.sample` | bez znaczenia, forum wyłączone |
 
 Karty „Konta demonstracyjne” na ekranie logowania AED rozpoznają to same: usługa zwraca w `GET /api/aed/statystyki` flagę `hasla_demo_domyslne`, a gdy hasło jest zmienione, karty pokazują „hasło: przekazane osobno” i przycisk „Wypełnij” wpisuje tylko e-mail (sprawdzone w przeglądarce 22.11).
+
+**Nie wprowadzaj do prototypu prawdziwych danych.** Hasła kont demo (w tym konta ministerstwa w usłudze AED i konta `jury@aed.example` w panelu) są jawne decyzją zespołu na czas pokazu. Każdy, kto je zna, widzi pełne rekordy: kontakty dysponentów, numery seryjne i położenie urządzeń prywatnych. Prototyp na publicznym adresie ma zawierać wyłącznie dane otwarte i fikcyjne.
 
 ## 5. Od czystego serwera do działającej strony
 
@@ -126,7 +133,7 @@ docker compose up -d caddy                               # 7. dopiero teraz otw�
 Uwagi:
 
 - Caddy startuje na końcu celowo: `init_mcod_db` zakłada konta z hasłami znanymi z danych startowych. Do zmiany haseł serwer nie może być osiągalny z internetu.
-- `/media/reports/` i `/media/meetings/` są zablokowane na wszystkich hostach (403): w oryginale chroni je logowanie przez `X-Accel`, którego ten serwer pośredniczący nie odtwarza. Pliki zasobów (`/media/resources/`) są serwowane wprost z dysku, także dla zasobów w wersji roboczej – nie wgrywaj tu danych, które nie mają być publiczne.
+- Pod `/media` są dostępne tylko katalogi publiczne (lista wyżej, rozdział 3); reszta, w tym `/media/reports/` i `/media/meetings/`, zwraca 403. Pliki zasobów (`/media/resources/`) są serwowane wprost z dysku, także dla zasobów w wersji roboczej – nie wgrywaj tu danych, które nie mają być publiczne.
 - `init_mcod_db` wykonuje `migrate`, więc zakłada też tabele AED (`resources.0076_resource_contains_aed_list`, `aed.0001_initial`) i ładuje `basic_data.json` (`core/management/commands/init_mcod_db.py`). Sprawdzone lokalnie 22.11 (`docs/wykaz-aed-w-portalu.md`); na serwerze **[nie uruchomiono]**.
 - Krok 6 jest potrzebny, bo `docker-compose.local.yml` montuje katalog `translations/` z repozytorium, a w nim nie ma plików `.mo`. Bez tego panel może być po angielsku (wniosek z `docs/integracja-portal-backend.md`).
 - Kontrola: `docker compose ps` (wszystkie `running`, `aed-service` `healthy`), potem `curl -sI https://<domena>/pl/aed`, `curl -s https://api.<domena>/aed-aggregated`, `curl -s https://<domena>/api/aed/eksport/dane-gov-pl.md5`.
@@ -141,7 +148,7 @@ Szczegóły kroków i oczekiwane komunikaty: `docs/wykaz-aed-w-portalu.md` i `do
 2. **Dostawcy wykazów.** Dodaj instytucje, np. „Urząd Miasta Legionowo” (`local`) i „Urząd Miasta Krosna” (`local`), status opublikowany. Wymagane pola: tabela w `docs/panel-portalu-krok-po-kroku.md`, rozdział 1.
 3. **Wykaz przyjęty.** W instytucji Legionowa: zbiór + zasób z pliku `datasets/raw/dane_gov_pl/legionowo/resource_2625221.csv`, „Wykaz AED: TAK”.
 4. **Wykaz odrzucony.** W instytucji Krosna: zasób z `datasets/raw/dane_gov_pl/krosno/resource_54632.csv`, „Wykaz AED: TAK”. Formularz pokaże błędy po polsku. Zapisz z „NIE”.
-5. **Wykaz z usługi AED (kanał sprzedawca → QR → zarządca).** W ministerstwie: zbiór „Rejestr zgłoszeń AED” i zasób typu **link** `https://<domena>/api/aed/eksport/dane-gov-pl.csv`, „Wykaz AED: TAK”. Link jest czytany przy scalaniu (`mcod/aed/aed_utils.py:69–92`), z weryfikacją certyfikatu, więc potrzebny jest prawdziwy certyfikat. Ten wariant to zapewnia. Zamiast linku można wgrać plik `datasets/out/aed_dane_gov_pl.csv`.
+5. **Wykaz z usługi AED (kanał sprzedawca → QR → zarządca).** W ministerstwie: zbiór „Rejestr zgłoszeń AED” i zasób z plikiem `datasets/out/aed_dane_gov_pl.csv` (albo pobranym z `https://<domena>/api/aed/eksport/dane-gov-pl.csv`), „Wykaz AED: TAK”. Zasób typu **link** do tego adresu działa tylko z `MAIN_AED_ALLOW_REMOTE_LISTS=true` (rozdział 4) – domyślnie formularz go odrzuci komunikatem „Wykaz AED musi być plikiem zapisanym w portalu…”. Z flagą link jest czytany przy scalaniu z weryfikacją certyfikatu, bez przekierowań, z limitem rozmiaru i czasu.
 6. **Scalanie.**
    ```sh
    docker compose exec mcod-local-admin python manage.py create_main_aed_resource --dry-run   # raport bez zapisu
@@ -149,26 +156,26 @@ Szczegóły kroków i oczekiwane komunikaty: `docs/wykaz-aed-w-portalu.md` i `do
    ```
    Wynik: zbiór „Krajowy wykaz defibrylatorów AED – wykaz zbiorczy” w ministerstwie oraz `https://api.<domena>/aed-aggregated` z raportem wykazów przyjętych i odrzuconych. Liczby dla wariantu z plikiem z kroku 5 (z testu `tests/test_wykaz.py`): 805 rekordów z wykazów, 24 połączenia, 781 w wykazie krajowym. **[nie uruchomiono w portalu]**
 7. **Zasilanie XML (opcjonalnie, drugi mechanizm portalu).** Panel → Źródła danych → XML, adres `https://<domena>/api/aed/eksport/dane-gov-pl.xml`, instytucja ministerstwo. Na serwerze nie trzeba obchodzić HTTPS: certyfikat jest prawdziwy, a `AED_BASE_URL` to `https://<domena>`. Powstaje osobny zbiór bez flagi wykazu, więc rekordy nie liczą się w scalaniu podwójnie.
-8. **Ścieżka sprzedawca → QR → zarządca** w `https://<domena>/pl/aed` (instrukcja dla jury, ścieżki A–C). Po potwierdzeniu urządzenia przez zarządcę ponowne scalanie (krok 6) dołącza je do wykazu krajowego przez link z kroku 5.
+8. **Ścieżka sprzedawca → QR → zarządca** w `https://<domena>/pl/aed` (instrukcja dla jury, ścieżki A–C). Po potwierdzeniu urządzenia przez zarządcę ponowne scalanie (krok 6) dołącza je do wykazu krajowego – przez link z kroku 5, jeśli włączono `MAIN_AED_ALLOW_REMOTE_LISTS`, inaczej po wgraniu nowej wersji pliku.
 
-Skrót zamiast kroków 2–5: `docker compose exec mcod-local-admin python manage.py seed_aed_demo` (`backend/mcod/aed/management/commands/seed_aed_demo.py`) zakłada instytucje, zbiory i trzy wykazy z prawdziwych plików (ministerstwo, Legionowo, Krosno). Nakładka montuje do jego użytku `../datasets` jako `/usr/src/mcod_backend/aed_datasets`. Z kodu: używa `get_or_create`, niczego nie nadpisuje i jest idempotentne; wykazy ministerstwa trafiają do instytucji `MAIN_AED_DATASET_OWNER_ORGANIZATION_PK` (2838 – jej nazwy polecenie nie zmienia, krok 1 nadal ręcznie). Na tej nakładce **[nie uruchomiono]** (lokalnie było uruchomione na zwykłym stosie).
+Skrót zamiast kroków 2–5: `docker compose exec mcod-local-admin python manage.py seed_aed_demo` (`backend/mcod/aed/management/commands/seed_aed_demo.py`) zakłada instytucje, zbiory i trzy wykazy z prawdziwych plików (ministerstwo, Legionowo, Krosno) oraz konto jury `jury@aed.example` / `jury-demo-2026` – redaktora instytucji „Gmina Demo (konto jury)” z pustym zbiorem „Defibrylatory AED – Gmina Demo”. Bez `MAIN_AED_DATASET_OWNER_ORGANIZATION_PK` kończy się błędem z instrukcją. Nakładka montuje do jego użytku `../datasets` jako `/usr/src/mcod_backend/aed_datasets`. Z kodu: używa `get_or_create`, niczego nie nadpisuje i jest idempotentne; wykazy ministerstwa trafiają do instytucji `MAIN_AED_DATASET_OWNER_ORGANIZATION_PK` (2838 – jej nazwy polecenie nie zmienia, krok 1 nadal ręcznie). Na tej nakładce **[nie uruchomiono]** (lokalnie było uruchomione na zwykłym stosie).
 
 Kontener Celery łączy się z adresem publicznym domeny (kroki 5 i 7). Na typowym serwerze VPS to działa. Jeśli serwer nie widzi sam siebie pod adresem publicznym (NAT bez hairpinu), trzeba dodać `extra_hosts` z adresem wewnętrznym. **[nie uruchomiono]**
 
 ## 7. Usługa AED
 
-W nakładce działa jako `aed-service`, w sieci portalu. Przy pierwszym starcie zakłada konta demo i importuje rejestr z `datasets/raw/` zapisanych w obrazie. `AED_BASE_URL` to `https://<domena>`, więc kody QR na naklejkach, linki aktywacyjne i linki w zasilaniu XML prowadzą pod publiczny adres i działają z telefonu. Baza leży w wolumenie `aed-data`.
+W nakładce działa jako `aed-service`, w sieci portalu. Przy pierwszym starcie zakłada konta demo i importuje rejestr z `datasets/raw/` zapisanych w obrazie. `AED_BASE_URL` to `https://<domena>`, więc kody QR na naklejkach, linki aktywacyjne i linki w zasilaniu XML prowadzą pod publiczny adres. Otwarcie ich z telefonu przez publiczną domenę **[nie uruchomiono]** – lokalnie adresy prowadziły pod `aed.localhost`. Baza leży w wolumenie `aed-data`.
 
 ## 8. Czego potrzebuje jury
 
 | Co | Adres | Konto |
 |---|---|---|
-| prototyp AED (rejestr, panel firmy, strona QR, panel ministerstwa) | `https://<domena>/pl/aed` | konta demo AED, hasło `AED_DEMO_PASSWORD` przekazane osobno |
+| prototyp AED (rejestr, panel firmy, strona QR, panel ministerstwa) | `https://<domena>/pl/aed` | konta demo AED; decyzja 22.11: hasła jawne `…-demo` na czas pokazu – `init-env.sh` domyślnie nie ustawia `AED_DEMO_PASSWORD`, więc usługa używa haseł `…-demo` (`aed_service/app.py`) |
 | portal z forka (strona główna, zbiory, zbiór zbiorczy, tabela, mapa) | `https://<domena>/pl` | bez logowania |
 | wykaz AED do odczytu | `https://api.<domena>/aed-aggregated`, `https://api.<domena>/resources/<id>/data` | bez logowania |
-| panel administracyjny (oznaczanie wykazów, źródła harvestera) | `https://admin.<domena>` | konto redaktora (propozycja niżej) |
+| panel administracyjny (oznaczanie wykazów, źródła harvestera) | `https://admin.<domena>` | `jury@aed.example` / `jury-demo-2026` (redaktor instytucji demo, zakłada `seed_aed_demo`) |
 
-Odczyt nie wymaga żadnego konta, a to odpowiada wskazówce prowadzącego („cenniejsze będzie rozwiązanie do odczytu”). Do panelu proponujemy osobne konto redaktora (`is_staff`) przypisane do jednej instytucji demonstracyjnej, np. „Gmina Demo”. Juror może wtedy sam dodać wykaz AED, ale nie zmieni danych ministerstwa ani kont. Superużytkownika zostawiamy zespołowi. Nie sprawdziliśmy, czy redaktor instytucji może uruchomić „Sprawdź poprawność pliku” w źródle harvestera. **[do sprawdzenia w panelu]**
+Odczyt wyniku wykazu nie wymaga konta, a to odpowiada wskazówce prowadzącego („cenniejsze będzie rozwiązanie do odczytu”). Do panelu (decyzja 22.11): konto `jury@aed.example`, redaktor (`is_staff`) jednej instytucji demonstracyjnej. Juror może wtedy sam dodać wykaz AED, ale nie zmieni danych ministerstwa ani kont. Superużytkownika zostawiamy zespołowi. Nie sprawdziliśmy, czy redaktor instytucji może uruchomić „Sprawdź poprawność pliku” w źródle harvestera. **[do sprawdzenia w panelu]**
 
 Logowanie do kont portalu we frontendzie jest wyłączone w buildzie `aed` (`frontend/src/app/pages/aed/aed-prototype.ts`). Portal ma pasek „to nie jest serwis dane.gov.pl”. Panel administracyjny działa normalnie.
 
@@ -188,8 +195,8 @@ Po `down -v` trzeba powtórzyć kroki 4–6 z sekcji 5 i dane z sekcji 6. Pliki 
 
 1. Serwer: amd64 czy ARM, ile RAM i dysku, jaki system, czy działa na nim coś na portach 80 i 443?
 2. Domena: jaka nazwa? Czy można dodać rekordy `api.`, `admin.` i `cms.` albo rekord wieloznaczny?
-3. Hasła kont demo AED: losowe hasło z `AED_DEMO_PASSWORD` (jury dostaje je w instrukcji; karty logowania pokazują wtedy „hasło: przekazane osobno”) czy znane hasła `…-demo` (każdy z internetu może wejść do panelu ministerstwa prototypu)?
-4. Konto jury w panelu portalu: redaktor jednej instytucji demonstracyjnej (propozycja) czy tylko odczyt bez logowania?
+3. Hasła kont demo AED – decyzja 22.11: znane hasła `…-demo` zostają na czas pokazu (każdy z internetu może wejść do panelu ministerstwa prototypu – świadomie).
+4. Konto jury w panelu portalu – decyzja 22.11: `jury@aed.example`, redaktor instytucji demo.
 5. Harmonogram Celery: włączyć (`AED_CELERY_OPTS`), żeby scalanie szło samo o 03:45, czy pokazywać ręczne uruchomienie?
 6. Do kiedy serwer ma działać po hackathonie i kto go wyłączy?
 

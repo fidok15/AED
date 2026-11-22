@@ -26,8 +26,9 @@ COMPOSE_FILE=docker-compose.local.yml:docker-compose.aed-domain.yml
 AED_DOMAIN=$domain
 DJANGO_SECRET_KEY=$(rnd)
 JWT_SECRET_KEY=$(rnd)
-# Password of the three AED demo accounts (ministerstwo@, pulsar@, serwis@aed.example); give it to the jury.
-AED_DEMO_PASSWORD=$(openssl rand -hex 6)
+# Demo passwords are public for the show (team decision): unset = the known "...-demo" passwords of the AED service
+# accounts, so anyone on the internet can open the prototype's ministry panel. Uncomment to set your own password.
+# AED_DEMO_PASSWORD=$(openssl rand -hex 6)
 # Owner of the national AED list dataset: institution 2838 from the portal's start data (rename it in the panel).
 MAIN_AED_DATASET_OWNER_ORGANIZATION_PK=2838
 EOF
@@ -43,4 +44,4 @@ else
     sed '/"timeout": 1,/d' mcod/settings/local.py.sample | cat - aed-domain/settings.py > mcod/settings/local.py
     echo "Utworzono mcod/settings/local.py (local.py.sample + aed-domain/settings.py)"
 fi
-grep '^AED_DEMO_PASSWORD=' .env
+grep '^AED_DEMO_PASSWORD=' .env || echo "Konta demo AED: jawne hasła ...-demo (aed_service/README.md)."
