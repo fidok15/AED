@@ -174,7 +174,7 @@ def check_record(record, profile, row=None, today=None, columns=None):
         for name in ACTIVE_REQUIRED:
             if not val[name]:
                 out.append(issue(row, name, ERROR, "wymagane_dla_aktywnego",
-                                 "Rekord o statusie „aktywny” musi mieć wypełnione pole %s. Uzupełnij je albo zmień status."
+                                 "Rekord zweryfikowany (status „aktywny”) musi mieć wypełnione pole %s. Uzupełnij je albo zmień status."
                                  % _label(name)))
 
     if profile == "publikacja":
