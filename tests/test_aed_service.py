@@ -354,6 +354,37 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual(sorted(f["properties"]["id_aed"] for f in geo["features"] if f["properties"]["zrodlo"] == "godziny"),
                          ["AED-OPENTEST0001", "AED-OPENTEST0002"])
 
+    def test_list_sorted_by_distance_from_a_point(self):
+        def rec(i, lat, hours="24/7", **kw):
+            base = {n: "" for n in aed_standard.field_names()}
+            base.update(id_aed="AED-NEARTEST%04d" % i, nazwa="Punkt %d" % i, szerokosc_geograficzna=str(lat),
+                        dlugosc_geograficzna="21.0", miejscowosc="Warszawa", status="niepotwierdzony", zrodlo="blisko",
+                        zrodlo_id=str(i), licencja="CC BY 4.0", dostep="publiczny", kompletnosc="40",
+                        godziny_dostepu=hours)
+            base.update(kw)
+            return base
+        # 0.01 degree of latitude is ~1112 m
+        recs = [rec(1, 52.03), rec(2, 52.01, "Mo-Fr 08:00-16:00"), rec(3, 52.02), rec(4, ""),
+                rec(5, 52.0, dostep="prywatny")]
+        recs[3].update(szerokosc_geograficzna="", dlugosc_geograficzna="")  # no position, no distance
+        with mock.patch.object(aed_standard, "build_registry", return_value=(recs, [], {"polaczenia": {"razem": 0}})):
+            self.client.simulate_post("/api/aed/mapper/uruchom", headers=self.ministry())
+        base = "/api/aed/urzadzenia?zrodlo=blisko&lat=52.0&lon=21.0"
+        near = self.client.simulate_get(base).json
+        self.assertEqual([(r["id_aed"][-1], r["odleglosc_m"]) for r in near["dane"]],
+                         [("2", 1112), ("3", 2224), ("1", 3336)])
+        self.assertEqual(near["razem"], 3)
+        page2 = self.client.simulate_get(base + "&na_stronie=1&strona=2").json
+        self.assertEqual([r["id_aed"][-1] for r in page2["dane"]], ["3"])
+        with mock.patch.object(aed_standard, "warsaw_now", return_value=datetime.datetime(2026, 11, 28, 23, 0)):
+            night = self.client.simulate_get(base + "&dostepny_teraz=1").json
+        self.assertEqual([r["id_aed"][-1] for r in night["dane"]], ["3", "1"])
+        self.assertNotIn("odleglosc_m", self.client.simulate_get("/api/aed/urzadzenia?zrodlo=blisko").json["dane"][0])
+        for bad in ("lat=95&lon=21", "lat=52", "lat=abc&lon=21", "lat=nan&lon=21"):
+            self.assertEqual(self.client.simulate_get("/api/aed/urzadzenia?" + bad).status_code, 422, bad)
+        by_id = self.client.simulate_get("/api/aed/urzadzenia?q=aed-neartest0003").json
+        self.assertEqual([r["id_aed"] for r in by_id["dane"]], ["AED-NEARTEST0003"])
+
     def test_duplicate_decisions_survive_mapper_runs(self):
         def rec(i, **kw):
             base = {n: "" for n in aed_standard.field_names()}
