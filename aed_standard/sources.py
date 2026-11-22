@@ -107,34 +107,47 @@ def _unwrap(line):
     return line[1:-1].replace('""', '"')
 
 
-def _read_csv(path, source, notes):
-    """-> list of (row_number, {column: value}); column names and values stripped."""
-    with open(path, encoding="utf-8-sig") as f:
-        lines = [line for line in f.read().splitlines() if line.strip()]
+def parse_csv(text, source, notes, delimiter=","):
+    """CSV text -> (list of (row_number, {column: value}), columns); column names and values stripped."""
+    if "unwrap_quoted_rows" not in source["fixes"]:
+        lines = [r for r in csv.reader(io.StringIO(text, newline=""), delimiter=delimiter) if any(v.strip() for v in r)]
+        if not lines:
+            return [], []
+        columns = [c.strip() for c in lines[0]]
+        return [(n, dict(zip(columns, [v.strip() for v in vals]))) for n, vals in enumerate(lines[1:], start=1)], columns
+    lines = [line for line in text.splitlines() if line.strip()]
     if not lines:
         return [], []
-    unwrap = "unwrap_quoted_rows" in source["fixes"]
     header = lines[0]
-    if unwrap and len(header) > 1 and header.startswith('"') and header.endswith('"'):
+    if len(header) > 1 and header.startswith('"') and header.endswith('"'):
         header = _unwrap(header)
-    columns = [c.strip() for c in next(csv.reader(io.StringIO(header)))]
+    columns = [c.strip() for c in next(csv.reader(io.StringIO(header), delimiter=delimiter))]
     rows, repaired = [], 0
     for n, line in enumerate(lines[1:], start=1):
-        if unwrap and line.startswith('"') and line.endswith('"') and '""' in line:
+        if line.startswith('"') and line.endswith('"') and '""' in line:
             line = _unwrap(line)
             repaired += 1
-        vals = [v.strip() for v in next(csv.reader(io.StringIO(line)))]
+        vals = [v.strip() for v in next(csv.reader(io.StringIO(line), delimiter=delimiter))]
         rows.append((n, dict(zip(columns, vals))))
     if repaired:
         notes.append("%s: %d wierszy było ujętych w jedną parę cudzysłowów – rozpakowano." % (source["label"], repaired))
     return rows, columns
 
 
+def _read_csv(path, source, notes):
+    with open(path, encoding="utf-8-sig") as f:
+        return parse_csv(f.read(), source, notes)
+
+
+def parse_geojson(data):
+    """GeoJSON object -> (list of (row_number, properties, geometry), sorted property names)."""
+    rows = [(n, dict(feat.get("properties") or {}), feat.get("geometry")) for n, feat in enumerate(data["features"], start=1)]
+    return rows, sorted({k for _, props, _ in rows for k in props})
+
+
 def _read_geojson(path):
     with open(path, encoding="utf-8") as f:
-        features = json.load(f)["features"]
-    rows = [(n, dict(feat.get("properties") or {}), feat.get("geometry")) for n, feat in enumerate(features, start=1)]
-    return rows, sorted({k for _, props, _ in rows for k in props})
+        return parse_geojson(json.load(f))
 
 
 def _needed_columns(source):
@@ -168,6 +181,14 @@ def map_source(raw_dir, entry, source, licence):
         rows = [(n, row, None) for n, row in rows]
     else:
         rows, columns = _read_geojson(path)
+    out, more = map_rows(rows, columns, entry, source, licence)
+    return out, notes + more
+
+
+def map_rows(rows, columns, entry, source, licence):
+    """Rows [(row_number, {column: value}, geometry or None)] -> (records, notes), as described by a registry entry.
+    Shared by the source mapper and the converter (aed_standard/konwerter.py)."""
+    notes = []
     missing = [c for c in _needed_columns(source) if c not in columns]
     if rows and missing:
         raise ValueError("w pliku brakuje kolumn: %s (są: %s)" % (", ".join(missing), ", ".join(columns)))

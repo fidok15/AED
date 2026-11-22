@@ -97,6 +97,8 @@ export class AedQrComponent implements OnInit {
    * record too and then also takes the owner's contact.
    */
   protected readonly takeover = computed(() => this.record()?.['licencja'] === ODBL);
+  /** The manager may add the contact on a takeover and whenever the record has none yet (e.g. a city dataset). */
+  protected readonly needsContact = computed(() => this.takeover() || !this.record()?.['dysponent_email']);
   protected readonly ownerFields = ['dysponent_nazwa', 'dysponent_email', 'dysponent_telefon'].map(aedField);
   protected readonly owner = new FormGroup(
     Object.fromEntries(this.ownerFields.map((field) => [field.name, aedControl(field)])),
@@ -186,7 +188,7 @@ export class AedQrComponent implements OnInit {
     if (this.form.invalid) return; // appScrollToFirstError marks the fields and moves focus to the first one
     // The service changes only the fields it receives. A field the manager emptied is therefore sent as '',
     // otherwise the old text would stay in the record; untouched empty fields are left out.
-    const controls = { ...this.values.controls, ...(this.takeover() ? this.owner.controls : {}) };
+    const controls = { ...this.values.controls, ...(this.needsContact() ? this.owner.controls : {}) };
     const sent = Object.entries(controls)
       .filter(([, control]) => control.dirty || (control.value !== null && control.value !== ''))
       .map(([name, control]) => [name, control.value ?? '']);

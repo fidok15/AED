@@ -66,6 +66,10 @@ import { AedApiService, aedLinkFactory } from './aed-api.service';
           z odznaką za wynik.
         </li>
         <li>
+          <a [routerLink]="['/!aed', '!konwerter'] | localize">Konwerter do standardu AED</a> – zamień własny plik z
+          defibrylatorami na wykaz gotowy do publikacji na dane.gov.pl, bez logowania.
+        </li>
+        <li>
           <a [href]="api.exportUrl" download>Zbiór do publikacji na dane.gov.pl (CSV)</a> – tylko rekordy gotowe do
           publikacji, w kolumnach standardu.
         </li>

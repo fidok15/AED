@@ -1,0 +1,281 @@
+<h1 class="heading heading--md">Konwerter do standardu AED</h1>
+<p class="aed-lede">
+  Masz własny plik z defibrylatorami? Wgraj go, sprawdź, która kolumna odpowiada któremu polu standardu, i pobierz wykaz
+  gotowy do publikacji na dane.gov.pl. Nie trzeba się logować, a plik nie jest nigdzie zapisywany.
+</p>
+
+<div aria-live="assertive">
+  @if (error()) {
+    <p class="aed-message aed-message--error" role="alert" id="aed-conv-error" tabindex="-1">{{ error() }}</p>
+  }
+</div>
+
+<section class="aed-panel" aria-labelledby="aed-conv-step1">
+  <p class="aed-step">Krok 1 z 3</p>
+  <h2 class="aed-h2" id="aed-conv-step1">Wgraj swój plik</h2>
+  <div class="aed-field">
+    <label class="aed-field__label" for="aed-conv-plik">Plik z defibrylatorami (CSV albo GeoJSON)</label>
+    <p class="aed-field__hint" id="aed-conv-plik-hint">
+      Dowolny układ kolumn. CSV w kodowaniu UTF-8 lub Windows-1250, z przecinkiem, średnikiem albo tabulatorem jako
+      separatorem. Najwyżej 5 MB.
+    </p>
+    <input
+      class="form-control"
+      id="aed-conv-plik"
+      type="file"
+      accept=".csv,.geojson,.json,text/csv,application/geo+json,application/json"
+      aria-describedby="aed-conv-plik-hint"
+      #plik
+      (change)="choose(plik)" />
+  </div>
+  @if (busy() && !analysis()) {
+    <p role="status">Odczytuję plik…</p>
+  }
+</section>
+
+@if (analysis(); as analysis) {
+  <section class="aed-panel" aria-labelledby="aed-conv-mapping">
+    <p class="aed-step">Krok 2 z 3</p>
+    <h2 class="aed-h2" id="aed-conv-mapping" tabindex="-1">Przypisz kolumny do pól standardu</h2>
+    <dl class="aed-facts aed-facts--compact">
+      <div>
+        <dt>Plik</dt>
+        <dd>{{ analysis.plik }}</dd>
+      </div>
+      <div>
+        <dt>Format</dt>
+        <dd>
+          {{ analysis.format === 'geojson' ? 'GeoJSON' : 'CSV'
+          }}{{ analysis.separator ? ', ' + analysis.separator : '' }}
+        </dd>
+      </div>
+      <div>
+        <dt>Kodowanie</dt>
+        <dd>{{ analysis.kodowanie }}</dd>
+      </div>
+      <div>
+        <dt>Wiersze danych</dt>
+        <dd>{{ number(analysis.wiersze) }}</dd>
+      </div>
+    </dl>
+    @for (note of analysis.uwagi; track $index) {
+      <p class="aed-message">{{ note }}</p>
+    }
+    @for (warning of analysis.ostrzezenia; track $index) {
+      <p class="aed-message aed-message--warn"><strong>Uwaga:</strong> {{ warning }}</p>
+    }
+    <p>
+      Propozycje przygotowaliśmy na podstawie nazw kolumn i ich wartości. Sprawdź je i popraw tam, gdzie trzeba.
+      Kolumny, które nie pasują do żadnego pola, pomiń.
+    </p>
+
+    <div class="aed-scroll" tabindex="0" role="region" aria-labelledby="aed-conv-map-caption">
+      <table class="aed-table">
+        <caption id="aed-conv-map-caption">
+          Kolumny pliku i pola standardu
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Kolumna w pliku</th>
+            <th scope="col">Przykładowe wartości</th>
+            <th scope="col">Pole standardu</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (column of analysis.kolumny; track column.kolumna; let i = $index) {
+            <tr>
+              <th scope="row">{{ column.kolumna }}</th>
+              <td>
+                @if (column.przyklady.length) {
+                  <ul class="aed-list">
+                    @for (example of column.przyklady; track $index) {
+                      <li>{{ example.length > 80 ? example.slice(0, 80) + '…' : example }}</li>
+                    }
+                  </ul>
+                } @else {
+                  <span>(pusta)</span>
+                }
+              </td>
+              <td>
+                <label class="visually-hidden" [for]="'aed-conv-col-' + i"
+                  >Pole standardu dla kolumny {{ column.kolumna }}</label
+                >
+                <select
+                  class="form-control"
+                  [id]="'aed-conv-col-' + i"
+                  [attr.aria-describedby]="column.powod ? 'aed-conv-why-' + i : null"
+                  [attr.aria-invalid]="repeated().includes(mapping()[column.kolumna]) || null"
+                  #target
+                  (change)="setTarget(column.kolumna, target.value)">
+                  <option value="" [selected]="!mapping()[column.kolumna]">— pomiń kolumnę —</option>
+                  @for (field of analysis.pola; track field.pole) {
+                    <option [value]="field.pole" [selected]="mapping()[column.kolumna] === field.pole">
+                      {{ field.tytul }}
+                    </option>
+                  }
+                </select>
+                @if (column.powod) {
+                  <p class="aed-field__hint" [id]="'aed-conv-why-' + i">
+                    Propozycja: {{ targetTitle(column.pole) }} ({{ column.powod }})
+                  </p>
+                }
+                @if (repeated().includes(mapping()[column.kolumna])) {
+                  <p class="aed-field__hint"><strong>Błąd:</strong> to pole wybrano też dla innej kolumny.</p>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <fieldset class="aed-group">
+      <legend class="aed-h3">Wartości wspólne dla całego pliku (nieobowiązkowe)</legend>
+      <p class="aed-field__hint">Wpisujemy je tylko tam, gdzie w pliku jest pusto.</p>
+      @for (field of constantFields(); track field.pole) {
+        <div class="aed-field">
+          <label class="aed-field__label" [for]="'aed-conv-const-' + field.pole">{{ field.tytul }}</label>
+          @if (field.wartosci) {
+            <select
+              class="form-control"
+              [id]="'aed-conv-const-' + field.pole"
+              #constant
+              (change)="setConstant(field.pole, constant.value)">
+              <option value="">— bez wartości wspólnej —</option>
+              @for (value of field.wartosci; track value) {
+                <option [value]="value">{{ value }}</option>
+              }
+            </select>
+          } @else {
+            <input
+              class="form-control"
+              type="text"
+              [id]="'aed-conv-const-' + field.pole"
+              #constant
+              (change)="setConstant(field.pole, constant.value)" />
+          }
+        </div>
+      }
+    </fieldset>
+
+    <p>
+      <button class="btn btn-primary" type="button" [attr.aria-disabled]="busy() || null" (click)="convert()">
+        Przekształć plik do standardu
+      </button>
+    </p>
+    @if (busy()) {
+      <p role="status">Przekształcam plik…</p>
+    }
+  </section>
+}
+
+@if (result(); as result) {
+  <section class="aed-panel" aria-labelledby="aed-conv-result">
+    <p class="aed-step">Krok 3 z 3</p>
+    <h2 class="aed-h2" id="aed-conv-result" tabindex="-1">
+      @switch (result.raport.status) {
+        @case ('przyjety') {
+          Wykaz jest zgodny ze standardem
+        }
+        @case ('czesciowo') {
+          Wykaz jest częściowo zgodny ze standardem
+        }
+        @default {
+          Wykaz wymaga poprawek
+        }
+      }
+    </h2>
+    <dl class="aed-facts aed-facts--compact">
+      <div>
+        <dt>Wiersze</dt>
+        <dd>{{ number(result.raport.wiersze) }}</dd>
+      </div>
+      <div>
+        <dt>Poprawne</dt>
+        <dd>{{ number(result.raport.poprawne) }}</dd>
+      </div>
+      <div>
+        <dt>Odrzucone</dt>
+        <dd>{{ number(result.raport.odrzucone) }}</dd>
+      </div>
+      <div>
+        <dt>Średnia kompletność</dt>
+        <dd>{{ number(result.raport.kompletnosc_srednia) }}%</dd>
+      </div>
+    </dl>
+    @if (result.raport.poza_wykazem_krajowym) {
+      <p class="aed-message aed-message--warn">
+        Wiersze poprawne, ale poza zbiorem krajowym (np. urządzenia z dostępem prywatnym):
+        {{ result.raport.poza_wykazem_krajowym }}.
+      </p>
+    }
+    @if (result.raport.poprawki.length) {
+      <details class="aed-details">
+        <summary>Co poprawiliśmy lub warto sprawdzić ({{ result.raport.poprawki.length }})</summary>
+        <ul>
+          @for (fix of result.raport.poprawki; track $index) {
+            <li>{{ fix }}</li>
+          }
+        </ul>
+      </details>
+    }
+
+    @if (result.raport.problemy.length) {
+      <div class="aed-scroll" tabindex="0" role="region" aria-labelledby="aed-conv-problems-caption">
+        <table class="aed-table">
+          <caption id="aed-conv-problems-caption">
+            Co poprawić
+            @if (result.raport.problemy_razem > result.raport.problemy.length) {
+              (pokazujemy {{ result.raport.problemy.length }} z {{ result.raport.problemy_razem }})
+            }
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Wiersz</th>
+              <th scope="col">Pole</th>
+              <th scope="col">Rodzaj</th>
+              <th scope="col">Co poprawić</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (problem of result.raport.problemy; track $index) {
+              <tr>
+                <td>{{ problem.wiersz ?? '–' }}</td>
+                <td>
+                  {{ title(problem.pole) }}
+                  @if (problem.pole) {
+                    <code>{{ problem.pole }}</code>
+                  }
+                </td>
+                <td>{{ problem.poziom === 'blad' ? 'Błąd' : 'Ostrzeżenie' }}</td>
+                <td>{{ problem.komunikat }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    @if (result.raport.poprawne) {
+      <p>
+        <a class="btn btn-primary" [href]="downloadHref()" [download]="result.nazwa_pliku"
+          >Pobierz wykaz w standardzie (CSV)</a
+        >
+      </p>
+      @if (result.raport.odrzucone) {
+        <p>Odrzucone wiersze są w pliku, ale portal je pominie. Popraw je w pliku źródłowym i przekształć ponownie.</p>
+      }
+      <h3 class="aed-h3">Co dalej</h3>
+      <ol class="aed-steps">
+        <li>Zaloguj się na dane.gov.pl jako dostawca danych swojej instytucji.</li>
+        <li>Opublikuj pobrany plik jako zasób w swoim zbiorze i zaznacz „Wykaz AED: TAK”.</li>
+        <li>Portal sprawdzi plik tym samym standardem i dołączy go do krajowego wykazu AED.</li>
+      </ol>
+    } @else {
+      <p class="aed-message">
+        Żaden wiersz nie spełnia standardu. Sprawdź przypisanie kolumn (zwłaszcza współrzędnych i nazwy miejsca) albo
+        uzupełnij wartości wspólne.
+      </p>
+    }
+  </section>
+}

@@ -24,6 +24,7 @@ import falcon
 import segno
 
 import aed_standard
+from aed_standard import konwerter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -52,7 +53,7 @@ HIDDEN_PUBLIC = aed_standard.build.HIDDEN_PUBLIC  # one rule for every public ex
 CONFIRM_FIELDS = ("nazwa", "szerokosc_geograficzna", "dlugosc_geograficzna", "miejscowosc", "cecha_ulicy",
                   "nazwa_ulicy", "nr_budynku", "nr_lokalu", "kod_pocztowy", "opis_lokalizacji", "wewnatrz_budynku",
                   "dostep", "godziny_dostepu", "godziny_dostepu_opis", "data_waznosci_baterii", "data_waznosci_elektrod")
-OWNER_FIELDS = ("dysponent_nazwa", "dysponent_email", "dysponent_telefon")  # set by the manager on a takeover only
+OWNER_FIELDS = ("dysponent_nazwa", "dysponent_email", "dysponent_telefon")  # set by the manager when the record has no contact
 ODBL = "ODbL 1.0"
 REQUIRED_CODES = ("brak_wymaganego", "wymagane_dla_aktywnego")  # not an error in an incomplete problem report
 SIGNAL_TYPES = ("jest", "brak", "uszkodzony", "zamkniety")
@@ -248,15 +249,16 @@ def import_registry(db, result=None):
     # queue (the other direction is checked at confirmation time).
     fresh = {r[0] for r in inserts} | {u[-1] for u in updates}
     owned = [json.loads(r[0]) for r in db.execute("SELECT data FROM devices WHERE %s AND lat IS NOT NULL" % OWNED_SQL)]
+    queued = 0
     if fresh and owned:
-        queue_matches(db, owned, [clean(r) for r in records if r["id_aed"] in fresh])
+        queued += queue_matches(db, owned, [clean(r) for r in records if r["id_aed"] in fresh])
     known = set(origins) | {r[0] for r in inserts}
     for p in pairs:
         a_id, b_id = p["id_aed_a"], p["id_aed_b"]
         if a_id in known and b_id in known:  # a decided pair never returns, whichever order it is listed in
-            queue_pair(db, a_id, b_id, p.get("odleglosc_m"), p.get("podobienstwo"))
+            queued += queue_pair(db, a_id, b_id, p.get("odleglosc_m"), p.get("podobienstwo"))
     merged = int(report["polaczenia"]["razem"])
-    out = {"dodano": added, "zmieniono": changed, "polaczono": merged, "do_przegladu": len(pairs), "wycofano": 0}
+    out = {"dodano": added, "zmieniono": changed, "polaczono": merged, "do_przegladu": queued, "wycofano": 0}
     if report.get("bledy_zrodel"):
         out["bledy_zrodel"] = list(report["bledy_zrodel"])
     # Retire imported records that are gone from the mapper output (merged elsewhere or removed at the source).
@@ -382,26 +384,67 @@ def account_json(a):
     return {"id": a["id"], "nazwa": a["nazwa"], "rola": a["rola"], "typ_podmiotu": a["typ_podmiotu"]}
 
 
-def read_upload(req):
+def read_upload(req, exts=(".csv",), form=None):
+    """-> (filename, bytes) of the multipart field "plik". Text fields named in `form` (a dict) are filled in."""
     length = req.content_length
     if length is not None and length > MAX_UPLOAD + 4096:
         raise ApiError(413, "plik_za_duzy", "Plik jest większy niż %d MB." % (MAX_UPLOAD // 2 ** 20))
     ctype = req.content_type or ""
     if not ctype.startswith("multipart/form-data"):
         raise ApiError(415, "zly_typ", "Wyślij plik CSV jako multipart/form-data w polu „plik”.")
+    found = None
     try:
         for part in req.get_media():
-            if part.name == "plik":
+            if part.name == "plik" and found is None:
                 name = part.filename or ""
-                if not name.lower().endswith(".csv"):
-                    raise ApiError(415, "tylko_csv", "Przyjmujemy wyłącznie pliki CSV (UTF-8).")
+                if not name.lower().endswith(exts):
+                    raise ApiError(415, "tylko_csv", "Przyjmujemy wyłącznie pliki CSV (UTF-8)." if exts == (".csv",)
+                                   else "Przyjmujemy pliki: %s." % ", ".join(exts))
                 data = part.get_data()
                 if len(data) > MAX_UPLOAD:
                     raise ApiError(413, "plik_za_duzy", "Plik jest większy niż %d MB." % (MAX_UPLOAD // 2 ** 20))
-                return name, data
+                found = (name, data)
+                if form is None:
+                    return found
+            elif form is not None and part.name in form:
+                form[part.name] = part.get_text()
     except falcon.MediaMalformedError:
         raise ApiError(413, "plik_za_duzy", "Plik jest większy niż %d MB lub żądanie jest uszkodzone." % (MAX_UPLOAD // 2 ** 20))
-    raise ApiError(400, "brak_pliku", "Brakuje pola „plik” z plikiem CSV.")
+    if found is None:
+        raise ApiError(400, "brak_pliku", "Brakuje pola „plik” z plikiem CSV.")
+    return found
+
+
+# ---------- converter (public, nothing stored) ----------
+
+CONVERTER_FILES = (".csv", ".geojson", ".json")
+
+
+def converter_analyze(req, resp):
+    name, data = read_upload(req, CONVERTER_FILES)
+    try:
+        resp.media = konwerter.analyze(data, name)
+    except konwerter.ConverterError as ex:
+        raise ApiError(422, "plik_nieczytelny", str(ex))
+
+
+def converter_convert(req, resp):
+    form = {"mapowanie": None, "stale": None}
+    name, data = read_upload(req, CONVERTER_FILES, form)
+    try:
+        mapping = json.loads(form["mapowanie"] or "null")
+        constants = json.loads(form["stale"] or "{}")
+    except ValueError:
+        raise ApiError(400, "zly_format", "Pola „mapowanie” i „stale” muszą zawierać obiekty JSON.")
+    if not isinstance(mapping, dict) or not isinstance(constants, dict) or not all(
+            isinstance(v, str) for v in list(mapping.values()) + list(constants.values())):
+        raise ApiError(400, "zly_format", "Pole „mapowanie” musi być obiektem {kolumna: pole}, a „stale” obiektem {pole: wartość}.")
+    try:
+        text, report = konwerter.convert(data, name, mapping, constants)
+    except konwerter.ConverterError as ex:
+        raise ApiError(422, "zle_mapowanie", str(ex))
+    base = re.sub(r"[^A-Za-z0-9_-]+", "-", os.path.splitext(os.path.basename(name))[0]).strip("-") or "plik"
+    resp.media = {"nazwa_pliku": "%s-wykaz-aed.csv" % base, "plik_csv": text, "raport": report}
 
 
 # ---------- submissions ----------
@@ -568,10 +611,13 @@ def sticker(req, resp, id_aed):
 
 def queue_pair(db, a_id, b_id, distance, similarity):
     """Add a pair to the review queue unless the ministry (or the queue) already knows it, in either order."""
-    if not db.execute("SELECT 1 FROM duplicates WHERE (id_a=? AND id_b=?) OR (id_a=? AND id_b=?)",
-                      (a_id, b_id, b_id, a_id)).fetchone():
-        db.execute("INSERT INTO duplicates(id_a,id_b,odleglosc_m,podobienstwo) VALUES(?,?,?,?)",
-                   (a_id, b_id, distance, similarity))
+    """-> 1 when the pair was added, 0 when already known."""
+    if db.execute("SELECT 1 FROM duplicates WHERE (id_a=? AND id_b=?) OR (id_a=? AND id_b=?)",
+                  (a_id, b_id, b_id, a_id)).fetchone():
+        return 0
+    db.execute("INSERT INTO duplicates(id_a,id_b,odleglosc_m,podobienstwo) VALUES(?,?,?,?)",
+               (a_id, b_id, distance, similarity))
+    return 1
 
 
 OWNED_SQL = "origin IN ('zgloszenie','zarzadca') AND status!='wycofany'"  # submitted by a seller or confirmed by a manager
@@ -591,9 +637,11 @@ def nearby_box(lat, lon):
 
 def queue_matches(db, owned, imported):
     """Candidate duplicates (aed_standard.find_candidates) between submitted/confirmed devices and imported records
-    go to the review queue, the submitted device as record A (the one kept). Nothing is merged automatically."""
+    go to the review queue, the submitted device as record A (the one kept). Nothing is merged automatically.
+    -> number of pairs added to the queue."""
     # ponytail: O(owned x imported) box filter, fine for thousands of owned devices; grid both sides if it grows
     pts = [(p, r) for p, r in ((coords(r), r) for r in imported) if p]
+    added = 0
     for rec in owned:
         p = coords(rec)
         if not p:
@@ -601,7 +649,8 @@ def queue_matches(db, owned, imported):
         y1, y2, x1, x2 = nearby_box(*p)
         near = [r for (lat, lon), r in pts if y1 <= lat <= y2 and x1 <= lon <= x2]
         for c in aed_standard.find_candidates(rec, near):
-            queue_pair(db, rec["id_aed"], c["id_aed"], c["odleglosc_m"], c["podobienstwo"])
+            added += queue_pair(db, rec["id_aed"], c["id_aed"], c["odleglosc_m"], c["podobienstwo"])
+    return added
 
 
 def enqueue_matches(db, rec):
@@ -620,6 +669,8 @@ def apply_confirmation(db, id_aed, data, on=None):
     row = get_device(db, id_aed)
     if not manager_ok(db, id_aed, data.get("t")):
         raise ApiError(403, "zly_token", "Link jest niepoprawny lub wygasł. Poproś o nowy na adres e-mail dysponenta.")
+    if row["status"] == "wycofany":  # a link issued before the withdrawal must not bring the record back
+        raise ApiError(409, "wycofany", "Urządzenie zostało wycofane z rejestru; nie można go potwierdzić.")
     stan = data.get("stan")
     if stan not in ("sprawny", "problem"):
         raise ApiError(422, "zly_stan", "Pole „stan” musi mieć wartość „sprawny” albo „problem”.")
@@ -638,6 +689,9 @@ def apply_confirmation(db, id_aed, data, on=None):
                    licencja="CC0 1.0", wprowadzajacy_typ="dysponent", status="niepotwierdzony",
                    powiazane_zrodla=";".join(["%s:%s" % (rec["zrodlo"], rec["zrodlo_id"])] + linked))
         fields = CONFIRM_FIELDS + OWNER_FIELDS
+    elif not rec.get("dysponent_email"):
+        # No contact yet (e.g. a city dataset): the manager may add one, otherwise reminders skip the device.
+        fields = CONFIRM_FIELDS + OWNER_FIELDS
     rec.update({k: v for k, v in clean(data).items() if k in fields and k in data})
     rec["data_aktualizacji"] = on
     if stan == "sprawny":
@@ -654,7 +708,8 @@ def apply_confirmation(db, id_aed, data, on=None):
         errors = [p for p in errors if p["kod"] not in REQUIRED_CODES and p["pole"] in supplied]
     if errors:
         raise ApiError(422, "niepoprawne_dane", "Uzupełnij dane, zanim potwierdzisz urządzenie." if stan == "sprawny"
-                       else "Popraw błędne wartości w zgłoszeniu.", {"problemy": report["problemy"]})
+                       else "Popraw błędne wartości w zgłoszeniu.",
+                       {"problemy": report["problemy"] if stan == "sprawny" else errors})
     save_device(db, rec, origin="zarzadca", uwagi_zarzadcy=uwagi if stan == "problem" else None)
     enqueue_matches(db, rec)
     db.commit()
@@ -1201,4 +1256,6 @@ def build_app(conn):
     route(app, "/przypomnienia/uruchom", post=manual_job("przypomnienia"))
     route(app, "/mapper/uruchom", post=manual_job("mapper"))
     route(app, "/zadania", get=list_jobs)
+    route(app, "/konwerter/analiza", post=converter_analyze)
+    route(app, "/konwerter/konwersja", post=converter_convert)
     return app

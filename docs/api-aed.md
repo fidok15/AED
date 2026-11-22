@@ -89,7 +89,11 @@ Potwierdzenie (żądanie):
 
 Odpowiedź: pola `id_aed`, `status`, `data_weryfikacji`, `sposob_weryfikacji`, `kompletnosc` oraz pełny rekord w `rekord`. Przy `stan = sprawny` rekord przechodzi w `aktywny`; przy `stan = problem` nie jest aktywny, dopóki problem nie zostanie usunięty i potwierdzony ponownie.
 
-Podane wartości są zawsze sprawdzane standardem, także przy `stan = problem` (zgłoszenie problemu może być niepełne, ale nie może zawierać błędnych wartości). Błąd: 422 `{"blad": {"kod": "niepoprawne_dane", "komunikat": "…", "problemy": [...]}}`.
+Podane wartości są zawsze sprawdzane standardem, także przy `stan = problem` (zgłoszenie problemu może być niepełne, ale nie może zawierać błędnych wartości). Błąd: 422 `{"blad": {"kod": "niepoprawne_dane", "komunikat": "…", "problemy": [...]}}`. Przy `stan = problem` lista `problemy` zawiera tylko błędy blokujące zgłoszenie (błędne podane wartości, bez brakujących pól wymaganych).
+
+Rekord `wycofany` nie może zostać potwierdzony także linkiem wystawionym przed wycofaniem: 409 `wycofany`.
+
+Jeśli rekord nie ma jeszcze `dysponent_email` (np. rekord ze zbioru miejskiego bez kontaktu), zarządca może podać `dysponent_nazwa`, `dysponent_email`, `dysponent_telefon`; bez tego przypomnienia pomijają urządzenie. Istniejący kontakt nie jest zmieniany tą drogą. Dane położenia z importu zostają (poza rekordami ODbL – patrz niżej).
 
 Po potwierdzeniu lokalizacji usługa szuka w pobliżu rekordów z importu; prawdopodobne duplikaty trafiają do kolejki ministerstwa (zgłoszone urządzenie jest rekordem zachowywanym), nic nie jest łączone automatycznie. To samo działa w drugą stronę: rekord dodany lub zmieniony przez mapper obok urządzenia zgłoszonego albo potwierdzonego trafia do kolejki przy uruchomieniu mappera. Kandydatów wskazuje `aed_standard.find_candidates` (różne źródła, do 50 m, ten sam numer seryjny; różne znane numery seryjne nie są parą).
 
@@ -133,9 +137,26 @@ Lista stronicowana: `{"dane": [...], "razem": 19000, "strona": 1, "na_stronie": 
 | `POST /api/aed/duplikaty/{id}` | ministerstwo | `{"decyzja": "polacz" | "rozdziel"}`; `polacz` zachowuje rekord A, rekord B dostaje status `wycofany`. Decyzja jest trwała: kolejne uruchomienia mappera jej nie cofają, a para nie wraca do kolejki |
 | `GET /api/aed/wiadomosci` | ministerstwo | skrzynka nadawcza: prośby o potwierdzenie i przypomnienia (odbiorca, temat, treść, link, data) |
 | `POST /api/aed/przypomnienia/uruchom` | ministerstwo | ręczne uruchomienie zadania cyklicznego: prośby o potwierdzenie dla rekordów bez weryfikacji od 6 miesięcy, przypomnienia 60 dni przed końcem ważności baterii lub elektrod, oznaczenie `nieaktualny` po 12 miesiącach bez potwierdzenia |
-| `POST /api/aed/mapper/uruchom` | ministerstwo | ręczne uruchomienie mappera źródeł; odpowiedź: `{"dodano", "zmieniono", "polaczono", "do_przegladu", "wycofano"}`. `wycofano` to rekordy z importu, których nie ma już w źródłach |
+| `POST /api/aed/mapper/uruchom` | ministerstwo | ręczne uruchomienie mappera źródeł; odpowiedź: `{"dodano", "zmieniono", "polaczono", "do_przegladu", "wycofano"}`. `do_przegladu` to pary faktycznie dodane do kolejki w tym uruchomieniu (z mappera i z dopasowań do urządzeń zgłoszonych lub potwierdzonych); pary już znane nie są liczone ponownie. `wycofano` to rekordy z importu, których nie ma już w źródłach |
 | `GET /api/aed/zadania` | ministerstwo | historia 20 ostatnich uruchomień, od najnowszego: `id`, `start`, `koniec`, `wyzwalacz` (`harmonogram` \| `ministerstwo`), `rodzaj` (`cykl` \| `mapper` \| `przypomnienia`), `odswiezono`, `mapper`, `przypomnienia`, `bledy` |
 
 Zadania cykliczne (pobranie źródeł → mapper → przypomnienia) usługa uruchamia sama co `AED_CYCLE_HOURS` godzin (domyślnie 24). Ręczne uruchomienie w trakcie działającego zadania daje 409 `zadanie_trwa`, nieudane – 500 `zadanie_nieudane`.
 
 Wiadomości w prototypie nie są wysyłane pocztą – trafiają do skrzynki nadawczej, którą widać w panelu. Wiadomość ze zgłoszenia osoby postronnej nie ma linku (`link: null`).
+
+## Konwerter do standardu (publiczny, bez zapisu)
+
+Narzędzie dla dostawcy, który ma własny plik z defibrylatorami w dowolnym układzie kolumn. Bez logowania; plik jest przetwarzany w pamięci i nie jest zapisywany. Limit rozmiaru jak przy zgłoszeniach (5 MB). Przyjmowane pliki: `.csv` (UTF-8, UTF-16 z BOM albo Windows-1250; separator `,`, `;` lub tabulator – wykrywany), `.geojson`, `.json` (FeatureCollection z punktami). Konwerter niczego nie publikuje: wynikowy plik dostawca sam publikuje jako zasób swojego zbioru na dane.gov.pl z oznaczeniem „Wykaz AED”.
+
+| Metoda i ścieżka | Kto | Opis |
+|---|---|---|
+| `POST /api/aed/konwerter/analiza` | każdy | `multipart/form-data`, pole `plik`. Zwraca kolumny pliku z przykładowymi wartościami i propozycją pola standardu |
+| `POST /api/aed/konwerter/konwersja` | każdy | `multipart/form-data`: `plik`, `mapowanie` (JSON `{kolumna: pole}`; pusty tekst = kolumna pomijana), opcjonalnie `stale` (JSON `{pole: wartość}` – wpisywane w puste komórki całego pliku, np. `miejscowosc`, `dostep`) |
+
+Odpowiedź analizy: `plik`, `format` (`csv` \| `geojson`), `kodowanie`, `separator`, `wiersze`, `kolumny: [{kolumna, przyklady, pole, powod}]`, `przyklad_wierszy` (5 pierwszych wierszy), `pola: [{pole, tytul}]` (dozwolone cele mapowania), `pola_stale: [{pole, tytul, wartosci}]` (pola, którym można nadać wartość stałą; `wartosci` = słownik albo `null`), `uwagi` (naprawy pliku, np. rozpakowane wiersze), `ostrzezenia` (możliwe dane osobowe).
+
+Cele mapowania to pola schematu wypełniane przez dysponenta lub sprzedawcę, `zrodlo_id` (identyfikator w pliku dostawcy), `data_weryfikacji` i dwa cele specjalne: `_adres` (pełny adres w jednej kolumnie, np. „ul. Jasna 12, 38-400 Krosno”, dzielony na ulicę, numer, kod i miejscowość) oraz – w GeoJSON albo przy kolumnie z punktami GeoJSON – pseudokolumny `geometria: szerokość` i `geometria: długość`. Pozostałe kolumny systemowe (`zrodlo`, `licencja`, `status`, `id_aed`…) zostają puste – portal wypełnia je przy odczycie wykazu.
+
+Propozycja: najpierw wartości (współrzędne w zakresie Polski – także przy zamienionych nagłówkach, kody pocztowe, pełny adres z kodem, adresy e-mail), potem nazwy kolumn (nazwa i tytuł pola w `schema.json`, kolumny źródeł z `sources.json` i `zrodla` w schemacie, krótka lista synonimów w `aed_standard/konwerter.py`). Każde pole dostaje najwyżej jedną kolumnę; kolumna z tą samą wartością w każdym wierszu ustępuje innym.
+
+Odpowiedź konwersji: `nazwa_pliku`, `plik_csv` (tekst CSV w standardzie: wszystkie kolumny ze schematu, UTF-8, przecinek) i `raport`: `status` (`przyjety` \| `czesciowo` \| `odrzucony`), `wiersze`, `poprawne`, `odrzucone`, `poza_wykazem_krajowym` (np. `dostep = prywatny`), `kompletnosc_srednia`, `problemy` (jak w walidatorze: `wiersz`, `pole`, `poziom`, `kod`, `komunikat`; najwyżej 20, jak w raporcie wykazu w portalu), `problemy_razem`, `poprawki` (naprawy: zamienione współrzędne, rozpakowane wiersze, wspólne współrzędne różnych adresów). Raport powstaje tym samym odczytem (`aed_standard.wykaz.read_wykaz`), którym portal sprawdza wykaz AED. Błędy: 415 `tylko_csv` (inny typ pliku), 422 `plik_nieczytelny` (plik się nie czyta), 422 `zle_mapowanie` (np. jedno pole przypisane do dwóch kolumn, nieznane pole), 400 `zly_format` (`mapowanie`/`stale` nie są obiektami JSON).

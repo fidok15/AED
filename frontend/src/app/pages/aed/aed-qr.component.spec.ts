@@ -137,6 +137,23 @@ describe('AedQrComponent, manager view', () => {
     expect('opis_lokalizacji' in body).toBe(false); // the OSM value was never put into the form
   });
 
+  it('does not ask for the owner contact when the record has one', () => {
+    open(record({ dysponent_email: 'aed@urzad.example' }), record());
+    expect(page.querySelector('#aed-step-owner')).toBeNull();
+  });
+
+  it('asks for the owner contact when the record has none', () => {
+    open(record(), record());
+    expect(page.querySelector('#aed-step-owner')).not.toBeNull();
+    type('#aed-dysponent_email', 'aed@gmina.example');
+    choose('input[name="aed-stan"][value="sprawny"]');
+    submit();
+    expect(confirm.mock.calls[0][1]).toMatchObject({
+      dysponent_email: 'aed@gmina.example',
+      nazwa: 'Urząd Demonstracyjny',
+    });
+  });
+
   it('keeps the battery and electrode step last when no date is close', () => {
     open(record(), record());
     const cards = Array.from(page.querySelectorAll('form .aed-card')).map(
