@@ -35,6 +35,7 @@ main() {
     # Untracked and ignored files stay: backend/.env, mcod/settings/local.py, media/, compiled translations.
     git -c advice.detachedHead=false checkout --quiet --force --detach "$new"
     cd backend
+    mkdir -p logs  # ignored by git; Django's file log handlers need it, also during the image build
 
     # aed-domain/settings.py is appended to local.py (init-env.sh); rebuild it so changes in git take effect.
     sed '/"timeout": 1,/d' mcod/settings/local.py.sample | cat - aed-domain/settings.py > mcod/settings/local.py.new

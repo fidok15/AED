@@ -6,6 +6,8 @@ set -euo pipefail
 domain=${1:?"podaj domenę frontendu"} api=${2:?"podaj host API"} admin=${3:?"podaj host panelu"} cms=${4:?"podaj host CMS"}
 repo=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$repo/backend"
+# Ignored by git, but Django opens its log files there at start-up, also in the image build (compilemessages).
+mkdir -p logs
 
 sh aed-domain/init-env.sh "$domain"
 sed -i 's/^COMPOSE_FILE=.*/COMPOSE_FILE=docker-compose.local.yml:docker-compose.aed-domain.yml:docker-compose.aed-tunnel.yml/' .env
