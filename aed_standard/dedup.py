@@ -22,7 +22,9 @@ CELL_LAT, CELL_LON = 0.0005, 0.0008
 
 LICENCE_ORDER = S.enum("licencja")  # schema.json lists them from least to most restrictive
 # sposob_ustalenia_polozenia travels with the coordinates (merge_cluster), never on its own.
-NOT_FILLED = {"id_aed", "status", "data_aktualizacji", "wprowadzajacy_typ", "wprowadzajacy_nazwa", POSITION_METHOD} | {
+CONDITION, CONDITION_DATE = "stan_urzadzenia", "data_stanu"   # one assessment: copied together or not at all
+NOT_FILLED = {"id_aed", "status", "data_aktualizacji", "wprowadzajacy_typ", "wprowadzajacy_nazwa", POSITION_METHOD,
+              CONDITION, CONDITION_DATE} | {
     f["name"] for f in S.FIELDS if f.get("grupa") == "pochodzenie"}
 STOPWORDS = {"defibrylator", "defibrylatory", "aed", "ul", "al", "pl", "im", "w", "nr", "i", "the", "ulica", "aleja"}
 
@@ -163,6 +165,9 @@ def merge_cluster(members):
         filled = False
         if not rec[LAT] and other[LAT]:
             rec[POSITION_METHOD] = other[POSITION_METHOD]
+        if not rec[CONDITION] and other[CONDITION]:
+            rec[CONDITION], rec[CONDITION_DATE] = other[CONDITION], other[CONDITION_DATE]
+            filled = True
         for name in S.FIELD_NAMES:
             if name not in NOT_FILLED and not rec[name] and other[name]:
                 rec[name] = other[name]

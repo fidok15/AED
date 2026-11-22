@@ -14,6 +14,8 @@ Zasady ogólne:
 - uwierzytelnienie: nagłówek `Authorization: Bearer <token>` z logowania; role: `firma`, `ministerstwo`;
 - konta demonstracyjne są zakładane przy starcie usługi i wypisane w `aed_service/README.md`.
 
+Zgłoszenie problemu (`stan=problem`) dla rekordu zweryfikowanego zmienia wyłącznie stan urządzenia i zapisuje uwagi; pola położenia, dostępu i godzin przesłane razem z nim są pomijane, bo byłyby pokazane pod starą datą weryfikacji. Żeby je zmienić, dysponent potwierdza urządzenie ponownie (`stan=sprawny`). Ustawienie `wewnatrz_budynku=nie` czyści `pietro`.
+
 ## Sesja
 
 | Metoda i ścieżka | Kto | Opis |
