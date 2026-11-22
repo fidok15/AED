@@ -77,10 +77,13 @@ def read_wykaz(data, source, today=None):
                               else row_licence or licence)
         values["status"] = values["status"] or DEFAULT_STATUS
         values["data_aktualizacji"] = values["data_aktualizacji"] or source.get("data_aktualizacji", "")
-        values["wprowadzajacy_typ"] = values["wprowadzajacy_typ"] or DEFAULT_ENTERED_BY
+        entered_by = values["wprowadzajacy_typ"]  # as in the file: empty for a plain municipal list
+        values["wprowadzajacy_typ"] = entered_by or DEFAULT_ENTERED_BY
         values["wprowadzajacy_nazwa"] = source.get("instytucja", "")
         values["powiazane_zrodla"] = ""  # filled by deduplication
-        if values[LAT] and values[LON] and not values[POSITION_METHOD]:
+        # "import" only for rows nobody responsible entered: a position confirmed by a custodian or a seller
+        # must not be relabelled as imported when their record travels through a list.
+        if values[LAT] and values[LON] and not values[POSITION_METHOD] and entered_by in ("", DEFAULT_ENTERED_BY):
             values[POSITION_METHOD] = "import"
         values["kompletnosc"] = str(public_completeness(values))  # a list on dane.gov.pl is open data
         filled.append(values)

@@ -231,7 +231,7 @@ Z linii poleceń (Python 3, bez dodatkowych pakietów):
 ## 6. Znane ograniczenia (skrót)
 
 - Wykaz AED w portalu działa w lokalnym pełnym stosie forka, ale nie na serwerze publicznym; wdrożenie pod domeną uruchomiono 22.11 tylko lokalnie, pod domeną testową `aed.localhost` (`docs/wdrozenie-serwer.md`, rozdział 11). Harmonogram 03:45 nie był sprawdzony – scalanie uruchamiano ręcznie.
-- Zbiór do publikacji ma 781 rekordów, z czego 708 z API Warszawy; średnia kompletność rejestru 39,2 na 100.
+- Zbiór do publikacji ma 781 rekordów, z czego 708 z API Warszawy; średnia kompletność rejestru 38,5 na 100.
 - Harvester: fork ma XSD 1.14 z `containsAedList` (test parsera i serializera), ale usługa wystawia 1.13, pełnego importu nie uruchomiono, a CKAN flagi nie przenosi; zasób z XML 1.13 albo CKAN oznacza redaktor w panelu.
 - Przy zapisie portal sprawdza tylko plik CSV; wykaz XLSX i wykaz-link – dopiero przy scalaniu.
 - Ponowne scalanie tworzy nowy zasób zbiorczy, poprzedni adres zasobu zwraca 404.

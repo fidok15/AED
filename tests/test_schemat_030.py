@@ -235,3 +235,13 @@ class ServiceTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PositionMethodInListsTest(unittest.TestCase):
+    def test_import_only_for_rows_nobody_responsible_entered(self):
+        from aed_standard.wykaz import read_wykaz
+        head = "nazwa,miejscowosc,szerokosc_geograficzna,dlugosc_geograficzna,dostep,wprowadzajacy_typ\n"
+        data = (head + "Urząd,Warszawa,52.2,21.0,publiczny,\nSzkoła,Warszawa,52.3,21.1,publiczny,dysponent\n").encode("utf-8")
+        records, _ = read_wykaz(data, {"zrodlo": "dane.gov.pl/1", "zasob": 1, "licencja": "CC0 1.0", "instytucja": "Gmina"})
+        by_name = {r["nazwa"]: r["sposob_ustalenia_polozenia"] for r in records}
+        self.assertEqual(by_name, {"Urząd": "import", "Szkoła": ""})
