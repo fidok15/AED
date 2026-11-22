@@ -15,9 +15,14 @@ x-aed-portal: &aed-portal
     DISCOURSE_FORUM_ENABLED: "false"
     BASE_URL: https://${AED_DOMAIN:?run aed-domain/init-env.sh first}
     FRONTEND_BASE_URL: https://${AED_DOMAIN}
-    API_URL: https://api.${AED_DOMAIN}
-    ADMIN_URL: https://admin.${AED_DOMAIN}
-    CMS_URL: https://cms.${AED_DOMAIN}
+    API_URL: https://${AED_API_HOST:-api.${AED_DOMAIN}}
+    ADMIN_URL: https://${AED_ADMIN_HOST:-admin.${AED_DOMAIN}}
+    CMS_URL: https://${AED_CMS_HOST:-cms.${AED_DOMAIN}}
+    # Flat host names (docs/wdrozenie-pve.md); empty = api./admin./cms.<AED_DOMAIN>. Read by aed-domain/settings.py.
+    AED_API_HOST: ${AED_API_HOST:-}
+    AED_ADMIN_HOST: ${AED_ADMIN_HOST:-}
+    AED_CMS_HOST: ${AED_CMS_HOST:-}
+    AED_COOKIE_DOMAIN: ${AED_COOKIE_DOMAIN-${AED_DOMAIN}}
     API_URL_INTERNAL: http://mcod-local-api:8000
     BOKEH_ALLOW_WS_ORIGIN: ${AED_DOMAIN}
     NO_REPLY_EMAIL: no-reply@${AED_DOMAIN}
@@ -129,11 +134,17 @@ services:
     image: public.ecr.aws/docker/library/caddy:2
     environment:
       AED_DOMAIN: ${AED_DOMAIN}
+      AED_API_HOST: ${AED_API_HOST:-api.${AED_DOMAIN}}
+      AED_ADMIN_HOST: ${AED_ADMIN_HOST:-admin.${AED_DOMAIN}}
+      AED_CMS_HOST: ${AED_CMS_HOST:-cms.${AED_DOMAIN}}
+      AED_SITE_SCHEME: ${AED_SITE_SCHEME:-}  # "http://" behind a TLS-terminating tunnel (docker-compose.aed-tunnel.yml)
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./aed-domain/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../prezentacja-html:/srv/prezentacja:ro  # https://<domain>/prezentacja.html
+      - ../video/out:/srv/film:ro  # https://<domain>/film.mp4 (npm run render in video/)
       - ./statics:/srv/statics:ro
       - ./media:/srv/media:ro
       - caddy-data:/data  # certificates survive restarts (Let's Encrypt rate limits)

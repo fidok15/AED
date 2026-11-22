@@ -1,5 +1,7 @@
 # One TLS entry point for the full-portal deployment (docker-compose.aed-domain.yml).
 # Caddy gets Let's Encrypt certificates for all four names; DNS of each must point at this server.
+# Host names: AED_API_HOST, AED_ADMIN_HOST, AED_CMS_HOST (compose defaults: api./admin./cms.<AED_DOMAIN>).
+# AED_SITE_SCHEME=http:// serves plain HTTP behind a TLS-terminating tunnel (docker-compose.aed-tunnel.yml).
 #   <domain>        portal frontend (fork) + AED module, /api/aed -> aed-service, /api -> portal API
 #   api.<domain>    portal API (resource files under /media, GET /aed-aggregated)
 #   admin.<domain>  portal admin panel (Django)
@@ -38,12 +40,25 @@
 	}
 }
 
-{$AED_DOMAIN} {
+{$AED_SITE_SCHEME}{$AED_DOMAIN} {
 	encode gzip
-	reverse_proxy aed-web:80
+	# Pitch deck (one self-contained file from the repository, updated by every deploy) and the pitch video
+	# (rendered from video/ into the git-ignored video/out/, copied to the server by hand: docs/wdrozenie-pve.md).
+	handle /prezentacja.html {
+		root * /srv/prezentacja
+		file_server
+	}
+	handle /film.mp4 {
+		rewrite * /misja-aed-pitch.mp4
+		root * /srv/film
+		file_server
+	}
+	handle {
+		reverse_proxy aed-web:80
+	}
 }
 
-api.{$AED_DOMAIN} {
+{$AED_SITE_SCHEME}{$AED_API_HOST} {
 	encode gzip
 	import public_media
 	handle {
@@ -51,7 +66,7 @@ api.{$AED_DOMAIN} {
 	}
 }
 
-admin.{$AED_DOMAIN} {
+{$AED_SITE_SCHEME}{$AED_ADMIN_HOST} {
 	encode gzip
 	import public_media
 	handle_path /static/* {
@@ -64,7 +79,7 @@ admin.{$AED_DOMAIN} {
 	}
 }
 
-cms.{$AED_DOMAIN} {
+{$AED_SITE_SCHEME}{$AED_CMS_HOST} {
 	encode gzip
 	import public_media
 	redir / /admin/

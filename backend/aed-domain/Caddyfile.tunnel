@@ -1,0 +1,11 @@
+# Wrapper for docker-compose.aed-tunnel.yml: the tunnel terminates TLS, Caddy serves the same sites over HTTP.
+{
+	auto_https off
+	servers {
+		# cloudflared reaches Caddy through Docker's port mapping (a private address); keep its
+		# X-Forwarded-Proto: https, otherwise Django would see plain HTTP behind the tunnel.
+		trusted_proxies static private_ranges
+	}
+}
+
+import /etc/caddy/Caddyfile.sites
