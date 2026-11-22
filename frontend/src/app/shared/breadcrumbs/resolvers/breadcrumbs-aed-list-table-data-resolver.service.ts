@@ -1,5 +1,6 @@
 import { inject } from '@angular/core';
 import { ActivatedRouteSnapshot, Router, RouterStateSnapshot } from '@angular/router';
+import { TranslateService } from '@ngx-translate/core';
 import { combineLatest, EMPTY, Observable, of } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
 
@@ -15,6 +16,7 @@ export const breadcrumbsAedListTableDataResolverService = (
   const datasetService = inject(DatasetService);
   const cmsService = inject(CmsService);
   const router = inject(Router);
+  const translate = inject(TranslateService);
 
   const getMoreData = (data: IAedAggregated): Observable<unknown> => {
     const lang = route.queryParams.lang;
@@ -26,7 +28,11 @@ export const breadcrumbsAedListTableDataResolverService = (
       of(data),
       datasetService.getResourceById(String(data.resource_id)),
       datasetService.getDatasetsStats(String(data.dataset_id), data.dataset_slug),
-      cmsService.getLandingPage(slicedUrl, lang, rev),
+      // Unlike DGA, the list stays visible without its CMS page (not created yet in a given portal):
+      // the page then has only a title and no descriptive text.
+      cmsService
+        .getLandingPage(slicedUrl, lang, rev)
+        .pipe(catchError(() => of({ title: translate.instant('Menu.AedList'), body: [] }))),
     ]).pipe(
       map(([resData, resource, stats, cms]) => {
         return {

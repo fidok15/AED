@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRouteSnapshot, Router, RouterStateSnapshot } from '@angular/router';
+import { TranslateService } from '@ngx-translate/core';
 import { lastValueFrom, Observable, of, throwError, toArray } from 'rxjs';
 
 import { AedListService } from '@app/services/aed-list.service';
@@ -23,6 +24,7 @@ describe('breadcrumbsAedListTableDataResolverService', () => {
   let datasetService: { getResourceById: jest.Mock; getDatasetsStats: jest.Mock };
   let cmsService: { getLandingPage: jest.Mock };
   let router: { navigate: jest.Mock };
+  let translate: { instant: jest.Mock };
 
   const route = { queryParams: {} } as unknown as ActivatedRouteSnapshot;
   const state = { url: '/pl/wykaz-aed/table' } as RouterStateSnapshot;
@@ -41,6 +43,7 @@ describe('breadcrumbsAedListTableDataResolverService', () => {
     datasetService = { getResourceById: jest.fn(() => of(resource)), getDatasetsStats: jest.fn(() => of(stats)) };
     cmsService = { getLandingPage: jest.fn(() => of(cms)) };
     router = { navigate: jest.fn(() => Promise.resolve(true)) };
+    translate = { instant: jest.fn((key: string) => (key === 'Menu.AedList' ? 'Wykaz AED' : key)) };
     jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     TestBed.configureTestingModule({
@@ -49,6 +52,7 @@ describe('breadcrumbsAedListTableDataResolverService', () => {
         { provide: DatasetService, useValue: datasetService },
         { provide: CmsService, useValue: cmsService },
         { provide: Router, useValue: router },
+        { provide: TranslateService, useValue: translate },
       ],
     });
   });
@@ -71,8 +75,18 @@ describe('breadcrumbsAedListTableDataResolverService', () => {
     expect(datasetService.getResourceById).not.toHaveBeenCalled();
   });
 
-  it('navigates home when the CMS page is missing', async () => {
+  it('still shows the national list when the CMS page is missing, titled from translations and without CMS text', async () => {
     cmsService.getLandingPage.mockReturnValue(throwError(() => ({ status: 404 })));
+
+    const emitted = await resolve();
+
+    expect(emitted).toEqual([{ resData: aggregated, resource, stats, cms: { title: 'Wykaz AED', body: [] } }]);
+    expect(translate.instant).toHaveBeenCalledWith('Menu.AedList');
+    expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it('navigates home when the national list resource cannot be loaded', async () => {
+    datasetService.getResourceById.mockReturnValue(throwError(() => ({ status: 404 })));
 
     expect(await resolve()).toEqual([]);
     expect(router.navigate).toHaveBeenCalledWith(['/']);
