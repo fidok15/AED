@@ -13,6 +13,7 @@ describe('AedConverterComponent', () => {
   const analysis: AedConverterAnalysis = {
     plik: 'krosno.csv',
     format: 'csv',
+    format_opis: 'Rozpoznano po treści pliku: CSV.',
     kodowanie: 'UTF-8',
     separator: 'przecinek',
     wiersze: 2,
@@ -93,9 +94,12 @@ describe('AedConverterComponent', () => {
         ukryte_pola: ['dysponent_email'],
         ukryte_komunikat:
           'Kolumny E-mail dysponenta są w pobranym pliku puste: kontakt i numer seryjny nie trafiają do pliku publicznego.',
+        bez_wspolrzednych: 1,
+        bez_wspolrzednych_komunikat: '1 wierszy ma adres bez współrzędnych – nie trafią do wykazu.',
       },
     });
     fixture.detectChanges();
+    expect(page.textContent).toContain('1 wierszy ma adres bez współrzędnych');
     const link = page.querySelector<HTMLAnchorElement>('a[download]');
     expect(link.textContent).toContain('Pobierz wykaz w standardzie (CSV)');
     expect(link.getAttribute('download')).toBe('krosno-wykaz-aed.csv');

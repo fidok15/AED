@@ -447,7 +447,10 @@ def read_upload(req, exts=(".csv",), form=None):
 
 # ---------- converter (public, nothing stored) ----------
 
-CONVERTER_FILES = (".csv", ".xlsx", ".geojson", ".json")
+# The content decides the format (aed_standard/formaty.py); the extension only filters out obvious mistakes.
+# PDF, XLS, DOC and images are accepted so that the converter can explain in Polish what to do with them.
+CONVERTER_FILES = (".csv", ".txt", ".tsv", ".xlsx", ".ods", ".geojson", ".json", ".kml", ".kmz", ".gpx", ".gml", ".xml",
+                   ".html", ".htm", ".docx", ".zip", ".pdf", ".xls", ".doc", ".png", ".jpg", ".jpeg")
 
 
 def converter_analyze(req, resp):
