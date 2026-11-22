@@ -1,6 +1,6 @@
 # Do zrobienia
 
-Stan na 22.11.2026, 01:45, gałąź `feat/nocna-runda` (niezmergowana). Testy: 85 przechodzi (usługa, standard, wykaz, konwerter); frontend AED: 16 testów, linter i build OK. Zbiór krajowy: 18 814 rekordów, eksport 781.
+Stan na 22.11.2026, 03:00, `main` = PR #23. Testy: 102 przechodzą (usługa, standard, wykaz, konwerter, godziny); frontend AED: 51 testów, linter i build OK; portal w kontenerze: 8 testów AED + 148 testów regresji. Zbiór krajowy: 18 814 rekordów, eksport 781, 195 par do przeglądu.
 
 Plan i zasady: `CLAUDE.md` w katalogu głównym. Kontrakt API: `docs/api-aed.md`.
 
@@ -8,17 +8,29 @@ Plan i zasady: `CLAUDE.md` w katalogu głównym. Kontrakt API: `docs/api-aed.md`
 
 Zrobione na `feat/nocna-runda`: poprawki w `aed_standard` po przeglądzie kodu zespołu, przejęcie punktu z OSM (usługa + ekran), konwerter dowolnego pliku do standardu (`/pl/aed/konwerter`), dostosowanie frontendu do kontraktu, przejście ścieżek jury w przeglądarce z poprawkami, axe (0 naruszeń w module AED), plik prezentacji (`docs/prezentacja/`), opis projektu, wdrożenie pełnego forka pod domenę (`docs/wdrozenie-serwer.md`), dwa przeglądy Codexa z poprawkami (`docs/przeglad-codex.md`).
 
+Doszło po 01:45 (PR #17–#23): wykaz AED uruchomiony w stosie portalu (migracje, testy, scalanie przez Celery, tabela i mapa we frontendzie forka – zrzuty `docs/zrzuty/portal-*.png`); konwerter z normalizacją wartości i XLSX; filtr „dostępny teraz" na liście; nowa mapa rejestru i „najbliższe urządzenia" z odległością i linkiem „Wyznacz trasę"; poprawki UI po ocenie Codexa (`docs/przeglad-ui-codex.md`); lekki prototyp zbudowany od zera i ścieżki jury przeklikane na Dockerze; próbne wdrożenie pod domeną lokalnie (`aed.localhost`) z trzema poprawkami; pięć przeglądów kodu Codexem, wszystkie znaleziska poprawione.
+
+Stan lokalny na tej maszynie: prototyp `http://localhost:8080/pl/aed` (obrazy sprzed nowej mapy – przebudować: `docker compose up -d --build`); portal `http://localhost:8001` (panel, `admin@mcod.local`) i `http://localhost:8000/aed-aggregated`.
+
+Niesprawdzone, wymaga człowieka albo serwera:
+
+- [ ] Wdrożenie na serwerze: budowa obrazu `mcod-app:local`, `init_mcod_db` na nakładce domenowej, Let's Encrypt. Kroki: `docs/wdrozenie-serwer.md` (rozdz. 5 i 11). Nie przenosić bazy z laptopa – dane demo założyć na serwerze (`seed_aed_demo`).
+- [ ] Geolokalizacja „Użyj mojej lokalizacji" na prawdziwym telefonie (testowana na podstawionej pozycji); rejestr przy 320 px po ustaleniu lokalizacji; axe na ekranie QR po zmianie kolejności kroków.
+- [ ] Harmonogram scalania 03:45 (Celery beat) – scalanie uruchamiano ręcznie.
+- [ ] Zrzut `wzorzec-slownik-pol.png` do prezentacji (karta „Słownik pól" z `wzorzec/wzorzec-aed.xlsx`) – jedyny brakujący.
+- [ ] Pozostałe uwagi z przeglądu UI (A6–A8: tabele błędów, duplikatów i mapowania na wąskich ekranach) – niewdrożone.
+
 Do zrobienia przez człowieka:
 
 - [ ] Otworzyć `docs/prezentacja/misja-aed.pptx` w PowerPoincie albo Keynote i obejrzeć wszystkie slajdy (nie była renderowana). Tekst, nazwa akcji, hasło, logo: `docs/prezentacja/slajdy.json`, potem `uv run --with python-pptx python scripts/build_presentation.py`.
-- [ ] Dodać 9 brakujących zrzutów do `docs/zrzuty/` (8 z portalu `portal-01…08`, 1 z `wzorzec-aed.xlsx`: `wzorzec-slownik-pol.png`) i przebudować prezentację.
+- [x] Dodać 9 brakujących zrzutów do `docs/zrzuty/` (8 z portalu `portal-01…08`, 1 z `wzorzec-aed.xlsx`: `wzorzec-slownik-pol.png`) i przebudować prezentację.
 - [ ] Serwer: architektura (amd64/ARM), RAM, dysk, wolne porty 80/443; domena i rekordy `api.`, `admin.`, `cms.`; potem kroki z `docs/wdrozenie-serwer.md` (konfiguracja sprawdzona tylko składniowo).
 - [ ] Konto dla jury w panelu portalu: redaktor jednej instytucji demo czy sam odczyt?
 
 Interfejs – do poprawy (uwaga fidok15, 22.11 ok. 02:10):
 
-- [ ] Mapa rejestru jest nieczytelna, a pinezki brzydkie i nie pomagają w orientacji. Do przeprojektowania: znacznik czytelny z daleka i odróżniający stan (aktywny / niepotwierdzony / nieaktualny) kształtem i kolorem, grupowanie punktów przy oddaleniu, spokojniejszy podkład, legenda tekstem, wyraźne „jesteś tutaj". Pliki: `frontend/src/app/pages/aed/aed-map.component.ts`, `aed.scss`. Mapa ma zostać dodatkiem do dostępnej listy (zasada 7).
-- [ ] Przegląd UI/UX Codexem – oszczędnie: jedno uruchomienie, tylko na zrzutach `docs/zrzuty/01–09` i `frontend/aed-zrzuty/` (bez przeklikiwania aplikacji i bez czytania całego kodu), z poleceniem „najwyżej 10 znalezisk, od najważniejszego, każde z konkretną poprawką i plikiem", osobno mapa. Poprawki wdrażamy dopiero po wyborze przez człowieka.
+- [x] Mapa rejestru jest nieczytelna, a pinezki brzydkie i nie pomagają w orientacji. Do przeprojektowania: znacznik czytelny z daleka i odróżniający stan (aktywny / niepotwierdzony / nieaktualny) kształtem i kolorem, grupowanie punktów przy oddaleniu, spokojniejszy podkład, legenda tekstem, wyraźne „jesteś tutaj". Pliki: `frontend/src/app/pages/aed/aed-map.component.ts`, `aed.scss`. Mapa ma zostać dodatkiem do dostępnej listy (zasada 7).
+- [x] Przegląd UI/UX Codexem – oszczędnie: jedno uruchomienie, tylko na zrzutach `docs/zrzuty/01–09` i `frontend/aed-zrzuty/` (bez przeklikiwania aplikacji i bez czytania całego kodu), z poleceniem „najwyżej 10 znalezisk, od najważniejszego, każde z konkretną poprawką i plikiem", osobno mapa. Poprawki wdrażamy dopiero po wyborze przez człowieka.
 
 Decyzje do podjęcia:
 
@@ -37,19 +49,19 @@ Agent frontendowy został przerwany limitem przed raportem; jego praca jest w co
 - [x] Przejść w przeglądarce trzy poprawki z przeglądu: skrzynka ministerstwa z wiadomością bez linku, ekran po zgłoszeniu problemu, krok „bateria i elektrody” – na usłudze z poprawkami z PR #14.
 - [x] Dostosować frontend do zmian kontraktu z PR #14: licznik `wycofano` w wynikach mappera i historii zadań, błąd 422 także przy `stan = problem`, kilka ważnych linków dysponenta.
 - [x] Pokazać w panelu ministerstwa źródła pominięte i błędy źródeł (dane dodane przez Jakuba w historii zadań i `raport.json`).
-- [ ] Filtr „dostępny teraz” na liście rejestru (dziś tylko na mapie) – lista jest stronicowana po stronie serwera, więc wymaga parametru w `GET /urzadzenia` i parsera godzin w Pythonie (dziś jest tylko w TypeScripcie).
-- [ ] Nowe zrzuty do prezentacji po zakończeniu poprawek (dopiero wtedy).
+- [x] Filtr „dostępny teraz” na liście rejestru (dziś tylko na mapie) – lista jest stronicowana po stronie serwera, więc wymaga parametru w `GET /urzadzenia` i parsera godzin w Pythonie (dziś jest tylko w TypeScripcie).
+- [x] Nowe zrzuty do prezentacji po zakończeniu poprawek (dopiero wtedy).
 
 ## 2. Docker i uruchomienie
 
-- [ ] Przebudować obrazy z aktualnego `main` (`docker compose up --build`) – działające kontenery mają obrazy sprzed poprawek po przeglądzie i sprzed zmian zespołu.
-- [ ] Sprawdzić, czy `backend/docker-compose.aed-ports.yml` i `frontend/proxy.aed-local.conf.json` (Hubert) nie kolidują z głównym `docker-compose.yml` (porty 8080, 8085).
-- [ ] Po przebudowie przejść trzy ścieżki z `docs/instrukcja-dla-jury.md` od zera na świeżym wolumenie.
+- [x] Przebudować obrazy z aktualnego `main` (`docker compose up --build`) – działające kontenery mają obrazy sprzed poprawek po przeglądzie i sprzed zmian zespołu.
+- [x] Sprawdzić, czy `backend/docker-compose.aed-ports.yml` i `frontend/proxy.aed-local.conf.json` (Hubert) nie kolidują z głównym `docker-compose.yml` (porty 8080, 8085).
+- [x] Po przebudowie przejść trzy ścieżki z `docs/instrukcja-dla-jury.md` od zera na świeżym wolumenie.
 - [ ] Decyzja: czy wystawić prototyp pod publicznym adresem dla jury (dziś tylko lokalnie).
 
 ## 3. Usługa i standard danych
 
-- [ ] Druga runda przeglądu Codexa po poprawkach (pierwsza: FAIL, 1 krytyczne + 11 poważnych; 9 naprawionych w PR #14, 3 frontendowe do potwierdzenia).
+- [x] Druga runda przeglądu Codexa po poprawkach (pierwsza: FAIL, 1 krytyczne + 11 poważnych; 9 naprawionych w PR #14, 3 frontendowe do potwierdzenia).
 - [x] Przejrzeć zmiany zespołu w `aed_standard` (rejestr źródeł `sources.json`, `registry.py`, zmiany w `dedup.py`) pod kątem zgodności z poprawkami z PR #14 – testy przechodzą, przegląd kodu nie był robiony.
 - [x] Zgodność `aed_service/app.py` z Pythonem 3.8 (operator `|` na słownikach, `traceback.print_exception` z jednym argumentem) – potrzebne tylko przy przenoszeniu do backendu portalu.
 - [x] Usługa korzysta z funkcji `aed_standard` spoza publicznego API (`dedup.CANDIDATE_M`, `similarity`, `haversine_m`) – przepiąć na `find_candidates`.
@@ -58,9 +70,9 @@ Agent frontendowy został przerwany limitem przed raportem; jego praca jest w co
 
 ## 4. Portal dane.gov.pl (Jakub, Hubert)
 
-- [ ] Uruchomić portal lokalnie i wgrać `datasets/out/aed_dane_gov_pl.csv` jako zasób instytucji „ministerstwo”.
-- [ ] Ustawić mapę w zakładce „Mapy i wykresy” (kolumny `dlugosc_geograficzna`, `szerokosc_geograficzna`, `nazwa`).
-- [ ] Zrzuty: widok tabeli, mapa, API zasobu, poziom otwartości → do prezentacji i `docs/instrukcja-dla-jury.md`.
+- [x] Uruchomić portal lokalnie i wgrać `datasets/out/aed_dane_gov_pl.csv` jako zasób instytucji „ministerstwo”.
+- [x] Ustawić mapę w zakładce „Mapy i wykresy” (kolumny `dlugosc_geograficzna`, `szerokosc_geograficzna`, `nazwa`).
+- [x] Zrzuty: widok tabeli, mapa, API zasobu, poziom otwartości → do prezentacji i `docs/instrukcja-dla-jury.md`.
 - [ ] Plan B, jeśli portal nie wstanie: `docs/integracja-portal-backend.md` jako plan wdrożenia i wpis w ograniczeniach.
 
 Zrobione 22.11 (PR `feat/zasilanie-xml-i-panel-portalu`), **w portalu jeszcze nieuruchomione**:
@@ -72,9 +84,9 @@ Zrobione 22.11 (PR `feat/zasilanie-xml-i-panel-portalu`), **w portalu jeszcze ni
 
 Do zrobienia przez osobę z działającym portalem (`localhost:8001`, `admin@mcod.local`):
 
-- [ ] Migracje i przejście `docs/wykaz-aed-w-portalu.md`: oznaczyć zasoby jako wykaz AED, uruchomić `manage.py create_main_aed_resource`, sprawdzić `/aed-aggregated`, tabelę i mapę. Kod Django był tylko kompilowany.
-- [ ] Przejść `docs/panel-portalu-krok-po-kroku.md` (zasób CSV, typy kolumn, źródło harvestera) i zrobić zrzuty.
-- [ ] Testy Django `backend/mcod/aed/tests/` – nieuruchomione.
+- [x] Migracje i przejście `docs/wykaz-aed-w-portalu.md`: oznaczyć zasoby jako wykaz AED, uruchomić `manage.py create_main_aed_resource`, sprawdzić `/aed-aggregated`, tabelę i mapę. Kod Django był tylko kompilowany.
+- [x] Przejść `docs/panel-portalu-krok-po-kroku.md` (zasób CSV, typy kolumn, źródło harvestera) i zrobić zrzuty.
+- [x] Testy Django `backend/mcod/aed/tests/` – nieuruchomione.
 
 Decyzje do podjęcia:
 
@@ -101,8 +113,8 @@ Odłożone – pomysły z przeglądu projektu (22.11), na razie nie ruszamy:
 
 ## 6. Dokumenty i oddanie
 
-- [ ] Zaktualizować `docs/instrukcja-dla-jury.md` o zmiany z wieczora (rejestr źródeł, daty baterii i elektrod, strona startowa `/pl/aed`) i usunąć znaczniki `[do sprawdzenia]` po przejściu w przeglądarce.
-- [ ] Zaktualizować `docs/prezentacja-konspekt.md` i zrobić plik prezentacji (min. 5 slajdów ze zrzutami, kroki użytkownika, ograniczenia, zakres użycia AI).
+- [x] Zaktualizować `docs/instrukcja-dla-jury.md` o zmiany z wieczora (rejestr źródeł, daty baterii i elektrod, strona startowa `/pl/aed`) i usunąć znaczniki `[do sprawdzenia]` po przejściu w przeglądarce.
+- [x] Zaktualizować `docs/prezentacja-konspekt.md` i zrobić plik prezentacji (min. 5 slajdów ze zrzutami, kroki użytkownika, ograniczenia, zakres użycia AI).
 - [x] Zapisać raport z przeglądu Codexa z wynikami poprawek w `docs/`.
 - [x] Uzupełnić dziennik w `docs/uzycie-ai.md` o wieczorną sesję.
 - [x] Zaktualizować `CLAUDE.md` (stan, decyzje, rejestr źródeł jest już dopisany przez zespół).
