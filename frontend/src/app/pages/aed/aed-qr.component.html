@@ -28,8 +28,7 @@
       @if (!done() && t()) {
         @for (field of expiring(); track field.name) {
           <p class="aed-device__expiry">
-            <span class="visually-hidden">Uwaga: </span>{{ field.title }}: {{ record[field.name] }} – termin mija lub minął
-            (nowa data: na końcu formularza).
+            <span class="visually-hidden">Uwaga: </span>{{ field.title }}: {{ record[field.name] }} – termin bliski.
           </p>
         }
       }

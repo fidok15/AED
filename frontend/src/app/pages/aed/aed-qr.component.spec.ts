@@ -100,14 +100,15 @@ describe('AedQrComponent, manager view', () => {
     expect('kod_pocztowy' in body).toBe(false);
   });
 
-  it('lets the manager enter new battery and electrode dates, first on the page when a date is close', () => {
+  it('lets the manager enter new battery and electrode dates after the required steps, flagging a close date on top', () => {
     const soon = inDays(20);
     open(record({ data_waznosci_baterii: soon }), record());
     const cards = Array.from(page.querySelectorAll('form .aed-card')).map(
       (card) => card.querySelector('h2').textContent,
     );
-    expect(cards[0]).toContain('Bateria i elektrody');
-    expect(page.querySelector('.aed-message--warn').textContent).toContain(soon);
+    expect(cards[0]).toContain('Gdzie znajduje się urządzenie');
+    expect(cards[cards.length - 1]).toContain('Bateria i elektrody');
+    expect(page.querySelector('.aed-device__expiry').textContent).toContain(soon);
     expect(page.querySelector<HTMLInputElement>('#aed-data_waznosci_baterii').type).toBe('date');
 
     const next = inDays(1500);

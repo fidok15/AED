@@ -146,18 +146,17 @@ const latLng = (feature: AedMapFeature) => L.latLng(feature.geometry.coordinates
           } @else {
             @let point = group[0].properties;
             @let at = group[0].geometry.coordinates;
-            <h3 class="aed-map__title" id="aed-panel-title" tabindex="-1" #panelTitle>
-              {{ placeTitle(point.nazwa, detail() && address(detail()), detail()?.['opis_lokalizacji']) }}
-            </h3>
+            @let heading = placeTitle(point.nazwa, detail() && address(detail()), detail()?.['opis_lokalizacji']);
+            <h3 class="aed-map__title" id="aed-panel-title" tabindex="-1" #panelTitle>{{ heading }}</h3>
             <app-aed-status [status]="point.status" />
             @if (distance()) {
               <p class="aed-map__distance">{{ distance() }}</p>
             }
             @if (detail(); as record) {
-              @if (address(record)) {
+              @if (address(record) && address(record) !== heading) {
                 <p>{{ address(record) }}</p>
               }
-              @if (record['opis_lokalizacji']) {
+              @if (record['opis_lokalizacji'] && record['opis_lokalizacji'] !== heading) {
                 <p>{{ record['opis_lokalizacji'] }}</p>
               }
             }
