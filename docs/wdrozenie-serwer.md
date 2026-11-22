@@ -116,6 +116,8 @@ Karty „Konta demonstracyjne” na ekranie logowania AED rozpoznają to same: u
 
 **Nie wprowadzaj do prototypu prawdziwych danych.** Hasła kont demo (w tym konta ministerstwa w usłudze AED i konta `jury@aed.example` w panelu) są jawne decyzją zespołu na czas pokazu. Każdy, kto je zna, widzi pełne rekordy: kontakty dysponentów, numery seryjne i położenie urządzeń prywatnych. Prototyp na publicznym adresie ma zawierać wyłącznie dane otwarte i fikcyjne.
 
+**Dokumenty z CMS nie pobierają się we wdrożeniu domenowym.** Portal podaje w treściach CMS bezpośrednie adresy plików `/media/documents/…` (`backend/mcod/cms/blocks/common.py:52-57`), a ten katalog jest tu zablokowany (403), bo serwowanie go wprost z dysku omijałoby ograniczenia kolekcji Wagtail. Obrazy z CMS (`/media/original_images/`, `/media/images/`) działają. Naprawa wymaga zmiany w kodzie CMS portalu (adres widoku pobierania zamiast adresu pliku) – poza zakresem naszej łatki; na serwerze demonstracyjnym strony CMS i tak są puste (`init_mcod_db` ich nie zakłada).
+
 ## 5. Od czystego serwera do działającej strony
 
 W katalogu `backend/` repozytorium:
