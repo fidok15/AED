@@ -16,6 +16,7 @@ sed -e "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$(rnd)/" \
     -e "s/^SPARQL_PASSWORD=.*/SPARQL_PASSWORD=$(rnd)/" \
     -e "s/^FIELD_ENCRYPTION_KEYS=.*/FIELD_ENCRYPTION_KEYS=$(rnd)/" \
     -e "s/^DISCOURSE_FORUM_ENABLED=.*/DISCOURSE_FORUM_ENABLED=false/" \
+    -e "/^MAIN_AED_DATASET_OWNER_ORGANIZATION_PK=/d" \
     env.sample > .env
 
 cat >> .env <<EOF

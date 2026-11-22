@@ -7,7 +7,7 @@
 <style>
   @page { size: 297mm 210mm; margin: 0; }
   :root {
-    --navy: #14274E; --blue: #2456E6; --sky: #A9C8FF; --amber: #F28C28; --grey: #8A94A6;
+    --navy: #14274E; --blue: #2456E6; --sky: #5F8DF5; --amber: #F28C28; --grey: #8A94A6;
     --graphite: #0D1B1E; --cream: #F4F1EA; --line: #D9D4C7; --muted: #4A5568;
   }
   * { box-sizing: border-box; }
@@ -242,7 +242,7 @@
         <tr><td>Biel na granacie</td><td>14,69 : 1</td><td>negatyw</td></tr>
         <tr><td>Bursztyn na granacie</td><td>5,98 : 1</td><td>akcent na ciemnym tle</td></tr>
         <tr><td>Bursztyn na bieli</td><td>2,45 : 1</td><td>tylko powierzchnia, nigdy tekst</td></tr>
-        <tr><td>Jasnoniebieski na bieli</td><td>1,69 : 1</td><td>tylko komórka sygnetu</td></tr>
+        <tr><td>Jasnoniebieski na bieli</td><td>3,17 : 1</td><td>komórka sygnetu, grafika (min. 3 : 1)</td></tr>
         <tr><td>Szary na bieli</td><td>3,06 : 1</td><td>obrys, grafika (min. 3 : 1)</td></tr>
       </table>
     </div>
@@ -396,7 +396,7 @@
 
 <script>
   const GRID = ["UA.AZ", "AAAAN", ".AAW.", "..A.."];
-  const COLORS = { U: "#A9C8FF", A: "#14274E", Z: "#2456E6", N: "#F28C28" };
+  const COLORS = { U: "#5F8DF5", A: "#14274E", Z: "#2456E6", N: "#F28C28" };
   function mark(grid = GRID, colors = COLORS, opts = {}) {
     const rows = grid.length, cols = grid[0].length, w = cols * 24 - 4, h = rows * 24 - 4, pad = opts.pad || 0;
     let s = `<svg viewBox="${-pad} ${-pad} ${w + 2 * pad} ${h + 2 * pad}" width="100%" xmlns="http://www.w3.org/2000/svg">`;
@@ -423,12 +423,12 @@
   document.getElementById("concept-mark").innerHTML = mark();
   document.getElementById("construct").innerHTML = mark(GRID, COLORS, { guides: true, pad: 22 });
   document.getElementById("mis-font").innerHTML = mark();
-  document.getElementById("mis-cells").innerHTML = mark(["AZ.UA", "NAAAA", ".WAA.", "..A.."], { U: "#A9C8FF", A: "#C62828", Z: "#2456E6", N: "#F28C28" });
+  document.getElementById("mis-cells").innerHTML = mark(["AZ.UA", "NAAAA", ".WAA.", "..A.."], { U: "#5F8DF5", A: "#C62828", Z: "#2456E6", N: "#F28C28" });
 
   const SW = [
     ["Granat", "#14274E", "zweryfikowany · logotyp · tekst"],
     ["Niebieski", "#2456E6", "zgłoszony · „AED”"],
-    ["Jasnoniebieski", "#A9C8FF", "niepotwierdzony"],
+    ["Jasnoniebieski", "#5F8DF5", "niepotwierdzony"],
     ["Bursztyn", "#F28C28", "nieaktualny · akcent"],
     ["Szary", "#8A94A6", "wycofany (obrys)"],
     ["Grafit", "#0D1B1E", "wersja jednobarwna"],
