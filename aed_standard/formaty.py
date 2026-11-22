@@ -47,43 +47,84 @@ OSM_ID_RE = re.compile(r"^(?:node|way|relation)/\d+$")
 OBJECTS_RE = re.compile(r"<((?:[\w-]+:)?(?:Placemark|wpt|rte|trk|featureMember|featureMembers|member))\b.*?</\1\s*>", re.S)
 
 
-def _document_text(fmt, text):
-    """The file without its list of objects: what is said about the whole file."""
-    if fmt in ("json", "geojson", "arcgis"):
-        try:
-            doc = json.loads(text or "")
-        except (ValueError, RecursionError):
-            return ""
-        if not isinstance(doc, dict):
-            return ""   # a bare array of objects has no document level
-        return json.dumps({k: v for k, v in doc.items() if not (isinstance(v, list) and v and isinstance(v[0], dict))},
-                          ensure_ascii=False)
-    if fmt in ("kml", "kmz", "gpx", "gml"):
-        return OBJECTS_RE.sub("", text or "")
-    return ""   # CSV and sheets: the licence sits in cells, i.e. on the object level
+def _key(name):
+    return re.sub(r"[^a-z]+", " ", str(name).casefold()).strip()
 
 
-def osm_origin(fmt, text, columns, rows):
-    """-> (reason for the whole file or '', {row_number: reason} for single objects)."""
-    doc = _document_text(fmt, text)
+def object_mark(obj, depth=0):
+    """OSM marks of ONE original object, before flattening: its own fields, properties, attributes, tags, ExtendedData.
+    -> Polish reason or ''."""
+    if depth > 6:
+        return ""
+    if isinstance(obj, dict):
+        if obj.get("type") in ("node", "way", "relation") and isinstance(obj.get("id"), int) \
+                and not isinstance(obj.get("id"), bool):
+            return "element OSM (%s/%s)" % (obj["type"], obj["id"])
+        for k, v in obj.items():
+            key = _key(k).rsplit(" ", 2)
+            key = " ".join(key[-2:]) if len(key) > 1 else key[0]   # "tags.osm_id" -> "osm id"
+            if key in ("osm id", "osm type") and v not in (None, ""):
+                return "pole „%s”" % k
+            if isinstance(v, str):
+                if (key.split()[-1:] or [""])[0] in ("id", "osm", "ref") and OSM_ID_RE.match(v.strip()):
+                    return "identyfikator obiektu OSM „%s”" % v.strip()
+                if OBJECT_VALUE_RE.search(v):
+                    return "licencja lub atrybucja OpenStreetMap w polu „%s”" % k
+            elif isinstance(v, (dict, list)):
+                found = object_mark(v, depth + 1)
+                if found:
+                    return found
+    elif isinstance(obj, list):
+        for v in obj[:100]:
+            found = object_mark(v, depth + 1)
+            if found:
+                return found
+    return ""
+
+
+def element_mark(el):
+    """object_mark of an XML object (Placemark, wpt, featureMember): attributes, texts, ExtendedData Data/SimpleData."""
+    fields = {}
+    for x in el.iter():
+        for k, v in x.attrib.items():
+            fields.setdefault("@" + local(k), v)
+        name = x.get("name") if local(x.tag) in ("Data", "SimpleData") else None
+        value = x.find("{*}value") if local(x.tag) == "Data" else None
+        text = (value.text if value is not None else x.text) or ""
+        if text.strip():
+            fields.setdefault(name or local(x.tag), text.strip())
+    return object_mark(fields)
+
+
+def _without(doc, target):
+    """Copy of a JSON document with the chosen list of objects (found anywhere) replaced by []."""
+    if doc is target:
+        return []
+    if isinstance(doc, dict):
+        return {k: _without(v, target) for k, v in doc.items()}
+    if isinstance(doc, list):
+        return [_without(v, target) for v in doc]
+    return doc
+
+
+def document_json(doc, items):
+    """What a JSON file says about itself: the document minus exactly the list the parser read (also nested,
+    like CKAN result.records). A bare array of objects has no document level."""
+    return json.dumps(_without(doc, items), ensure_ascii=False) if isinstance(doc, dict) else ""
+
+
+def osm_origin(meta, columns, rows):
+    """meta: {"doc": text about the whole file, "marks": {row: reason} from the original objects}.
+    -> (reason for the whole file or '', {row_number: reason} for single objects)."""
     for pattern, reason in DOCUMENT_MARKS:
-        if pattern.search(doc):
+        if pattern.search(meta.get("doc") or ""):
             return reason, {}
-    keys = {c: re.sub(r"[^a-z]+", " ", c.casefold()).strip() for c in columns}
-    marked = {}
-    for n, row, _ in rows:
-        for col, key in keys.items():
-            value = str(row.get(col) or "").strip()
-            if not value:
-                continue
-            if key in ("osm id", "osm type"):
-                marked[n] = "pole „%s”" % col
-            elif OSM_ID_RE.match(value) and key in ("id", "osm", "osm id", "ref"):
-                marked[n] = "identyfikator obiektu OSM „%s”" % value
-            elif OBJECT_VALUE_RE.search(value):
-                marked[n] = "licencja lub atrybucja OpenStreetMap w polu „%s”" % col
-            if n in marked:
-                break
+    marked = dict(meta.get("marks") or {})
+    for n, row, _ in rows:   # CSV, sheets and tables: the flattened cells are the object
+        if n not in marked:
+            found = object_mark({c: row.get(c) for c in columns})
+            if found:
+                marked[n] = found
     if rows and len(marked) == len(rows):
         return "wszystkie obiekty mają znaczniki OpenStreetMap (np. %s)" % next(iter(marked.values())), {}
     return "", marked
@@ -252,8 +293,12 @@ def read_json(text):
         raise FormatError("W pliku JSON nie ma listy obiektów (np. tablicy „features”, „data” albo „records”).")
     fmt = "geojson" if all("properties" in x or x.get("type") == "Feature" for x in items[:20]) else "json"
     rows, cols, lines = [], {}, {}
+    meta = {"doc": document_json(doc, items), "marks": {}}
     for n, item in enumerate(items, start=1):
         geometry = None
+        mark = object_mark(item)
+        if mark:
+            meta["marks"][n] = mark
         if fmt == "geojson":
             g = item.get("geometry")
             geometry = _geojson_point(g)
@@ -269,19 +314,23 @@ def read_json(text):
         for k in row:
             cols.setdefault(k, None)
     columns = sorted(cols) if fmt == "geojson" else list(cols)
-    return fmt, columns, rows, _not_points(rows, lines)
+    return fmt, columns, rows, _not_points(rows, lines), meta
 
 
 def _arcgis(doc):
     sr = doc.get("spatialReference") if isinstance(doc.get("spatialReference"), dict) else {}
     wkid = sr.get("latestWkid") or sr.get("wkid")
     rows, cols = [], {}
+    meta = {"doc": document_json(doc, doc["features"]), "marks": {}}
     for n, feat in enumerate(doc["features"], start=1):
         if not isinstance(feat, dict) or not isinstance(feat.get("attributes"), (dict, type(None))) \
                 or not isinstance(feat.get("geometry"), (dict, type(None))):
             raise FormatError("Obiekt nr %d w „features” warstwy ArcGIS jest uszkodzony (oczekiwano obiektu "
                               "z polami „attributes” i „geometry”)." % n)
         row = _flatten(feat.get("attributes") or {}, "", {})
+        mark = object_mark(feat)
+        if mark:
+            meta["marks"][n] = mark
         g = feat.get("geometry") or {}
         geometry = None
         if isinstance(g.get("x"), (int, float)) and isinstance(g.get("y"), (int, float)):
@@ -292,7 +341,7 @@ def _arcgis(doc):
         rows.append((n, row, geometry))
         for k in row:
             cols.setdefault(k, None)
-    return "arcgis", list(cols), rows, ["Odczytano warstwę ArcGIS, układ współrzędnych: EPSG:%s." % wkid]
+    return "arcgis", list(cols), rows, ["Odczytano warstwę ArcGIS, układ współrzędnych: EPSG:%s." % wkid], meta
 
 
 # ---------- XML: KML, GPX, GML ----------
@@ -326,7 +375,7 @@ def html_text(value):
     return "; ".join(x for x in lines if x)
 
 
-def _kml_rows(root):
+def _kml_rows(root, marks):
     rows, cols, lines = [], {}, {}
 
     def walk(node, folder):
@@ -360,6 +409,7 @@ def _kml_rows(root):
                         except (ValueError, IndexError):
                             pass
                 rows.append((len(rows) + 1, row, geometry))
+                marks[len(rows)] = element_mark(child)
                 if geometry is None and shape:
                     lines[len(rows)] = shape
                 for k in row:
@@ -370,7 +420,7 @@ def _kml_rows(root):
     return list(cols), rows, _not_points(rows, lines)
 
 
-def _gpx_rows(root):
+def _gpx_rows(root, marks):
     rows, cols = [], {}
     for wpt in root.iter():
         if local(wpt.tag) != "wpt":   # rtept / trkpt draw a route, they are not devices
@@ -387,13 +437,14 @@ def _gpx_rows(root):
         except (TypeError, ValueError):
             geometry = None
         rows.append((len(rows) + 1, row, geometry))
+        marks[len(rows)] = element_mark(wpt)
         for k in row:
             cols.setdefault(k, None)
     tracks = sum(1 for el in root.iter() if local(el.tag) in ("rte", "trk"))
     return list(cols), rows, ["Pominięto %d tras lub śladów GPX – czytamy tylko punkty (wpt)." % tracks] if tracks else []
 
 
-def _gml_rows(root):
+def _gml_rows(root, marks):
     """featureMember / member / wfs:member -> one row: leaf elements by local name; gml:pos / gml:coordinates as
     text in "geometria" (axis order and system decided later from the values; srsName kept when given)."""
     rows, cols, lines = [], {}, {}
@@ -422,6 +473,7 @@ def _gml_rows(root):
                 elif el is not feat and not list(el) and el.text and el.text.strip():
                     row.setdefault(t, html_text(el.text))
             rows.append((len(rows) + 1, row, None))
+            marks[len(rows)] = element_mark(feat)
             if shape and "geometria" not in row:
                 lines[len(rows)] = shape
             for k in row:
@@ -587,7 +639,9 @@ def read_xml_format(fmt, data):
             next(n for n in z.namelist() if n.lower().endswith(".kml"))
         data, fmt = zip_part(z, kml, [MAX_UNPACKED], "KMZ"), "kml"
     root = safe_xml(data, fmt.upper())
-    columns, rows, notes = {"kml": _kml_rows, "gpx": _gpx_rows, "gml": _gml_rows}[fmt](root)
+    marks = {}
+    columns, rows, notes = {"kml": _kml_rows, "gpx": _gpx_rows, "gml": _gml_rows}[fmt](root, marks)
     if not rows:
         raise FormatError("Plik %s nie zawiera punktów (Placemark / wpt / featureMember)." % fmt.upper())
-    return columns, rows, notes, data.decode("utf-8", "replace")
+    meta = {"doc": OBJECTS_RE.sub("", data.decode("utf-8", "replace")), "marks": {n: m for n, m in marks.items() if m}}
+    return columns, rows, notes, meta
