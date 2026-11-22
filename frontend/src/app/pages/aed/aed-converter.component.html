@@ -61,7 +61,7 @@
       <p class="aed-message">{{ note }}</p>
     }
     @for (warning of analysis.ostrzezenia; track $index) {
-      <p class="aed-message aed-message--warn"><strong>Uwaga:</strong> {{ warning }}</p>
+      <p class="aed-message aed-message--warn"><span><strong>Uwaga:</strong> {{ warning }}</span></p>
     }
     <p>
       Propozycje przygotowaliśmy na podstawie nazw kolumn i ich wartości. Sprawdź je i popraw tam, gdzie trzeba.
@@ -238,7 +238,7 @@
       </p>
     }
     @if (noPosition()) {
-      <p class="aed-message aed-message--warn"><strong>Brak położenia:</strong> {{ noPosition() }}</p>
+      <p class="aed-message aed-message--warn"><span><strong>Brak położenia:</strong> {{ noPosition() }}</span></p>
       @if (!result.raport.poprawne) {
         <!-- Nothing passed, but the file is still the way forward: it has the rows, only the positions are missing. -->
         <p>
@@ -250,7 +250,7 @@
     }
     @if (result.raport.geokodowanie; as geo) {
       <h3 class="aed-h3">Położenie z adresu (GUGiK)</h3>
-      <p class="aed-message aed-message--warn"><strong>Geokodowanie:</strong> {{ geo.komunikat }}</p>
+      <p class="aed-message aed-message--warn"><span><strong>Geokodowanie:</strong> {{ geo.komunikat }}</span></p>
       @if (geo.wiersze_uzupelnione?.length) {
         <details class="aed-details">
           <summary>Uzupełnione wiersze ({{ geo.uzupelnione }})</summary>
@@ -276,7 +276,7 @@
       }
     }
     @if (result.raport.ukryte_komunikat) {
-      <p class="aed-message aed-message--warn"><strong>Uwaga:</strong> {{ result.raport.ukryte_komunikat }}</p>
+      <p class="aed-message aed-message--warn"><span><strong>Uwaga:</strong> {{ result.raport.ukryte_komunikat }}</span></p>
     }
     @if (result.raport.normalizacje.length) {
       <h3 class="aed-h3">Ujednolicony zapis wartości</h3>

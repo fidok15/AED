@@ -64,10 +64,19 @@ export class AedQrComponent implements OnInit {
   protected readonly sendError = signal('');
   /** Result screen: readiness confirmed, a problem reported by the manager, or a bystander's signal sent. */
   protected readonly done = signal<'potwierdzenie' | 'problem' | 'sygnal' | null>(null);
+  /**
+   * A problem report on a verified record saves only the device condition and the note (and a change of access
+   * to "prywatny"); other edits would show under the old verification date, so the service drops them.
+   */
+  protected readonly verified = computed(() => this.record()?.status === 'zweryfikowany');
+  /** After such a report: the manager had changed fields that the service did not save. */
+  protected readonly notSaved = signal(false);
 
   protected readonly statusLabels = AED_STATUS_LABELS;
   protected readonly locating = signal(false);
   protected readonly located = signal('');
+  /** The phone gave a rough position (over 50 m): the note is a warning, not a success. */
+  protected readonly locatedWeak = signal(false);
   protected readonly locationError = signal('');
 
   // Manager: fields of the confirmation request, in the order of the three steps.
@@ -217,6 +226,7 @@ export class AedQrComponent implements OnInit {
         this.positionMethod = 'pomiar_przy_urzadzeniu';
         this.signalPosition = position;
         const accuracy = Math.round(coords.accuracy);
+        this.locatedWeak.set(accuracy > 50);
         this.located.set(
           `Zapisano położenie: ${position.szerokosc_geograficzna}, ${position.dlugosc_geograficzna} ` +
             `(dokładność około ${accuracy} m).` +
@@ -264,8 +274,12 @@ export class AedQrComponent implements OnInit {
       stan: this.stan.value,
       uwagi: this.uwagi.value || undefined,
     };
+    const changed = sent.filter(([name]) => controls[name].dirty);
+    const sameValue = (a: unknown, b: unknown) =>
+      String(a ?? '') === String(b ?? '') || (a !== '' && b !== '' && a != null && b != null && +a === +b);
     this.api.confirm(this.id(), body).subscribe({
       next: (record) => {
+        this.notSaved.set(changed.some(([name, value]) => !sameValue(value, record[name])));
         this.record.set(record);
         // A problem report keeps the data status (a verified record stays verified) and marks the device
         // itself as temporarily unavailable, so the result is read from `stan_urzadzenia`.

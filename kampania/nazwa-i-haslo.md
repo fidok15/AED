@@ -57,7 +57,7 @@ Dla każdej nazwy wykonano jedno wyszukiwanie w sieci po polsku (21.11.2026), z 
 
 ### 7. Pewny Punkt
 - **Hasło:** „Potwierdzone miejsce. Aktualne dane.”
-- **Idea:** „punkt” = punkt w zbiorze i punkt na mapie; „pewny” = potwierdzony przez zarządcę (status „Zweryfikowany”, w danych `aktywny`).
+- **Idea:** „punkt” = punkt w zbiorze i punkt na mapie; „pewny” = potwierdzony przez zarządcę (status „Zweryfikowany”, w danych `zweryfikowany`).
 - **Tag / hashtag:** `pewny-punkt`; `#PewnyPunkt`.
 - **Naklejka / odznaka:** „Pewny Punkt – potwierdził zarządca.”
 - **Kolizje:** wyszukiwanie „Pewny Punkt” + AED nie wskazało żadnej inicjatywy; wyniki ogólne i karty produktów (np. [Stryker – HeartSine](https://www.stryker.com/pl/pl/emergency-care/products/heartsine-samaritan-pad-360p.html)). Fraza jest pospolita w handlu i usługach (punkty sprzedaży): **[do sprawdzenia]**. Nie zawiera „AED”, więc słabiej wiąże się z tematem.
