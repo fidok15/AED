@@ -34,7 +34,7 @@ GitHub fidok15/AED main ◄── git fetch co 2 min (aed-deploy.timer, klucz de
 2. Odrzuca commit bez `backend/docker-compose.aed-tunnel.yml` (bez nakładki tunelu strona by padła).
 3. `git checkout --force` na nowy commit i przekazanie dalszych kroków skryptowi z nowego commitu (`--apply`), więc zmiana samego skryptu działa już w tym wdrożeniu. Pliki nieśledzone zostają: `backend/.env`, `mcod/settings/local.py`, `backend/media/`, skompilowane tłumaczenia.
 4. Odtwarza `mcod/settings/local.py` z `local.py.sample` i `aed-domain/settings.py` (zmiany ustawień domeny z gita działają od razu).
-5. `docker compose up -d --build` (bez `--remove-orphans`: `env.sample` portalu ustawia `COMPOSE_IGNORE_ORPHANS`), restart panelu, API, CMS i Celery (kod portalu jest montowany, więc bez restartu działałby stary), `migrate`, `compilemessages`.
+5. `caddy validate` na nowej konfiguracji (błąd zatrzymuje wdrożenie, zanim stary Caddy zostanie zastąpiony), `docker compose up -d --build` (bez `--remove-orphans`: `env.sample` portalu ustawia `COMPOSE_IGNORE_ORPHANS`), restart panelu, API, CMS i Celery (kod portalu jest montowany, więc bez restartu działałby stary), `migrate`, `compilemessages`.
 6. Sprawdza przez Caddy: `/pl/aed` i `/api/aed/statystyki` (200), `aed-api./aed-aggregated` i `aed-admin./` (poniżej 500). Dopiero wtedy zapisuje commit jako wdrożony (`/var/lib/aed-deploy/deployed`).
 
 Nieudany commit trafia do `/var/lib/aed-deploy/failed` i nie jest ponawiany, dopóki nie przyjdzie nowszy. Nie ma automatycznego cofania: po nieudanej budowie działają stare kontenery, po nieudanej migracji – nowe kontenery z kodem nowego commitu. Poprawka idzie kolejnym commitem.

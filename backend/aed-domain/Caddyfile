@@ -44,7 +44,9 @@
 	encode gzip
 	# Pitch deck (HTML: one self-contained file; PDF export next to it from the repository, updated by every deploy) and the pitch video
 	# (rendered from video/ into the git-ignored video/out/, copied to the server by hand: docs/wdrozenie-pve.md).
-	handle /prezentacja.html /prezentacja.pdf {
+	# handle takes one inline path only; two paths need a named matcher.
+	@prezentacja path /prezentacja.html /prezentacja.pdf
+	handle @prezentacja {
 		root * /srv/prezentacja
 		file_server
 	}
