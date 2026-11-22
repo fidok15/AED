@@ -266,6 +266,9 @@ export class AedApiService {
     status?: AedStatus;
     q?: string;
     dostepny_teraz?: 1;
+    /** Both or none: sorts by distance from this point and adds `odleglosc_m` to every record. */
+    lat?: number;
+    lon?: number;
     strona?: number;
     na_stronie?: number;
   }): Observable<AedPage<AedRecord>> {
