@@ -62,7 +62,7 @@ Identyfikator `id_aed` i pole `zrodlo_id` zgłoszonego urządzenia są losowe �
 | `GET /api/aed/urzadzenia/{id_aed}` z `Authorization` | ministerstwo, firma zgłaszająca | pełny rekord (z numerem seryjnym i kontaktem); inna firma dostaje zakres publiczny |
 | `GET /api/aed/urzadzenia/{id_aed}?t=<token>` | zarządca | pełny rekord do edycji |
 | `GET /api/aed/urzadzenia/{id_aed}/naklejka.svg` | każdy | naklejka z kodem QR prowadzącym do `/aed/qr/{id_aed}` |
-| `POST /api/aed/urzadzenia/{id_aed}/potwierdzenie` | zarządca (token `t`) | uzupełnienie i potwierdzenie danych; rekord przechodzi w `aktywny` |
+| `POST /api/aed/urzadzenia/{id_aed}/potwierdzenie` | zarządca (token `t`) | uzupełnienie i potwierdzenie danych; rekord przechodzi w `aktywny` (w interfejsie „Zweryfikowany”) |
 | `POST /api/aed/urzadzenia/{id_aed}/sygnal` | każdy | zgłoszenie z miejsca bez uprawnień; nie zmienia danych, trafia do dysponenta |
 | `POST /api/aed/urzadzenia/{id_aed}/link-aktywacyjny` | ministerstwo | link zarządcy dla rekordu, który już jest w rejestrze (np. z importu); patrz „Przejęcie punktu” |
 
@@ -88,7 +88,7 @@ Potwierdzenie (żądanie):
 
 `stan`: `sprawny` albo `problem` (wtedy wymagane `uwagi`). Zarządca może też podać nowe daty `data_waznosci_baterii` i `data_waznosci_elektrod` po wymianie – wtedy przypomnienia o terminie przestają przychodzić.
 
-Odpowiedź: pola `id_aed`, `status`, `data_weryfikacji`, `sposob_weryfikacji`, `kompletnosc` oraz pełny rekord w `rekord`. Przy `stan = sprawny` rekord przechodzi w `aktywny`; przy `stan = problem` nie jest aktywny, dopóki problem nie zostanie usunięty i potwierdzony ponownie.
+Odpowiedź: pola `id_aed`, `status`, `data_weryfikacji`, `sposob_weryfikacji`, `kompletnosc` oraz pełny rekord w `rekord`. Przy `stan = sprawny` rekord przechodzi w `aktywny` (w interfejsie „Zweryfikowany”); przy `stan = problem` nie jest zweryfikowany, dopóki problem nie zostanie usunięty i potwierdzony ponownie.
 
 Podane wartości są zawsze sprawdzane standardem, także przy `stan = problem` (zgłoszenie problemu może być niepełne, ale nie może zawierać błędnych wartości). Błąd: 422 `{"blad": {"kod": "niepoprawne_dane", "komunikat": "…", "problemy": [...]}}`. Przy `stan = problem` lista `problemy` zawiera tylko błędy blokujące zgłoszenie (błędne podane wartości, bez brakujących pól wymaganych).
 
@@ -102,7 +102,7 @@ Po potwierdzeniu lokalizacji usługa szuka w pobliżu rekordów z importu; prawd
 
 1. Ministerstwo: `POST /api/aed/urzadzenia/{id_aed}/link-aktywacyjny`, ciało `{"email": "<adres instytucjonalny zarządcy>"}` (opcjonalne). Odpowiedź 201: `{"id_aed", "link_aktywacyjny", "waznosc_dni", "wyslano_na"}`. Przy podanym adresie link trafia też do skrzynki nadawczej (`rodzaj: "przejecie"`); kontakt ze źródła (np. tag `email` w OSM) nie jest używany. Rekord `wycofany` – 409 `wycofany`; zły adres – 422 `zly_email`.
 2. Zarządca: zwykłe `POST …/potwierdzenie` ze `stan = sprawny`. Jeśli rekord ma licencję ODbL 1.0, usługa zaczyna od pustego rekordu: zostają tylko `id_aed` i powiązanie w `powiazane_zrodla` (`openstreetmap:<zrodlo_id>`); `zrodlo = zgloszenie`, `licencja = CC0 1.0`, `wprowadzajacy_typ = dysponent`. Nazwę, współrzędne, miejscowość, dostęp i godziny zarządca musi podać sam (inaczej 422 `niepoprawne_dane`); przy przejęciu może też podać `dysponent_nazwa`, `dysponent_email`, `dysponent_telefon` (bez kontaktu nie dostanie przypomnień).
-3. Rekord jest `aktywny` i trafia do eksportu publikacyjnego. Kolejne uruchomienia mappera go nie nadpisują (ten sam `id_aed`, rekord nie pochodzi już z importu).
+3. Rekord jest zweryfikowany (status `aktywny`) i trafia do eksportu publikacyjnego. Kolejne uruchomienia mappera go nie nadpisują (ten sam `id_aed`, rekord nie pochodzi już z importu).
 
 Rekord z importu na licencji otwartej (CC BY 4.0, CC0 1.0) przechodzi tę samą ścieżkę bez czyszczenia – wartości ze źródła wolno zachować.
 

@@ -117,7 +117,7 @@ Tekst i rysunki (każdy punkt jako mały rysunek z przekreśleniem, **[WSTAW: ry
 7. Nie zmieniamy proporcji między sygnetem a napisem i nie zmieniamy kroju napisu.
 8. Nie skalujemy poniżej minimalnej wielkości.
 9. Nie łączymy znaku z orłem, flagą ani znakami państwowymi w jednym lockupie; znaki partnerów ustawiamy obok, w polu własnym.
-10. Nie używamy znaku do sugerowania, że dane konkretnego urządzenia są zweryfikowane, jeśli nie nadano mu statusu `aktywny` w rejestrze (odznaka nie może wprowadzać w błąd).
+10. Nie używamy znaku do sugerowania, że dane konkretnego urządzenia są zweryfikowane, jeśli nie ma w rejestrze statusu „Zweryfikowany” (`aktywny`) (odznaka nie może wprowadzać w błąd).
 11. Nie przerabiamy znaku ISO 7010 E010 i nie wykorzystujemy go jako elementu logo akcji.
 12. Nie umieszczamy na znaku obietnic medycznych ani statystyk.
 

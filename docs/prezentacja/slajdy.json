@@ -125,7 +125,7 @@
       "punkty": [
         "Sprzedawca zgłasza urządzenia plikiem CSV albo formularzem (profil „sprzedaz”) → identyfikator AED-… i status „zgloszony”.",
         "System generuje naklejki z kodem QR do druku i link dla zarządcy.",
-        "Zarządca na telefonie podaje lokalizację, godziny dostępu, stan, daty baterii i elektrod → „aktywny”.",
+        "Zarządca na telefonie podaje lokalizację, godziny dostępu, stan, daty baterii i elektrod → „Zweryfikowany”.",
         "Osoba postronna po skanie może tylko zgłosić sygnał (brak, uszkodzenie, zamknięte); dane się nie zmieniają.",
         "Przypomnienia: prośba o potwierdzenie po 183 dniach, „nieaktualny” po 365 dniach, ostrzeżenie 60 dni przed końcem ważności baterii lub elektrod. Wiadomości trafiają do skrzynki nadawczej usługi – wysyłka e-mail do zarządcy nie jest podłączona.",
         "Rekord potwierdzony trafia do eksportu ministerstwa (CSV). Drogi tego samego rekordu przez scalanie w portalu jeszcze nie pokazaliśmy."
@@ -135,7 +135,7 @@
         {"plik": "frontend/aed-zrzuty/11-naklejka.jpg", "alt": "Naklejka „Defibrylator AED” z kodem QR, identyfikatorem urządzenia i tekstem „Zeskanuj kod QR i sprawdź lub zgłoś stan AED”.", "podpis": "Naklejka z QR (krok 2)."},
         {"plik": "frontend/aed-zrzuty/05-qr-dysponent-telefon.jpg", "alt": "Ekran telefonu po zeskanowaniu naklejki: urządzenie ze statusem „Zgłoszony”, krok 1 z 3 „Gdzie znajduje się urządzenie” i przycisk „Użyj lokalizacji telefonu”.", "podpis": "Zarządca: lokalizacja (krok 3)."},
         {"plik": "frontend/aed-zrzuty/18-qr-bateria-i-elektrody-telefon.jpg", "alt": "Ekran telefonu zarządcy: daty ważności baterii i elektrod.", "podpis": "Bateria i elektrody (krok 3)."},
-        {"plik": "frontend/aed-zrzuty/14-qr-potwierdzone-telefon.jpg", "alt": "Ekran telefonu „Dane potwierdzone” – urządzenie ma status aktywny.", "podpis": "Potwierdzone → „aktywny”."}
+        {"plik": "frontend/aed-zrzuty/14-qr-potwierdzone-telefon.jpg", "alt": "Ekran telefonu „Dane potwierdzone” – urządzenie ma status „Zweryfikowany”.", "podpis": "Potwierdzone → „Zweryfikowany”."}
       ],
       "zrodlo": "Progi: aed_service/README.md; sprawdź: /pl/aed → „Ścieżka dla jury” (sprzedawca → naklejka → zarządca)",
       "notatki": "QR jest w centrum, tak jak prosiła komisja. Sprzedawca zna urządzenie, więc wprowadza jego dane przy sprzedaży; zarządca zna miejsce, więc po zeskanowaniu naklejki potwierdza je w trzykrokowym formularzu na telefonie. Czasu tego przejścia nie mierzyliśmy, a z wydrukowanej naklejki na prawdziwym telefonie jeszcze go nie przeszliśmy. Zadanie przypomnień sprawdza terminy i zapisuje wiadomości w skrzynce nadawczej usługi; wysyłki e-mail do zarządcy jeszcze nie ma. Docelowo samo zeskanowanie ma zgłaszać miejsce i stan urządzenia."
@@ -163,7 +163,7 @@
       "punkty": [
         "Adresaci: producenci i sprzedawcy AED, zarządcy obiektów, samorządy – akcja jest dla dostawców danych.",
         "Jedno miejsce raportowania i darmowe przypomnienia o bateriach i elektrodach.",
-        "Ranking i odznaka firmy z aktualnymi danymi: kompletność co najmniej 70 i co najmniej połowa urządzeń „aktywnych”.",
+        "Ranking i odznaka firmy z aktualnymi danymi: kompletność co najmniej 70 i co najmniej połowa urządzeń zweryfikowanych.",
         "Samorząd dostaje gotowy standard i walidację w portalu.",
         "Punkt odniesienia: InPost Helpbox 365 – AED przy Paczkomatach jako widoczny znak w przestrzeni publicznej (komunikat InPost, 13.08.2025).",
         "Naklejka z QR niesie znak akcji na każde urządzenie. Miary sukcesu: liczba dostawców wykazów, udział rekordów potwierdzonych, średnia kompletność."
@@ -204,7 +204,7 @@
         "Ponowne scalanie tworzy nowy zasób zbiorczy – poprzedni adres zasobu zwraca 404.",
         "Ten sam wykaz wgrany drugi raz (osobny zasób) zawyża wynik: rekordów z jednego źródła nie łączymy automatycznie.",
         "Eksport to {eksport} rekordów, z czego {eksport_warszawa} z API Warszawy – zbiór jest dziś w praktyce warszawski.",
-        "Wszystkie rekordy z importu mają status „niepotwierdzony”; „aktywny” powstaje dopiero po ścieżce zarządcy.",
+        "Wszystkie rekordy z importu mają status „niepotwierdzony”; „Zweryfikowany” powstaje dopiero po ścieżce zarządcy.",
         "Średnia kompletność rejestru {komp_rejestr} na 100; tylko {eksport_z_godzinami} z {eksport} rekordów eksportu ma godziny dostępu.",
         "Rekordy znane tylko z OpenStreetMap (ODbL) zostają poza eksportem – wymaga opinii prawnika.",
         "Zwykły zasób CSV wymaga ręcznej zmiany typów 5 kolumn na tekst; zasób zbiorczy ma schemat od razu.",
