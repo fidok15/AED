@@ -14,16 +14,18 @@
   <p class="aed-step">Krok 1 z 3</p>
   <h2 class="aed-h2" id="aed-conv-step1">Wgraj swój plik</h2>
   <div class="aed-field">
-    <label class="aed-field__label" for="aed-conv-plik">Plik z defibrylatorami (CSV, XLSX albo GeoJSON)</label>
+    <label class="aed-field__label" for="aed-conv-plik">Plik z defibrylatorami – dowolny format z danymi</label>
     <p class="aed-field__hint" id="aed-conv-plik-hint">
-      Dowolny układ kolumn. CSV w kodowaniu UTF-8 lub Windows-1250, z przecinkiem, średnikiem albo tabulatorem jako
-      separatorem. Z pliku XLSX czytamy pierwszy arkusz. Najwyżej 5 MB.
+      Przyjmowane formaty: CSV, XLSX, ODS, JSON i GeoJSON (także z usług ArcGIS), KML i KMZ (np. Google Moje Mapy),
+      GPX, GML, tabela na stronie HTML albo w dokumencie DOCX. Format rozpoznajemy po treści. Położenie może być w
+      dwóch kolumnach, w jednej („52.2297, 21.0122”), w stopniach i minutach albo w układzie PUWG 1992 / 2000. Dowolny
+      układ kolumn, najwyżej 5 MB.
     </p>
     <input
       class="form-control"
       id="aed-conv-plik"
       type="file"
-      accept=".csv,.xlsx,.geojson,.json,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/geo+json,application/json"
+      accept=".csv,.txt,.tsv,.xlsx,.ods,.geojson,.json,.kml,.kmz,.gpx,.gml,.xml,.html,.htm,.docx,.zip,.pdf,.xls,.doc"
       aria-describedby="aed-conv-plik-hint"
       #plik
       (change)="choose(plik)" />
@@ -44,7 +46,7 @@
       </div>
       <div>
         <dt>Format</dt>
-        <dd>{{ formatName(analysis.format) }}{{ analysis.separator ? ', ' + analysis.separator : '' }}</dd>
+        <dd>{{ analysis.format_opis }}{{ analysis.separator ? ' Separator: ' + analysis.separator + '.' : '' }}</dd>
       </div>
       <div>
         <dt>Kodowanie</dt>
@@ -66,7 +68,7 @@
       Kolumny, które nie pasują do żadnego pola, pomiń.
     </p>
 
-    <div class="aed-scroll" tabindex="0" role="region" aria-labelledby="aed-conv-map-caption">
+    <div class="aed-scroll aed-conv-map" tabindex="0" role="region" aria-labelledby="aed-conv-map-caption">
       <table class="aed-table">
         <caption id="aed-conv-map-caption">
           Kolumny pliku i pola standardu
@@ -84,11 +86,19 @@
               <th scope="row">{{ column.kolumna }}</th>
               <td>
                 @if (column.przyklady.length) {
-                  <ul class="aed-list">
+                  <ul class="aed-list aed-conv-map__wide">
                     @for (example of column.przyklady; track $index) {
                       <li>{{ example.length > 80 ? example.slice(0, 80) + '…' : example }}</li>
                     }
                   </ul>
+                  <details class="aed-conv-map__narrow">
+                    <summary>Przykładowe wartości ({{ column.przyklady.length }})</summary>
+                    <ul class="aed-list">
+                      @for (example of column.przyklady; track $index) {
+                        <li>{{ example.length > 80 ? example.slice(0, 80) + '…' : example }}</li>
+                      }
+                    </ul>
+                  </details>
                 } @else {
                   <span>(pusta)</span>
                 }
@@ -205,6 +215,9 @@
         Wiersze poprawne, ale poza zbiorem krajowym (np. urządzenia z dostępem prywatnym):
         {{ result.raport.poza_wykazem_krajowym }}.
       </p>
+    }
+    @if (result.raport.bez_wspolrzednych_komunikat) {
+      <p class="aed-message aed-message--warn"><strong>Brak położenia:</strong> {{ result.raport.bez_wspolrzednych_komunikat }}</p>
     }
     @if (result.raport.ukryte_komunikat) {
       <p class="aed-message aed-message--warn"><strong>Uwaga:</strong> {{ result.raport.ukryte_komunikat }}</p>
