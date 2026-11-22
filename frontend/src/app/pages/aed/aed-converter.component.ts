@@ -115,7 +115,7 @@ export class AedConverterComponent implements OnInit {
     const passed = `${this.number(ok)} z ${this.number(all)} ${rows} ${aedPlural(ok, 'przeszedł', 'przeszły', 'przeszło')} sprawdzenie.`;
     if (!bad) return passed;
     const rejected = aedPlural(bad, 'odrzucony wiersz', 'odrzucone wiersze', 'odrzuconych wierszy');
-    return `${passed} Plik zawiera ${this.number(bad)} ${rejected} – nie trafią do wykazu.`;
+    return `${passed} Plik zawiera ${this.number(bad)} ${rejected} – ${bad === 1 ? 'nie trafi' : 'nie trafią'} do wykazu.`;
   });
 
   ngOnInit(): void {

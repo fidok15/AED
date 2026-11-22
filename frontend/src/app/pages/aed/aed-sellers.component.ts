@@ -75,6 +75,7 @@ export class AedSellersComponent implements OnInit, AfterViewInit, OnDestroy {
             .bindPopup(() => {
               const box = document.createElement('div');
               box.tabIndex = -1;
+              box.addEventListener('keydown', (event) => event.key === 'Escape' && this.map.closePopup());
               for (const [tag, text] of [
                 ['strong', seller.nazwa],
                 ['p', seller.miejscowosc],

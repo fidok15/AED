@@ -108,7 +108,9 @@ describe('AedQrComponent, manager view', () => {
     );
     expect(cards[0]).toContain('Gdzie znajduje się urządzenie');
     expect(cards[cards.length - 1]).toContain('Bateria i elektrody');
-    expect(page.querySelector('.aed-device__expiry').textContent).toMatch(/Bateria: ważna do .* r\. \(zostało 20 dni\)/);
+    expect(page.querySelector('.aed-device__expiry').textContent).toMatch(
+      /Bateria: ważna do .* r\. \(zostało 20 dni\)/,
+    );
     expect(page.querySelector<HTMLInputElement>('#aed-data_waznosci_baterii').type).toBe('date');
 
     const next = inDays(1500);
