@@ -26,6 +26,9 @@
 		}
 	}
 	handle @public_media {
+		# Editors upload these files (the portal accepts HTML and SVG): never let one run as a page of this origin.
+		header Content-Security-Policy "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:"
+		header X-Content-Type-Options nosniff
 		uri strip_prefix /media
 		root * /srv/media
 		file_server
