@@ -245,3 +245,30 @@ class PositionMethodInListsTest(unittest.TestCase):
         records, _ = read_wykaz(data, {"zrodlo": "dane.gov.pl/1", "zasob": 1, "licencja": "CC0 1.0", "instytucja": "Gmina"})
         by_name = {r["nazwa"]: r["sposob_ustalenia_polozenia"] for r in records}
         self.assertEqual(by_name, {"Urząd": "import", "Szkoła": ""})
+
+
+class ReviewRound11Test(unittest.TestCase):
+    def test_year_zero_month_is_an_error_not_a_crash(self):
+        from aed_standard.validate import check_value, date_range
+        self.assertIsNone(date_range("0000-01"))
+        self.assertTrue(check_value("data_waznosci_baterii", "0000-01"))
+
+    def test_condition_and_its_date_travel_together(self):
+        from aed_standard.dedup import deduplicate
+        from aed_standard import schema as S
+
+        def rec(src, sid, lat, **kw):
+            r = {n: "" for n in S.FIELD_NAMES}
+            r.update(zrodlo=src, zrodlo_id=sid, szerokosc_geograficzna=str(lat), dlugosc_geograficzna="21.0",
+                     nazwa="Urząd", miejscowosc="X", status="niepotwierdzony", licencja="CC0 1.0", **kw)
+            return r
+        a = rec("dane.gov.pl/4581", "1", 52.0, stan_urzadzenia="czasowo_niedostepny")
+        b = rec("dane.gov.pl/3624", "2", 52.00001, stan_urzadzenia="gotowy", data_stanu="2026-01-01")
+        merged, _, _ = deduplicate([a, b])
+        self.assertEqual(len(merged), 1)
+        # whichever record is the primary, the pair comes from ONE record - never a's condition with b's date
+        self.assertIn((merged[0]["stan_urzadzenia"], merged[0]["data_stanu"]),
+                      {("czasowo_niedostepny", ""), ("gotowy", "2026-01-01")})
+        a["stan_urzadzenia"] = ""   # no assessment on one side: the other side's condition and date are taken together
+        merged, _, _ = deduplicate([a, b])
+        self.assertEqual((merged[0]["stan_urzadzenia"], merged[0]["data_stanu"]), ("gotowy", "2026-01-01"))

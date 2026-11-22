@@ -128,7 +128,10 @@ def date_range(value):
     if not m:
         return None
     y, mo = int(m.group(1)), int(m.group(2))
-    return datetime.date(y, mo, 1), datetime.date(y, mo, calendar.monthrange(y, mo)[1])
+    try:  # 0000-01 matches the pattern but is not a date
+        return datetime.date(y, mo, 1), datetime.date(y, mo, calendar.monthrange(y, mo)[1])
+    except ValueError:
+        return None
 
 
 def valid_until(value):

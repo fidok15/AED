@@ -148,6 +148,8 @@ def migrate_device_condition(db):
             rec.update(stan_urzadzenia="gotowy", data_stanu=rec["data_weryfikacji"])
         if origin == "import" and rec[LAT] and rec[LON] and not rec[POSITION_METHOD]:
             rec[POSITION_METHOD] = "import"
+        if rec["status"] == OLD_VERIFIED:
+            rec["status"] = VERIFIED   # before scoring: some weights apply to verified records only
         rec["kompletnosc"] = str(aed_standard.completeness(rec))
         db.execute("UPDATE devices SET data=?, status=?, kompletnosc=? WHERE id_aed=?",
                    (json.dumps(rec, ensure_ascii=False), rec["status"], int(rec["kompletnosc"]), id_aed))
@@ -815,8 +817,14 @@ def apply_confirmation(db, id_aed, data, on=None):
         # No contact yet (e.g. a city dataset): the manager may add one, otherwise reminders skip the device.
         fields = CONFIRM_FIELDS + OWNER_FIELDS
     given = clean(data)
-    moved = any(k in data and to_float(given[k]) != to_float(rec.get(k)) for k in (LAT, LON))
+    if stan == "problem" and rec.get("status") == VERIFIED:
+        # A problem report on verified data changes the device condition only: edits sent with it would be shown
+        # under the old verification date. To change place or access the manager confirms again ("sprawny").
+        fields = ()
+    moved = any(k in fields and k in data and to_float(given[k]) != to_float(rec.get(k)) for k in (LAT, LON))
     rec.update({k: v for k, v in given.items() if k in fields and k in data})
+    if rec.get("wewnatrz_budynku") == "nie":
+        rec["pietro"] = ""   # a floor makes no sense outdoors; the form omits the field then
     if moved and POSITION_METHOD not in data:
         rec[POSITION_METHOD] = ""   # new coordinates without a method: the old method no longer describes them
     rec["data_aktualizacji"] = on
