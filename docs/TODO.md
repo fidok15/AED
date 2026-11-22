@@ -1,6 +1,6 @@
 # Do zrobienia
 
-Stan na 22.11.2026, 03:00, `main` = PR #23. Testy: 102 przechodzą (usługa, standard, wykaz, konwerter, godziny); frontend AED: 51 testów, linter i build OK; portal w kontenerze: 8 testów AED + 148 testów regresji. Zbiór krajowy: 18 814 rekordów, eksport 781, 195 par do przeglądu.
+Stan na 22.11.2026, 03:15, `main` = PR #25. Testy: 102 przechodzą (usługa, standard, wykaz, konwerter, godziny); frontend AED: 51 testów, linter i build OK; portal w kontenerze: 8 testów AED + 148 testów regresji. Zbiór krajowy: 18 814 rekordów, eksport 781, 195 par do przeglądu.
 
 Plan i zasady: `CLAUDE.md` w katalogu głównym. Kontrakt API: `docs/api-aed.md`.
 
@@ -10,7 +10,9 @@ Zrobione na `feat/nocna-runda`: poprawki w `aed_standard` po przeglądzie kodu z
 
 Doszło po 01:45 (PR #17–#23): wykaz AED uruchomiony w stosie portalu (migracje, testy, scalanie przez Celery, tabela i mapa we frontendzie forka – zrzuty `docs/zrzuty/portal-*.png`); konwerter z normalizacją wartości i XLSX; filtr „dostępny teraz" na liście; nowa mapa rejestru i „najbliższe urządzenia" z odległością i linkiem „Wyznacz trasę"; poprawki UI po ocenie Codexa (`docs/przeglad-ui-codex.md`); lekki prototyp zbudowany od zera i ścieżki jury przeklikane na Dockerze; próbne wdrożenie pod domeną lokalnie (`aed.localhost`) z trzema poprawkami; pięć przeglądów kodu Codexem, wszystkie znaleziska poprawione.
 
-Stan lokalny na tej maszynie: prototyp `http://localhost:8080/pl/aed` (obrazy sprzed nowej mapy – przebudować: `docker compose up -d --build`); portal `http://localhost:8001` (panel, `admin@mcod.local`) i `http://localhost:8000/aed-aggregated`.
+Stan lokalny na tej maszynie: prototyp `http://localhost:8080/pl/aed` (obrazy z kodu z 03:10); skrzynka testowa portalu `http://localhost:8025`; portal `http://localhost:8001` (panel, `admin@mcod.local`) i `http://localhost:8000/aed-aggregated`.
+
+Po 03:00 (PR #24–#25): e-mail do dostawcy o odrzuconym albo częściowo przyjętym wykazie (z ponawianiem po błędzie wysyłki), schemat harvestera 1.14 z `containsAedList`, szósty przegląd Codexa z poprawkami. Prototyp w Dockerze przebudowany z aktualnego kodu. W portalu niesprawdzone w działającym stosie: wiadomość „przyjęty w całości" i pełny import harvesterem.
 
 Niesprawdzone, wymaga człowieka albo serwera:
 
@@ -34,6 +36,7 @@ Interfejs – do poprawy (uwaga fidok15, 22.11 ok. 02:10):
 
 Decyzje do podjęcia:
 
+- [ ] Zasilanie XML z usługi zostaje w wersji 1.13. Przejście na 1.14 z `containsAedList` (jedna linia) sprawi, że zasób z usługi oznaczy się w forku sam jako wykaz AED, ale prawdziwy portal dane.gov.pl nie zna 1.14 i taki plik odrzuci.
 - [ ] Kto wystawia linki przejęcia punktu: dziś tylko ministerstwo; czy także firmy dla własnych urządzeń?
 - [ ] Mapper ignoruje `id_aed` z plików źródłowych, a wykaz w portalu zachowuje identyfikator dostawcy – czy ta różnica ma zostać?
 - [ ] Zgłoszenie „problem" dla punktu z OSM nie uruchamia przejęcia (rekord zostaje ODbL, poza eksportem).
