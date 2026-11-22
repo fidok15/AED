@@ -253,5 +253,10 @@ def deduplicate(records):
         pairs.append({"id_aed_a": cluster_id[i], "id_aed_b": cluster_id[j], "rekord_a": records[i], "rekord_b": records[j],
                       "odleglosc_m": None if d is None else round(d, 1), "podobienstwo": sim, "powod": reason})
     pairs.sort(key=lambda p: (p["odleglosc_m"] is None, p["odleglosc_m"] or 0, p["id_aed_a"], p["id_aed_b"]))
+    # Two merged devices can be linked by several source-record edges: one question for the reviewer, the closest.
+    unique = {}
+    for p in pairs:
+        unique.setdefault(frozenset((p["id_aed_a"], p["id_aed_b"])), p)
+    pairs = list(unique.values())
     merged.sort(key=lambda r: r["id_aed"])
     return merged, pairs, merged_edges

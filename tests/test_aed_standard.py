@@ -366,5 +366,13 @@ class BuildTest(unittest.TestCase):
         self.assertEqual(A.field_names(), [f["name"] for f in A.load_schema()["fields"]])
 
 
+
+class ReviewPairsTest(unittest.TestCase):
+    def test_each_pair_of_devices_is_listed_once(self):
+        _, pairs, _ = A.build_registry(RAW)
+        keys = [frozenset((p["id_aed_a"], p["id_aed_b"])) for p in pairs]
+        self.assertEqual(len(keys), len(set(keys)))
+
+
 if __name__ == "__main__":
     unittest.main()
