@@ -86,6 +86,11 @@ const routes: Routes = [
           import('./pages/dga-information-point/dga-information-point.module').then((m) => m.DgaInformationPointModule),
       },
       {
+        path: '!wykaz-aed',
+        data: { breadcrumbs: { translationKey: 'Menu.AedList' } },
+        loadChildren: () => import('./pages/aed-list/aed-list.routes').then((m) => m.AED_LIST_ROUTES),
+      },
+      {
         path: '!brokenlinks',
         data: { breadcrumbs: { translationKey: 'BrokenLinks.Self' } },
         loadChildren: () => import('./pages/broken-links/broken-links.routes').then((mod) => mod.BROKEN_LINKS_ROUTES),

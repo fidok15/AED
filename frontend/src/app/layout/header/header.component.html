@@ -443,6 +443,19 @@
               </a>
             </li>
 
+            <!-- national AED list -->
+            <li class="nav-item" role="presentation">
+              <a
+                class="nav-link"
+                role="menuitem"
+                [routerLink]="['/!' + routerEndpoints.AED_LIST] | localize"
+                routerLinkActive="active"
+                #menuLinkAedList="routerLinkActive"
+                [attr.aria-current]="menuLinkAedList.isActive ? true : null">
+                {{ 'Menu.AedList' | translate }}
+              </a>
+            </li>
+
             <!--  broken links        -->
             <li class="nav-item expanded-section" role="presentation">
               <a
