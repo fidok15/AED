@@ -6,6 +6,7 @@ validation by the portal's own tasks -> AggregatedAEDInfo points at it, the old 
 Structure, validation and deduplication come from aed_standard (aed_standard/schema.json).
 """
 import datetime
+import hashlib
 import logging
 import os
 import time
@@ -163,6 +164,8 @@ def validate_aed_list_file(data: bytes, resource: "Resource", dataset: "Dataset"
         messages.append("%s%s: %s" % (where, ", pole %s" % p["pole"] if p["pole"] else "", p["komunikat"]))
     if messages and report["problemy_razem"] > len(messages):
         messages.append("Pokazano %d z %d problemów w pliku." % (len(messages), report["problemy_razem"]))
+    if messages and C.LIST_HELP_URL:
+        messages.append("Plik można przekształcić do standardu AED w konwerterze: %s" % C.LIST_HELP_URL)
     return messages
 
 
@@ -227,21 +230,51 @@ def attribution(resource: "Resource") -> Dict[str, Any]:
     }
 
 
+REPEATED = "powtorzony"
+
+
+def list_digest(data: bytes) -> str:
+    """SHA-256 of a list's content after normalising the BOM, line endings and trailing newlines."""
+    text = data[3:] if data.startswith(b"\xef\xbb\xbf") else data
+    return hashlib.sha256(text.replace(b"\r\n", b"\n").replace(b"\r", b"\n").rstrip(b"\n")).hexdigest()
+
+
+def repeated_list_entry(source: Dict[str, Any], first_resource_pk: int) -> Dict[str, Any]:
+    """Report entry of a list identical to an earlier list of the same institution; it is not merged."""
+    return {
+        "zasob": source["zasob"], "tytul": source["tytul"], "instytucja": source["instytucja"],
+        "zrodlo": source["zrodlo"], "status": REPEATED, "wiersze": 0, "przyjete": 0, "problemy": [],
+        "problemy_razem": 0, "powtorzenie_zasobu": first_resource_pk,
+    }
+
+
 def build_main_aed_list(resources) -> Tuple[str, Dict[str, Any]]:
     """-> (CSV text of the national list, report). No database writes. The full report (with aed_standard's
     messages) stays in the database for the provider e-mail; the API shows public_report()."""
-    items, used = [], {}
+    items, used, repeated, first_by_content = [], {}, [], {}
     unreadable = 0
     for resource in resources:
         data, error = read_resource_bytes(resource)
         unreadable += isinstance(error, TransientError)  # rejections by rule do not count
-        items.append((source_for_resource(resource), data, error))
+        source = source_for_resource(resource)
         used[resource.pk] = resource
+        if data is not None:
+            # The same file published twice by one institution would double every device (rows of one source are
+            # never merged automatically). Lists that only overlap stay: several devices in one building are fine.
+            first = first_by_content.setdefault((resource.dataset.organization_id, list_digest(data)), resource.pk)
+            if first != resource.pk:
+                repeated.append(repeated_list_entry(source, first))
+                continue
+        items.append((source, data, error))
     national, pairs, report = merge_wykazy(items)
+    report["wykazy"] += repeated
+    report["wykazy_razem"] += len(repeated)
+    report["wykazy_powtorzone"] = len(repeated)
     report["data_utworzenia"] = datetime.datetime.now().isoformat(timespec="seconds")
     report["wykazy_nieodczytane"] = unreadable
     report["wykorzystane_zasoby"] = [
-        attribution(used[w["zasob"]]) for w in report["wykazy"] if w["status"] != "odrzucony" and w["zasob"] in used
+        attribution(used[w["zasob"]]) for w in report["wykazy"]
+        if w["status"] not in ("odrzucony", REPEATED) and w["zasob"] in used
     ]
     logger.info(
         "AED lists accepted: %s/%s, national list rows: %s",
@@ -252,9 +285,11 @@ def build_main_aed_list(resources) -> Tuple[str, Dict[str, Any]]:
     return to_csv(national), report
 
 
-PUBLIC_LIST_KEYS = ("zasob", "tytul", "instytucja", "zrodlo", "status", "wiersze", "przyjete", "problemy_razem")
+PUBLIC_LIST_KEYS = (
+    "zasob", "tytul", "instytucja", "zrodlo", "status", "wiersze", "przyjete", "problemy_razem", "powtorzenie_zasobu")
 PUBLIC_REPORT_KEYS = (
-    "wykazy_razem", "wykazy_przyjete", "wykazy_nieodczytane", "rekordy_z_wykazow", "rekordy_po_deduplikacji",
+    "wykazy_razem", "wykazy_przyjete", "wykazy_powtorzone", "wykazy_nieodczytane", "rekordy_z_wykazow",
+    "rekordy_po_deduplikacji",
     "polaczenia", "do_przegladu", "rekordy_w_wykazie_krajowym", "pominiete_przy_publikacji", "kompletnosc_srednia",
     "data_utworzenia", "wykorzystane_zasoby", "ostatnie_nieudane_scalanie",
 )

@@ -20,7 +20,9 @@ def publication_reasons(record):
     if record.get("dostep") == "prywatny":
         reasons.append("dostep prywatny")
     if record.get("status") == "zgloszony":  # record lifecycle: public once the manager confirmed place and access
-        reasons.append("status zgloszony – zarządca jeszcze nie potwierdził miejsca i dostępu")
+        reasons.append("status zgloszony – dysponent jeszcze nie potwierdził miejsca i dostępu")
+    if record.get("status") == "wycofany":  # one rule for every export: the service used to filter this on its own
+        reasons.append("status wycofany – urządzenie albo rekord wycofany z rejestru")
     codes = sorted({"%s: %s" % (p["kod"], p["pole"]) for p in check_record(record, "publikacja") if p["poziom"] == ERROR})
     return reasons + ["profil publikacja – " + c for c in codes]
 

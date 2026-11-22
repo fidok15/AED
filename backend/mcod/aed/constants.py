@@ -33,7 +33,8 @@ RESOURCE_DESC = (
     "standardu AED, a to samo urządzenie zgłoszone w kilku wykazach występuje raz. Struktura pliku: "
     "jeden wiersz to jedno urządzenie, CSV UTF-8, współrzędne WGS84 w kolumnach szerokosc_geograficzna "
     "i dlugosc_geograficzna. Raport z ostatniego scalania, z listą wykorzystanych wykazów (instytucja, zbiór, "
-    "zasób, link, licencja) do uznania autorstwa: " + settings.API_URL + "/aed-aggregated"
+    "zasób, link, licencja) do uznania autorstwa: " + settings.API_URL + "/aed-aggregated. Stały adres "
+    "bieżącego pliku, niezmienny po kolejnych scaleniach: " + settings.API_URL + "/aed-aggregated/file"
 )
 DATASET_TITLE = "Krajowy wykaz defibrylatorów AED – wykaz zbiorczy"
 DATASET_DESC = (

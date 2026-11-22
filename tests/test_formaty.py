@@ -161,5 +161,110 @@ class FormatsTest(unittest.TestCase):
         self.assertIn("po rozpakowaniu", str(ctx.exception))
 
 
+def ods(rows_xml):
+    ns = ('xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:table="urn:oasis:names:tc:opendocument:'
+          'xmlns:table:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"')
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("mimetype", "application/vnd.oasis.opendocument.spreadsheet")
+        z.writestr("content.xml", '<office:document-content %s><office:body><office:spreadsheet><table:table '
+                   'table:name="AED">%s</table:table></office:spreadsheet></office:body></office:document-content>'
+                   % (ns, rows_xml))
+    return buf.getvalue()
+
+
+ODS_HEADER = ('<table:table-row><table:table-cell><text:p>nazwa</text:p></table:table-cell><table:table-cell><text:p>'
+              'lat</text:p></table:table-cell><table:table-cell><text:p>lon</text:p></table:table-cell></table:table-row>')
+ODS_ROW = ('<table:table-row table:number-rows-repeated="%d"><table:table-cell><text:p>Urząd</text:p></table:table-cell>'
+           '<table:table-cell><text:p>52.2</text:p></table:table-cell><table:table-cell><text:p>21.0</text:p>'
+           '</table:table-cell></table:table-row>')
+
+
+class ReviewFixesTest(unittest.TestCase):
+    """Codex review of the formats layer, 22.11.2026."""
+
+    def test_overpass_export_is_osm_as_a_whole(self):
+        # Real structure of an Overpass API JSON export; the elements are invented.
+        overpass = ('{"version": 0.6, "generator": "Overpass API 0.7.62", "osm3s": {"timestamp_osm_base": '
+                    '"2026-11-22T00:00:00Z", "copyright": "The data included in this document is from www.openstreetmap.org. '
+                    'The data is made available under ODbL."}, "elements": [{"type": "node", "id": 1, "lat": 52.2, '
+                    '"lon": 21.0, "tags": {"emergency": "defibrillator", "name": "Przykład"}}, {"type": "node", "id": 2, '
+                    '"lat": 52.3, "lon": 21.1, "tags": {"emergency": "defibrillator"}}]}').encode()
+        a, text, rep, (records, report) = auto(overpass, "export.json", {"miejscowosc": "Warszawa"})
+        self.assertIn("Overpass", " ".join(a["uwagi"]))
+        self.assertEqual((rep["poprawne"], report["status"], records), (0, "odrzucony", []))
+        self.assertEqual({p["wiersz"] for p in rep["problemy"] if p["kod"] == "dane_osm"}, {1, 2})
+        geojson = ('{"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {"@id": "node/7", '
+                   '"name": "Przykład"}, "geometry": {"type": "Point", "coordinates": [21.0, 52.2]}}]}').encode()
+        self.assertEqual(auto(geojson, "aed.geojson", {"miejscowosc": "Warszawa"})[2]["poprawne"], 0)
+        kml = ('<kml xmlns="http://www.opengis.net/kml/2.2"><Document><description>© OpenStreetMap contributors'
+               '</description><Placemark><name>A</name><Point><coordinates>21.0,52.2</coordinates></Point></Placemark>'
+               '</Document></kml>').encode()
+        self.assertEqual(auto(kml, "a.kml", {"miejscowosc": "Warszawa"})[2]["poprawne"], 0)
+        # A word that merely contains "odbl" (odblaskowy) is not a licence.
+        own = ('<kml xmlns="http://www.opengis.net/kml/2.2"><Placemark><name>Szafka odblaskowa</name><Point>'
+               '<coordinates>21.0,52.2</coordinates></Point></Placemark></kml>').encode()
+        self.assertEqual(auto(own, "a.kml", {"miejscowosc": "Warszawa"})[2]["poprawne"], 1)
+
+    def test_lines_and_areas_have_no_position(self):
+        kml = ('<kml xmlns="http://www.opengis.net/kml/2.2"><Placemark><name>Trasa</name><LineString><coordinates>'
+               '21.0,52.2 21.1,52.3</coordinates></LineString></Placemark><Placemark><name>Punkt</name><Point>'
+               '<coordinates>21.0,52.2</coordinates></Point></Placemark></kml>').encode()
+        a, text, rep, (records, report) = auto(kml, "a.kml", {"miejscowosc": "Warszawa"})
+        self.assertEqual([r["nazwa"] for r in records], ["Punkt"])
+        self.assertIn("linie lub obszary", " ".join(a["uwagi"]))
+        geo = ('{"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {"name": "Park"}, '
+               '"geometry": {"type": "Polygon", "coordinates": [[[21.0, 52.2], [21.1, 52.2], [21.0, 52.3], [21.0, 52.2]]]}}, '
+               '{"type": "Feature", "properties": {"name": "Urząd"}, "geometry": {"type": "Point", "coordinates": [21.0, 52.2]}}]}')
+        a, text, rep, (records, report) = auto(geo.encode(), "a.geojson", {"miejscowosc": "Warszawa"})
+        self.assertEqual(([r["nazwa"] for r in records], "Park" in " ".join(a["uwagi"])), (["Urząd"], True))
+        gml = ('<gml:FeatureCollection xmlns:gml="http://www.opengis.net/gml"><gml:featureMember><gml:name>Ścieżka</gml:name>'
+               '<gml:LineString><gml:coordinates>21.0,52.2 21.1,52.3</gml:coordinates></gml:LineString></gml:featureMember>'
+               '</gml:FeatureCollection>').encode()
+        self.assertIn("linie lub obszary", " ".join(analyze(gml, "a.gml")["uwagi"]))
+        gpx = ('<gpx xmlns="http://www.topografix.com/GPX/1/1"><wpt lat="52.2" lon="21.0"><name>AED</name></wpt><rte>'
+               '<rtept lat="52.3" lon="21.1"><name>zakręt</name></rtept></rte></gpx>').encode()
+        a = analyze(gpx, "a.gpx")
+        self.assertEqual((a["wiersze"], "tras" in " ".join(a["uwagi"])), (1, True))
+
+    def test_gml_point_with_srs_name(self):
+        # Przemyśl has no srsName, so it never produced "SRID=…;a b". Explicit systems, GML 3 axis order:
+        for srs, pos in (("EPSG:4326", "52.2086 21.0149"), ("urn:ogc:def:crs:EPSG::2180", "484418.36 637629.99")):
+            gml = ('<gml:FeatureCollection xmlns:gml="http://www.opengis.net/gml"><gml:featureMember><gml:name>Urząd'
+                   '</gml:name><gml:Point srsName="%s"><gml:pos>%s</gml:pos></gml:Point></gml:featureMember>'
+                   '</gml:FeatureCollection>' % (srs, pos)).encode()
+            records = auto(gml, "a.gml", {"miejscowosc": "Warszawa"})[3][0]
+            self.assertEqual(len(records), 1, srs)
+            self.assertLess(haversine_m(float(records[0]["szerokosc_geograficzna"]), float(records[0]["dlugosc_geograficzna"]),
+                                        52.2086, 21.0149), 5, srs)
+
+    def test_ods_repeated_rows_are_checked_before_expanding(self):
+        with self.assertRaises(ConverterError) as ctx:
+            analyze(ods(ODS_HEADER + ODS_ROW % 60000), "a.ods")
+        self.assertIn("powtórzeń wiersza", str(ctx.exception))
+        empty_tail = '<table:table-row table:number-rows-repeated="1048570"><table:table-cell/></table:table-row>'
+        self.assertEqual(analyze(ods(ODS_HEADER + ODS_ROW % 2 + empty_tail), "a.ods")["wiersze"], 2)
+
+    def test_malformed_files_are_polish_errors(self):
+        for data in MALFORMED:
+            with self.assertRaises(ConverterError, msg=data[:60]):
+                analyze(data, "plik.json")
+
+
+MALFORMED = (
+    b'{"features": [{"attributes": {"a": 1}, "geometry": {"x": 1, "y": 2}}, null]}',
+    b'{"features": [{"attributes": {"a": 1}}, {"attributes": "x"}]}',
+    b'{"features": [{"attributes": {"a": 1}, "geometry": [1, 2]}]}',
+    b"[" * 100000,
+    b'{"type": "FeatureCollection", "features": []}',
+    b'{"data": "nic"}',
+    b'<kml xmlns="http://www.opengis.net/kml/2.2"><Document/></kml>',
+    b'<kml><Placemark><Point><coordinates>   </coordinates></Point></Placemark>',
+    b"   ",
+    b"nazwa;lat;lon\n",
+    b"PK\x03\x04" + b"\0" * 40,
+)
+
+
 if __name__ == "__main__":
     unittest.main()

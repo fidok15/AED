@@ -150,6 +150,8 @@ routes = [
     ("/dga-aggregated", res_views.AggregatedDGAInfoView()),
     # national AED list (mcod/aed, modelled on DGA)
     ("/aed-aggregated", aed_views.AggregatedAEDInfoView()),
+    ("/aed-aggregated/resource", aed_views.AggregatedAEDRedirectView("resource")),
+    ("/aed-aggregated/file", aed_views.AggregatedAEDRedirectView("file")),
     # Depricated views
     ("/resources/{id:int}/incr_download_count", res_views.ResourceDownloadCounter()),
     (

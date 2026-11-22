@@ -46,6 +46,8 @@ def lists_to_notify(old_report: Optional[Dict[str, Any]], new_report: Dict[str, 
     old = {w["zasob"]: w for w in (old_report or {}).get("wykazy", [])}
     result = []
     for entry in new_report.get("wykazy", []):
+        if entry["status"] == "powtorzony":  # a copy of another list, not merged; the first copy gets the message
+            continue
         previous = old.get(entry["zasob"])
         pending = previous is not None and previous.get(PENDING_KEY)  # the last message was not delivered
         if entry["status"] in PROBLEM_STATUSES:
