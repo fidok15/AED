@@ -50,7 +50,8 @@ services:
       COMPONENT: ${COMPONENT:-admin}
       PYTEST_MARKERS: "not depends_on_component"
     volumes:
-      - ../aed_standard:/usr/src/mcod_backend/aed_standard:ro  # AED data standard (wykaz AED, mcod/aed)
+      # AED data standard (wykaz AED, mcod/aed); not :ro - tests-entrypoint.sh deletes *.pyc under set -e
+      - ../aed_standard:/usr/src/mcod_backend/aed_standard
       - ./.coveragerc:/usr/src/mcod_backend/.coveragerc
       - ./.flake8:/usr/src/mcod_backend/.flake8
       - ./data:/usr/src/mcod_backend/data

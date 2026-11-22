@@ -55,20 +55,75 @@ Dostawca (samorząd, instytucja, firma) publikuje w swoim zbiorze zasób CSV w s
 
 ## Co sprawdzono, a czego nie
 
-Uruchomione na tej maszynie:
+Stan na 22.11, ok. 01:55. Portal uruchomiony na Macu (Apple Silicon, Docker Desktop 8 GB), w katalogu `backend/`.
 
-- `python3.8 -m unittest tests.test_wykaz` – 6 testów na prawdziwych plikach z `datasets/raw/` (Legionowo przyjęty, Krosno odrzucony z komunikatami, wiersz OSM i wiersz z błędem pominięte, urządzenie prywatne poza wykazem krajowym, licencja spoza standardu, scalenie z rejestrem ministerstwa, plik krajowy jest poprawnym wykazem w standardzie);
-- plik krajowy (781 wierszy) z naszym `tabular_data_schema` przechodzi walidację goodtables 2.1.4 / tableschema 1.21.0 / tabulator 1.53.5, czyli w wersjach z `backend/Pipfile.lock` i z tymi samymi opcjami co `resources/indexed_data.py:610`;
-- `python3.8 -m py_compile` wszystkich nowych i zmienionych plików backendu oraz `flake8` z konfiguracją `backend/.flake8`.
+### Jak powtórzyć
 
-Sprawdzone tylko czytaniem kodu (nieuruchomione, bo portal tu nie działa):
+Przygotowanie (pliki lokalne, poza gitem): `cp env.sample .env`, w `.env` ustawić `DISCOURSE_FORUM_ENABLED=false`; `cp mcod/settings/local.py.sample mcod/settings/local.py`, a w `local.py` usunąć dwa wiersze `"timeout": 1,` (Elasticsearch 6 odrzuca to ustawienie indeksu, `search_index --rebuild` kończy się błędem `unknown setting [index.timeout]`) i ustawić `SESSION_COOKIE_DOMAIN = None` (logowanie do panelu pod `localhost`).
 
-- migracje, rejestracja aplikacji `mcod.aed`, formularz i zestawy pól w panelu;
-- zadanie Celery, ponowienia, sprzątanie, podmiana zasobu zbiorczego;
-- widok `/aed-aggregated`;
-- odczyt pliku zasobu (CSV, kopia CSV z XLSX, link);
-- zachowanie mapy we frontendzie;
-- testy Django w `backend/mcod/aed/tests/test_aed_utils.py`. Wymagają stosu testowego portalu: `docker compose -f docker-compose.local.yml --profile tests run --rm mcod-local-tests mcod/aed`. Wejście kontenera dokleja argumenty do `pytest` i wcześniej robi `makemigrations --check`, więc sprawdzi też, czy migracje zgadzają się z modelami.
+`docker-compose.aed-mac.yml` (nowy plik, tylko lokalnie): podsieć `172.30.18.0/24` zamiast `172.18.18.0/24` (kolidowała z inną siecią Dockera), sterta Elasticsearch 512 MB (przy 1 GB kontener w emulacji zajął 2,9 GB i został zabity przez OOM), panel, API i Celery z obrazu testowego (jeden obraz do zbudowania), montowanie `../datasets` dla komendy demo. Obrazy Pythona zostają `linux/amd64`: natywna budowa arm64 się nie udała (gevent nie ma koła arm64 dla Pythona 3.8, kompilacja ze źródeł pada).
+
+```
+cd backend
+C="docker compose -f docker-compose.local.yml -f docker-compose.aed-mac.yml"
+$C build mcod-db mcod-redis mcod-rabbitmq mcod-elasticsearch mcod-rdfdb      # ok. 8 min
+$C --profile tests build mcod-local-tests                                     # ok. 10 min (emulacja amd64)
+$C up -d mcod-db mcod-redis mcod-rabbitmq mcod-elasticsearch mcod-rdfdb mcod-smtp
+
+# szczebel 1: migracje i testy (wejście testowe robi compilemessages i makemigrations --check)
+$C --profile tests run --rm --no-deps mcod-local-tests -p no:cacheprovider -n2 mcod/aed
+$C --profile tests run --rm --no-deps mcod-local-tests-api -p no:cacheprovider -n1 mcod/aed/tests/test_views.py
+$C --profile tests run --rm --no-deps mcod-local-tests -p no:cacheprovider -n2 \
+   mcod/resources/tests/test_main_dga.py mcod/resources/tests/test_dga_utils.py \
+   mcod/resources/tests/test_dga_migrate.py mcod/resources/tests/test_admin/test_admin.py mcod/tests/test_celery.py
+$C --profile tests run --rm --no-deps mcod-local-tests-api -p no:cacheprovider -n1 \
+   mcod/resources/tests/test_api.py mcod/aed/tests/test_views.py -k "dga or aed"
+
+# szczebel 2: baza deweloperska, dane demo, scalanie
+$C run --rm --no-deps mcod-local-admin python manage.py init_mcod_db
+$C run --rm --no-deps mcod-local-admin python manage.py search_index --rebuild -f
+$C -f docker-compose.aed-ports.yml up -d --no-deps mcod-local-admin mcod-local-api mcod-local-celery
+docker exec mcod-admin python manage.py seed_aed_demo     # ministerstwo (pk 2844), Legionowo, Krosno
+docker exec mcod-admin python manage.py create_main_aed_resource --dry-run
+docker exec mcod-admin python manage.py create_main_aed_resource
+curl http://localhost:8000/aed-aggregated
+
+# zatrzymanie
+$C -f docker-compose.aed-ports.yml stop mcod-local-admin mcod-local-api mcod-local-celery \
+   mcod-db mcod-redis mcod-rabbitmq mcod-elasticsearch mcod-rdfdb mcod-smtp
+```
+
+`seed_aed_demo` (nowa komenda, tylko demo) zakłada instytucje „Ministerstwo Cyfryzacji” (pk 2844, czyli domyślny `MAIN_DGA_DATASET_OWNER_ORGANIZATION_PK` z `env.sample`, więc dodatkowa zmienna nie jest potrzebna), „Gmina Miejska Legionowo” i „Gmina Krosno”, po jednym zbiorze i jednym zasobie z flagą „Wykaz AED” z prawdziwych plików: `datasets/out/aed_dane_gov_pl.csv`, `datasets/raw/dane_gov_pl/legionowo/resource_2625221.csv`, `datasets/raw/dane_gov_pl/krosno/resource_54632.csv` (Krosno zapisane z pominięciem formularza, żeby pokazać odrzucenie przy scalaniu).
+
+### Uruchomione i zgodne z oczekiwaniem
+
+- Migracje: `makemigrations --check` – „No changes detected”; `migrate` na czystej bazie stosuje `resources.0076_resource_contains_aed_list` i `aed.0001_initial` bez błędów.
+- Testy `mcod/aed`: 6 passed (komponent admin) + 2 passed (komponent api, `test_views.py`). Wśród nich test na prawdziwych plikach Legionowa i Krosna, który przechodzi przez walidację pliku i danych tabelarycznych samego portalu (Celery w trybie eager, Elasticsearch): Legionowo przyjęte, Krosno odrzucone, zasób zbiorczy z `tabular_data_schema` ze znacznikami `b`/`l`/`label` po przetworzeniu przez portal; test formularza (błędy po polsku przy polu „Wykaz AED”); test `GET /aed-aggregated` (200 z raportem, 404 bez wykazu).
+- Regresja DGA i panelu: `test_main_dga.py`, `test_dga_utils.py`, `test_dga_migrate.py`, `test_admin/test_admin.py`, `mcod/tests/test_celery.py` – 137 passed; testy API `-k "dga or aed"` – 11 passed.
+- `create_main_aed_resource --dry-run`: 3 wykazy, 2 przyjęte (Legionowo 24/24, ministerstwo 781/781), Krosno odrzucone z 10 komunikatami po polsku; 805 rekordów z wykazów, 24 połączenia, 2 do przeglądu, 781 w wykazie krajowym, średnia kompletność 51,4 – zgodnie z `tests/test_wykaz.py`.
+- `create_main_aed_resource` przez RabbitMQ i worker Celery: kroki 1–4, jedno ponowienie „Pending validation(s)” po 20 s, potem sukces. Powstał zbiór „Krajowy wykaz defibrylatorów AED – wykaz zbiorczy” (CC BY 4.0, codziennie, tagi AED/defibrylator/wykaz zbiorczy) w instytucji ministerstwa i zasób „Krajowy wykaz AED”: walidacja pliku, danych i linku SUCCESS, `openness_score` 3, `visualization_types` `["map", "table"]`, `/resources/<id>/data` i `/resources/<id>/geo` zwracają po 781 rekordów (punkty mapy z nazwą).
+- Drugie uruchomienie zastępuje zasób zbiorczy: nowy zasób w tym samym zbiorze, stary zwraca 404, zbiór zbiorczy jest jeden.
+- `GET http://localhost:8000/aed-aggregated` bez logowania: identyfikatory zbioru i zasobu oraz pełny raport.
+- Panel (`http://localhost:8001`, logowanie `curl`em jako `admin@mcod.local`): formularz „Dodaj zasób” ma pole „Wykaz AED” z tekstem pomocy. Plik Krosna z „Wykaz AED: TAK” – zasób niezapisany (HTTP 200) i 10 komunikatów po polsku przy polu; ten sam plik z „NIE” – zapisany (302); plik Legionowa z „TAK” – zapisany (302) z `contains_aed_list=True`.
+- Wykaz ministerstwa (`aed_dane_gov_pl.csv`) jako zwykły zasób dostawcy: walidacja danych tabelarycznych portalu kończy się FAILURE (typy zgadywane przez portal, opis w `docs/panel-portalu-krok-po-kroku.md`). Scalanie czyta plik bezpośrednio, więc mu to nie przeszkadza; zasób zbiorczy przechodzi, bo dostaje schemat tekstowy od razu.
+
+Zrzuty (`docs/zrzuty/`): `portal-01`, `-02`, `-03`, `-04`, `-05`, `-08` to wyrenderowane do PNG wyjścia terminala i API z tego uruchomienia, a nie ekrany przeglądarki. Ekranów `portal-06-tabela.png` i `portal-07-mapa.png` nie zrobiono: wymagają przeglądarki i frontendu podpiętego do lokalnego API.
+
+### Poprawki po uruchomieniu
+
+- `backend/docker-compose.local.yml`: wolumen `../aed_standard` w kontenerze testów bez `:ro`. `tests-entrypoint.sh` usuwa `*.pyc` pod `set -e`, a na wolumenie tylko do odczytu kończył się błędem, zanim uruchomił testy.
+- W kodzie `mcod/aed`, migracjach i zaczepach nie znaleziono błędów.
+
+### Nadal niesprawdzone
+
+- frontend (strona zbioru, widok tabeli, zakładka mapy) na lokalnym API;
+- harmonogram Celery beat o 03:45 (zadanie uruchamiano ręcznie; wpis w harmonogramie sprawdza tylko `test_celery.py`);
+- edycja istniejącego zasobu w panelu (sprawdzono tylko dodawanie), pliki XLSX i zasoby-linki jako wykazy, harvester XML;
+- przy dwóch scaleniach w jednym dniu plik dostaje dopisek Django (`..._TiO6y0n.csv`), bo nazwa zawiera tylko datę; działa, ale nazwa jest mniej czytelna.
+
+### Czas i zasoby
+
+Obrazy: usługi ok. 8 min, obraz testowy ok. 10 min (emulacja amd64, pobieranie z snapshot.debian.org). `init_mcod_db` ok. 2 min, przebudowa indeksów kilkanaście sekund, start panelu i API ok. 15 s. Pamięć w trakcie pracy: Elasticsearch ok. 2,9 GB (mimo sterty 512 MB, emulacja), panel i API po ok. 0,6 GB, kontener testów do 2 GB, reszta poniżej 0,5 GB. Na serwer: co najmniej 8 GB RAM, najlepiej natywny x86_64.
 
 Znane ograniczenia:
 
