@@ -10,6 +10,13 @@ export const AED_OPEN_LABELS: Record<AedOpenState, string> = {
   nieznane: 'Dostępność teraz nieznana',
 };
 
+/** The same answer next to a device: it comes from the published hours, not from a check of the device. */
+export const AED_SCHEDULE_LABELS: Record<AedOpenState, string> = {
+  dostepny: 'Według harmonogramu: dostępny teraz',
+  zamkniety: 'Według harmonogramu: teraz zamknięty',
+  nieznane: 'Godziny dostępu nieznane',
+};
+
 const DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const DAY = '(?:Mo|Tu|We|Th|Fr|Sa|Su|PH)';
 const SPAN = '\\d{1,2}:\\d{2}-\\d{1,2}:\\d{2}';
