@@ -31,6 +31,36 @@ class FormatError(ValueError):
     """Polish message for the provider."""
 
 
+# A whole file exported from OpenStreetMap (CLAUDE.md, rule 3): -> reason shown in the report. Text marks are read
+# from the formats whose metadata sit outside the rows (JSON, KML, GPX, GML); CSV and sheets carry the licence in
+# cells, which the row rule (konwerter._osm_rows) handles, so a mixed list keeps its own rows.
+OSM_TEXT_MARKS = (
+    (re.compile(r'"osm3s"\s*:'), "metadane eksportu Overpass („osm3s”)"),
+    (re.compile(r'"generator"\s*:\s*"overpass', re.I), "generator Overpass"),
+    (re.compile(r"openstreetmap\s+contributors|(?:©|&copy;|\(c\))\s*openstreetmap", re.I), "atrybucja „© OpenStreetMap”"),
+    (re.compile(r"\bodbl\b", re.I), "licencja ODbL"),
+    (re.compile(r'"@id"\s*:\s*"(?:node|way|relation)/\d+'), "identyfikatory obiektów OSM („@id”: node/…)"),
+    (re.compile(r'"@?osm_(?:id|type)"\s*:'), "pola osm_id / osm_type"),
+)
+OSM_ID_RE = re.compile(r"^(?:node|way|relation)/\d+$")
+
+
+def osm_origin(fmt, text, columns, rows):
+    """-> Polish reason when the whole file comes from OpenStreetMap, else ''."""
+    if fmt in ("json", "geojson", "arcgis", "kml", "kmz", "gpx", "gml"):
+        for pattern, reason in OSM_TEXT_MARKS:
+            if pattern.search(text or ""):
+                return reason
+    for col in columns:
+        key = re.sub(r"[^a-z]+", " ", col.casefold()).strip()
+        if key in ("osm id", "osm type"):
+            return "kolumna „%s”" % col
+        values = [str(row.get(col) or "") for _, row, _ in rows if row.get(col)]
+        if key in ("id", "osm") and values and all(OSM_ID_RE.match(v) for v in values):
+            return "identyfikatory obiektów OSM w kolumnie „%s” (node/…)" % col
+    return ""
+
+
 def local(tag):
     return tag.rsplit("}", 1)[-1] if isinstance(tag, str) else ""
 
@@ -75,7 +105,7 @@ def detect(data, filename=""):
     if data.startswith(b"PK\x03\x04"):
         try:
             names = set(zipfile.ZipFile(io.BytesIO(data)).namelist())
-        except zipfile.BadZipFile:
+        except (zipfile.BadZipFile, ValueError, OSError, EOFError, NotImplementedError):
             return "xlsx" if name.endswith(".xlsx") else "zip?"
         if "xl/workbook.xml" in names:
             return "xlsx"
@@ -119,14 +149,16 @@ def _text_head(data):
 
 # ---------- JSON ----------
 
-def _flatten(obj, prefix, out):
+def _flatten(obj, prefix, out, depth=0):
     for k, v in obj.items():
         key = "%s.%s" % (prefix, k) if prefix else str(k)
-        if isinstance(v, dict):
-            _flatten(v, key, out)
+        if isinstance(v, dict) and depth >= 5:   # deeper nesting is not a column of a device list
+            out[key] = "(obiekt zagnieżdżony)"
+        elif isinstance(v, dict):
+            _flatten(v, key, out, depth + 1)
         elif isinstance(v, list):
             out[key] = ", ".join(str(x) for x in v) if all(not isinstance(x, (dict, list)) for x in v) \
-                else json.dumps(v, ensure_ascii=False)
+                else json.dumps(v, ensure_ascii=False)[:2000]
         elif isinstance(v, bool):
             out[key] = "true" if v else "false"
         else:
@@ -151,16 +183,30 @@ def _find_list(obj, depth=0):
     return max(lists, key=len) if lists else None
 
 
+NOT_A_POINT = ("%d obiektów to linie lub obszary, nie punkty (np. „%s”) – położenia nie odczytano, bo nie wiadomo, "
+               "gdzie na linii lub w obszarze stoi urządzenie. Wpisz współrzędne samego urządzenia.")
+
+
 def _geojson_point(g):
-    """Point, MultiPoint or a Warsaw-style [[lon, lat]] -> Point with [lon, lat]; None otherwise."""
-    if not isinstance(g, dict):
+    """Point, a one-point MultiPoint or a Warsaw-style Point [[lon, lat]] -> Point with [lon, lat]; None otherwise
+    (a line or an area does not say where the device is)."""
+    if not isinstance(g, dict) or g.get("type") not in ("Point", "MultiPoint"):
         return None
     c = g.get("coordinates")
-    while isinstance(c, list) and c and isinstance(c[0], list):
+    while isinstance(c, list) and len(c) == 1 and isinstance(c[0], list):
         c = c[0]
-    if g.get("type") in ("Point", "MultiPoint") and isinstance(c, list) and len(c) >= 2:
+    if isinstance(c, list) and len(c) >= 2 and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in c[:2]):
         return {"type": "Point", "coordinates": c[:2]}
     return None
+
+
+def _not_points(rows, kinds):
+    """Note for rows whose geometry is a line or an area. kinds: {row_number: geometry type}."""
+    if not kinds:
+        return []
+    n, kind = next(iter(kinds.items()))
+    name = next((row.get(k) for m, row, _ in rows if m == n for k in ("name", "nazwa", "Name") if row.get(k)), kind)
+    return [NOT_A_POINT % (len(kinds), name)]
 
 
 def read_json(text):
@@ -168,6 +214,8 @@ def read_json(text):
         doc = json.loads(text)
     except ValueError as ex:
         raise FormatError("Pliku nie da się odczytać jako JSON (%s)." % ex)
+    except RecursionError:
+        raise FormatError("Plik JSON jest zagnieżdżony zbyt głęboko, żeby był wykazem urządzeń.")
     if isinstance(doc, dict) and isinstance(doc.get("features"), list) and doc["features"] \
             and isinstance(doc["features"][0], dict) and "attributes" in doc["features"][0]:
         return _arcgis(doc)
@@ -175,29 +223,36 @@ def read_json(text):
     if not items:
         raise FormatError("W pliku JSON nie ma listy obiektów (np. tablicy „features”, „data” albo „records”).")
     fmt = "geojson" if all("properties" in x or x.get("type") == "Feature" for x in items[:20]) else "json"
-    rows, cols = [], {}
+    rows, cols, lines = [], {}, {}
     for n, item in enumerate(items, start=1):
         geometry = None
         if fmt == "geojson":
-            geometry = _geojson_point(item.get("geometry"))
+            g = item.get("geometry")
+            geometry = _geojson_point(g)
             props = item.get("properties") if isinstance(item.get("properties"), dict) else {}
             row = _flatten(props, "", {})
-            if geometry is None and item.get("geometry"):
-                row["geometria"] = json.dumps(item["geometry"])
+            if geometry is None and isinstance(g, dict) and g.get("type") not in (None, "Point", "MultiPoint"):
+                lines[n] = str(g.get("type"))   # a line or an area: no position
+            elif geometry is None and g:
+                row["geometria"] = json.dumps(g)[:2000]
         else:
             row = _flatten(item, "", {})
         rows.append((n, row, geometry))
         for k in row:
             cols.setdefault(k, None)
     columns = sorted(cols) if fmt == "geojson" else list(cols)
-    return fmt, columns, rows, []
+    return fmt, columns, rows, _not_points(rows, lines)
 
 
 def _arcgis(doc):
-    sr = doc.get("spatialReference") or {}
+    sr = doc.get("spatialReference") if isinstance(doc.get("spatialReference"), dict) else {}
     wkid = sr.get("latestWkid") or sr.get("wkid")
     rows, cols = [], {}
     for n, feat in enumerate(doc["features"], start=1):
+        if not isinstance(feat, dict) or not isinstance(feat.get("attributes"), (dict, type(None))) \
+                or not isinstance(feat.get("geometry"), (dict, type(None))):
+            raise FormatError("Obiekt nr %d w „features” warstwy ArcGIS jest uszkodzony (oczekiwano obiektu "
+                              "z polami „attributes” i „geometry”)." % n)
         row = _flatten(feat.get("attributes") or {}, "", {})
         g = feat.get("geometry") or {}
         geometry = None
@@ -244,7 +299,7 @@ def html_text(value):
 
 
 def _kml_rows(root):
-    rows, cols = [], {}
+    rows, cols, lines = [], {}, {}
 
     def walk(node, folder):
         for child in node:
@@ -254,7 +309,7 @@ def _kml_rows(root):
                 walk(child, (name.text or "").strip() if tag == "Folder" and name is not None else folder)
             elif tag == "Placemark":
                 row = {"warstwa": folder} if folder else {}
-                geometry = None
+                geometry, shape = None, ""
                 for el in child.iter():
                     t = local(el.tag)
                     if t in ("name", "address", "phoneNumber") and el.text:
@@ -266,25 +321,31 @@ def _kml_rows(root):
                         row[el.get("name")] = html_text(v.text if v is not None else "")
                     elif t == "SimpleData" and el.get("name"):
                         row[el.get("name")] = html_text(el.text)
-                    elif t == "coordinates" and geometry is None and el.text:
-                        first = el.text.split()[0].split(",")   # lon,lat[,alt]; a line or polygon -> its first point
+                    elif t in ("LineString", "LinearRing", "Polygon", "Track", "MultiTrack"):
+                        shape = shape or t
+                    elif t == "Point" and geometry is None:   # only a point says where the device is
+                        c = el.find("{*}coordinates")
+                        first = (c.text or "").split()[:1] if c is not None else []
                         try:
-                            geometry = {"type": "Point", "coordinates": [float(first[0]), float(first[1])]}
+                            lon, lat = (float(v) for v in first[0].split(",")[:2])
+                            geometry = {"type": "Point", "coordinates": [lon, lat]}
                         except (ValueError, IndexError):
                             pass
                 rows.append((len(rows) + 1, row, geometry))
+                if geometry is None and shape:
+                    lines[len(rows)] = shape
                 for k in row:
                     cols.setdefault(k, None)
             else:
                 walk(child, folder)
     walk(root, "")
-    return list(cols), rows
+    return list(cols), rows, _not_points(rows, lines)
 
 
 def _gpx_rows(root):
     rows, cols = [], {}
     for wpt in root.iter():
-        if local(wpt.tag) not in ("wpt", "rtept"):
+        if local(wpt.tag) != "wpt":   # rtept / trkpt draw a route, they are not devices
             continue
         row = {}
         for el in wpt.iter():
@@ -300,33 +361,44 @@ def _gpx_rows(root):
         rows.append((len(rows) + 1, row, geometry))
         for k in row:
             cols.setdefault(k, None)
-    return list(cols), rows
+    tracks = sum(1 for el in root.iter() if local(el.tag) in ("rte", "trk"))
+    return list(cols), rows, ["Pominięto %d tras lub śladów GPX – czytamy tylko punkty (wpt)." % tracks] if tracks else []
 
 
 def _gml_rows(root):
     """featureMember / member / wfs:member -> one row: leaf elements by local name; gml:pos / gml:coordinates as
     text in "geometria" (axis order and system decided later from the values; srsName kept when given)."""
-    rows, cols = [], {}
+    rows, cols, lines = [], {}, {}
     for m in root.iter():
         if local(m.tag) not in ("featureMember", "member", "featureMembers"):
             continue
         features = list(m) if local(m.tag) == "featureMembers" else [m]
         for feat in features:
-            row, srs = {}, ""
+            row, srs, shape, inside = {}, "", "", set()
             for el in feat.iter():
                 t = local(el.tag)
                 srs = el.get("srsName") or srs
-                if t in ("pos", "coordinates") and el.text and "geometria" not in row:
-                    pair = el.text.strip().split()[0] if t == "coordinates" else el.text.strip()
-                    nums = re.split(r"[\s,]+", pair)[:2]
-                    epsg = re.search(r"(\d{4,6})\D*$", srs)
-                    row["geometria"] = ("SRID=%s;" % epsg.group(1) if epsg else "") + " ".join(nums)
+                if t in ("LineString", "Polygon", "Curve", "Surface", "MultiCurve", "MultiSurface", "LinearRing"):
+                    shape = shape or t
+                    inside.update(id(x) for x in el.iter())
+                if id(el) in inside:
+                    continue
+                if t in ("pos", "coordinates") and "geometria" not in row:
+                    text = (el.text or "").strip()
+                    pair = (text.split() or [""])[0] if t == "coordinates" else text
+                    nums = [v for v in re.split(r"[\s,]+", pair) if v][:2]
+                    if len(nums) == 2:
+                        epsg = re.search(r"(\d{4,6})\D*$", srs)
+                        # "SRID=n;a b": the system and the pair in the order written (GML 3: axis order of the system)
+                        row["geometria"] = ("SRID=%s;" % epsg.group(1) if epsg else "") + " ".join(nums)
                 elif el is not feat and not list(el) and el.text and el.text.strip():
                     row.setdefault(t, html_text(el.text))
             rows.append((len(rows) + 1, row, None))
+            if shape and "geometria" not in row:
+                lines[len(rows)] = shape
             for k in row:
                 cols.setdefault(k, None)
-    return list(cols), rows
+    return list(cols), rows, _not_points(rows, lines)
 
 
 # ---------- grids: HTML table, DOCX table, ODS ----------
@@ -434,7 +506,14 @@ OFFICE = "{urn:oasis:names:tc:opendocument:xmlns:office:1.0}"
 TEXT = "{urn:oasis:names:tc:opendocument:xmlns:text:1.0}"
 
 
-def read_ods(data, max_cells):
+def _int(value):
+    try:
+        return max(1, int(value or 1))
+    except ValueError:
+        raise FormatError("Plik ODS ma uszkodzony atrybut powtórzeń („%s”). Zapisz go ponownie w arkuszu." % value)
+
+
+def read_ods(data, max_cells, max_rows):
     z = zipfile.ZipFile(io.BytesIO(data))
     root = safe_xml(zip_part(z, "content.xml", [MAX_UNPACKED], "ODS"), "ODS")
     table = next(root.iter(T + "table"), None)
@@ -451,7 +530,7 @@ def read_ods(data, max_cells):
                 "\n".join("".join(p.itertext()) for p in tc.findall(TEXT + "p"))
             if vt in ("float", "percentage", "currency") and tc.get(OFFICE + "value"):
                 value = tc.get(OFFICE + "value")
-            rep = int(tc.get(T + "number-columns-repeated", "1") or 1)
+            rep = _int(tc.get(T + "number-columns-repeated"))
             if value:   # repeated empty cells (often 1024 to the right) are not expanded
                 if len(line) + rep > xlsx.MAX_COLUMNS:
                     raise FormatError("Arkusz ODS ma dane w więcej niż %d kolumnach." % xlsx.MAX_COLUMNS)
@@ -460,9 +539,12 @@ def read_ods(data, max_cells):
                 line += [""] * min(rep, max(0, xlsx.MAX_COLUMNS - len(line)))
         while line and not line[-1]:
             line.pop()
-        if line:
-            reps = min(int(tr.get(T + "number-rows-repeated", "1") or 1), 10000)
-            total += len(line) * reps
+        if line:   # empty repeated rows (the usual tail of an ODS sheet) are skipped above, without an error
+            reps = _int(tr.get(T + "number-rows-repeated"))
+            total += len(line) * reps   # checked on the declared count, before expanding
+            if len(rows) + reps > max_rows:
+                raise FormatError("Arkusz ODS deklaruje %d powtórzeń wiersza z danymi, a konwerter przyjmuje najwyżej "
+                                  "%d wierszy. Usuń powtórzone wiersze albo podziel plik." % (reps, max_rows))
             if total > max_cells:
                 raise FormatError("Arkusz ODS ma więcej niż %d komórek. Podziel plik." % max_cells)
             rows += [line] * reps
@@ -477,7 +559,7 @@ def read_xml_format(fmt, data):
             next(n for n in z.namelist() if n.lower().endswith(".kml"))
         data, fmt = zip_part(z, kml, [MAX_UNPACKED], "KMZ"), "kml"
     root = safe_xml(data, fmt.upper())
-    columns, rows = {"kml": _kml_rows, "gpx": _gpx_rows, "gml": _gml_rows}[fmt](root)
+    columns, rows, notes = {"kml": _kml_rows, "gpx": _gpx_rows, "gml": _gml_rows}[fmt](root)
     if not rows:
         raise FormatError("Plik %s nie zawiera punktów (Placemark / wpt / featureMember)." % fmt.upper())
-    return columns, rows, []
+    return columns, rows, notes, data.decode("utf-8", "replace")
