@@ -62,7 +62,7 @@ Cykl życia rekordu: `zgloszony` (sprzedawca podał dane urządzenia) → `aktyw
 
 | Kryterium | Waga | Co je realizuje |
 |---|---|---|
-| Zgodność z zasadami dane.gov.pl | 30% | wykaz AED w forku portalu wzorem DGA (flaga zasobu, walidacja w panelu, scalanie, publiczny odczyt); zbiór publikuje ministerstwo mechanizmami portalu (zasób, harvester XML); pełny fork uruchomiony lokalnie (także próbnie pod `aed.localhost`), serwer publiczny dla jury – do zrobienia przez zespół |
+| Zgodność z zasadami dane.gov.pl | 30% | wykaz AED w forku portalu wzorem DGA (flaga zasobu, walidacja w panelu, scalanie, publiczny odczyt); zbiór publikuje ministerstwo mechanizmami portalu (zasób, harvester XML); pełny fork uruchomiony lokalnie (także próbnie pod `aed.localhost`) i publicznie pod `https://aed.heckyeah.pl` (Proxmox zespołu, Cloudflare Tunnel, automatyczne wdrożenie z `main`: `docs/wdrozenie-pve.md`) |
 | Logotyp i hasło | 25% | nazwa akcji, hasło, logo, księga znaku, materiały dla dostawców |
 | Kreatywność i innowacyjność | 15% | kanał sprzedawcy, QR, potwierdzenia, wskaźnik kompletności, zachęty |
 | Zgodność z tematem | 15% | scalanie wykazów wielu dostawców, mapper wielu źródeł, deduplikacja, wskazanie zakresu każdego źródła |
@@ -116,6 +116,7 @@ backend/        fork backendu dane.gov.pl (mcod 2.63.0: Python 3.8, Django 2.2, 
   mcod/aed/     wykaz AED wzorem wykazu DGA: walidacja, scalanie, zadanie dzienne, GET /aed-aggregated
   docker-compose.aed-domain.yml, aed-domain/   pełny fork pod domeną z HTTPS (docs/wdrozenie-serwer.md)
 frontend/       fork frontendu dane.gov.pl (Angular 18)
+deploy/pve/     automatyczne wdrożenie pełnego forka na Proxmoxie (timer systemd, bootstrap) – docs/wdrozenie-pve.md
 docker-compose.yml, docker-compose.prod.yml    lekki prototyp (usługa AED + build frontendu), lokalnie i pod domeną
 kampania/       nazwa i hasło, brief logo, szablon księgi znaku, zachęty; docelowo pliki logo
 docs/           zadanie, research, api-aed.md (kontrakt API), wykaz-dga-analiza.md, wykaz-aed-w-portalu.md,
@@ -147,7 +148,7 @@ Stan na 22.11, ok. 01:00:
 | B. Źródła i mapper cykliczny | rejestr źródeł i pobieranie z niego zrobione; tryb przyrostowy i raport „co przybyło” – do potwierdzenia |
 | C. Usługa AED | zrobione, testy przechodzą; poprawki po przeglądach w PR #14 i commicie `838968e` (m.in. przejęcie punktu znanego tylko z OSM) |
 | C2. Portal lokalnie | zrobione 22.11: pełny stos forka w Dockerze, testy Django AED i regresji, zrzuty `docs/zrzuty/portal-*.png` |
-| C3. Wykaz AED w portalu i wdrożenie pod domeną | wykaz uruchomiony lokalnie w pełnym stosie forka (scalanie ręcznym uruchomieniem zadania; harmonogram 03:45 niesprawdzony); nakładka domenowa uruchomiona lokalnie pod `aed.localhost`; serwer publiczny – do zrobienia przez zespół |
+| C3. Wykaz AED w portalu i wdrożenie pod domeną | wykaz uruchomiony lokalnie w pełnym stosie forka (scalanie ręcznym uruchomieniem zadania; harmonogram 03:45 niesprawdzony); nakładka domenowa uruchomiona lokalnie pod `aed.localhost`; 22.11 rano pełny fork publicznie pod `aed.heckyeah.pl` (LXC 118 na Proxmoxie, `docs/wdrozenie-pve.md`), automat wdrożeń czeka na klucz deploy od właściciela repozytorium |
 | D. Frontend | wstrzymany do sygnału; zmiany w toku w `frontend/src/app/pages/aed/` |
 | E. Kampania i prezentacja | nazwa, logo i księga znaku – w toku u zespołu; konspekt, opis projektu, instrukcja dla jury – szkice gotowe |
 
@@ -275,7 +276,7 @@ Gdy brakuje czasu, tniemy w tej kolejności: ranking i odznaki → mapa sprzedaw
 
 ## Otwarte decyzje
 
-- Serwer i domena: architektura (zakładamy Linux amd64), RAM i dysk, nazwa domeny, rekordy `api.`, `admin.`, `cms.`; do kiedy serwer działa i kto go wyłączy.
+- Serwer publiczny (22.11: `aed.heckyeah.pl` na Proxmoxie Adimac93, `docs/wdrozenie-pve.md`): do kiedy działa i kto go wyłączy; czy zostaje też serwer kolegi pod kupioną domeną.
 - Czy wymagać `id_aed` albo `zrodlo_id` w wykazie (bez nich identyfikator zależy od kolejności wierszy)?
 - Harmonogram Celery na serwerze: scalanie samo o 03:45 czy ręcznie na pokazie?
 - Ostateczna godzina i sposób oddania projektu – potwierdzić u organizatora.

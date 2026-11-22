@@ -2,7 +2,7 @@
 
 Cel: na serwerze kolegi, pod kupioną domeną, działa fork dane.gov.pl (frontend, API, panel administracyjny, CMS, Celery) razem z usługą AED, a jury otwiera adresy w przeglądarce bez żadnej konfiguracji. Ten cel nie jest jeszcze osiągnięty – serwer publiczny pozostaje do zrobienia przez zespół.
 
-**Stan: uruchomione lokalnie na Macu (22.11, ok. 02:10–02:30) pod domeną testową `aed.localhost`, na serwerze jeszcze nie.** Wszystkie 14 kontenerów wystartowało z tej nakładki (plus obejścia z `docker-compose.aed-mac.yml`), Caddy z lokalnym urzędem certyfikacji zamiast Let's Encrypt, baza z danymi demo z wcześniejszego uruchomienia lokalnego. Co sprawdzono w działaniu: rozdział 11. Miejsca, które wynikają z kodu, ale nie były sprawdzone w działaniu, mają oznaczenie **[nie uruchomiono]**.
+**Stan 22.11 rano: działa publicznie pod `https://aed.heckyeah.pl` na Proxmoxie zespołu, za Cloudflare Tunnel, z automatycznym wdrożeniem z `main` – wariant tunelowy opisuje `docs/wdrozenie-pve.md`.** Wcześniej (22.11, ok. 02:10–02:30) uruchomione lokalnie na Macu pod domeną testową `aed.localhost`; wariant z Let's Encrypt na własnym serwerze pod kupioną domeną nadal nie był uruchomiony. Wszystkie 14 kontenerów wystartowało z tej nakładki (plus obejścia z `docker-compose.aed-mac.yml`), Caddy z lokalnym urzędem certyfikacji zamiast Let's Encrypt, baza z danymi demo z wcześniejszego uruchomienia lokalnego. Co sprawdzono w działaniu: rozdział 11. Miejsca, które wynikają z kodu, ale nie były sprawdzone w działaniu, mają oznaczenie **[nie uruchomiono]**.
 
 Pliki:
 
