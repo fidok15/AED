@@ -80,7 +80,7 @@ def _date_message(label, example, value):
     m = PL_DATE_RE.match(value)
     if m:
         a, b, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
-        if a <= 12 and b <= 12 and a != b:
+        if 1 <= a <= 12 and 1 <= b <= 12 and a != b:
             return ("Pole %s: data „%s” jest niejednoznaczna. Sprawdź w danych źródłowych, czy chodzi o %d %s czy %d %s "
                     "%d r., i wpisz datę w formacie RRRR-MM-DD." % (label, value, a, MONTHS_GEN[b - 1], b,
                                                                      MONTHS_GEN[a - 1], year))

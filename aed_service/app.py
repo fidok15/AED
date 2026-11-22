@@ -525,7 +525,8 @@ def process_submission(db, account, records, report, filename, dry_run, demo=Fal
             if demo:  # in the same transaction as the insert: an interrupted seed never leaves demo=0
                 db.execute("UPDATE devices SET demo=1 WHERE id_aed=?", (rec["id_aed"],))
             if rec["id_aed"] in foreign:
-                queue_pair(db, rec["id_aed"], foreign[rec["id_aed"]], None, 1.0)
+                # The record already in the registry is A: "merge" keeps A, so a verified device survives.
+                queue_pair(db, foreign[rec["id_aed"]], rec["id_aed"], None, 1.0)
             token = new_token(db, rec["id_aed"])
             item["naklejka_url"] = "/api/aed/urzadzenia/%s/naklejka.svg" % rec["id_aed"]
             item["link_aktywacyjny"] = activation_link(rec["id_aed"], token)

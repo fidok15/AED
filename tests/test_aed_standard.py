@@ -434,6 +434,7 @@ class DateHintTest(unittest.TestCase):
         self.assertIn("Zamień na 2028-12-25.", msg("25.12.2028"))
         self.assertIn("Zamień na 2020-01-13.", msg("01/13/2020"))
         self.assertNotIn("Zamień", msg("31.02.2030"))
+        self.assertNotIn("niejednoznaczna", msg("00/04/2026"))  # day zero is not a second reading
 
 
 if __name__ == "__main__":
