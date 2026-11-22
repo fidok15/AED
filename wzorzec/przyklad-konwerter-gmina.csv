@@ -1,0 +1,7 @@
+Lp.;Nazwa obiektu;Adres;Szer. geogr.;Dł. geogr.;Dostęp;Godziny otwarcia;Producent;Model;Data ważności baterii;Data ważności elektrod;Opis lokalizacji
+1;Urząd Gminy Fikcyjnowo;ul. Demonstracyjna 1, 00-001 Fikcyjnowo;52,10412;19,40231;publiczny;pon.-pt. 8:00-16:00;FikcjaMed;DemoAED 200;31.01.2030;28.02.2028;hol główny, przy portierni
+2;Szkoła Podstawowa nr 0;ul. Przykładowa 12, 00-001 Fikcyjnowo;52,10655;19,40877;ograniczony;pon.-pt. 7:00-17:00;FikcjaMed;DemoAED 200;31.01.2030;28.02.2028;sekretariat, parter
+3;Hala Sportowa Demonstracyjna;ul. Sportowa 3, 00-001 Fikcyjnowo;52,10190;19,39954;publiczny;codziennie 6:00-22:00;FikcjaMed;DemoAED 300;15.03.2029;15.03.2027;przy wejściu na trybuny
+4;Ochotnicza Straż Pożarna w Fikcyjnowie;ul. Strażacka 5, 00-001 Fikcyjnowo;52,09872;19,40510;publiczny;całodobowo;Pulsar Demo;PD-1;30.06.2031;30.06.2029;szafka na zewnątrz budynku
+5;Gminny Ośrodek Kultury;pl. Wzorcowy 2, 00-001 Fikcyjnowo;52,10388;19,40402;publiczny;wt.-nd. 10:00-20:00;Pulsar Demo;PD-1;30.06.2031;30.06.2029;szatnia
+6;Przychodnia Zdrowia „Fikcja”;ul. Testowa 8, 00-001 Fikcyjnowo;52,10701;19,39688;ograniczony;pon.-pt. 8:00-18:00;FikcjaMed;DemoAED 300;15.03.2029;15.03.2027;rejestracja
