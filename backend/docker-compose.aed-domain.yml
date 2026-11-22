@@ -1,19 +1,17 @@
 # Full portal fork (dane.gov.pl / mcod) + AED service under one public domain, HTTPS via Caddy (Let's Encrypt).
 # Instruction: docs/wdrozenie-serwer.md. In backend/:
-#   sh aed-domain/init-env.sh aed.example.pl            # .env with fresh secrets and COMPOSE_FILE for both files
-#   cp mcod/settings/local.py.sample mcod/settings/local.py
+#   sh aed-domain/init-env.sh aed.example.pl            # .env with fresh secrets, COMPOSE_FILE, mcod/settings/local.py
 #   docker compose up -d --build
 # Addresses: https://<domain>/pl/aed, https://admin.<domain>, https://api.<domain>, https://cms.<domain>
 #
 # Changes against docker-compose.local.yml: nothing but Caddy listens on the host; production servers (gunicorn)
-# instead of werkzeug --debug / runserver; settings for the real domain (aed-domain/settings.py); forum, flower and
+# instead of werkzeug --debug / runserver; settings for the real domain (aed-domain/settings.py, appended to
+# mcod/settings/local.py by init-env.sh); forum, flower and
 # websockets off; AED service and frontend build added to the portal network.
 
 x-aed-portal: &aed-portal
   environment: &aed-portal-env
     AED_DOMAIN: ${AED_DOMAIN:?run aed-domain/init-env.sh first}
-    DJANGO_SETTINGS_MODULE: aed_domain_settings
-    PYTHONPATH: /usr/src/mcod_backend
     DISCOURSE_FORUM_ENABLED: "false"
     BASE_URL: https://${AED_DOMAIN:?run aed-domain/init-env.sh first}
     FRONTEND_BASE_URL: https://${AED_DOMAIN}
@@ -23,15 +21,12 @@ x-aed-portal: &aed-portal
     API_URL_INTERNAL: http://mcod-local-api:8000
     BOKEH_ALLOW_WS_ORIGIN: ${AED_DOMAIN}
     NO_REPLY_EMAIL: no-reply@${AED_DOMAIN}
-  volumes:
-    - ./aed-domain/settings.py:/usr/src/mcod_backend/aed_domain_settings.py:ro
   restart: unless-stopped
 
 services:
   mcod-local-admin:
     <<: *aed-portal
     volumes:
-      - ./aed-domain/settings.py:/usr/src/mcod_backend/aed_domain_settings.py:ro
       - ../datasets:/usr/src/mcod_backend/aed_datasets:ro  # demo files for the AED lists (docs/wdrozenie-serwer.md, sec. 6)
     command: ["gunicorn", "mcod.wsgi", "--bind", "0.0.0.0:8001", "--workers", "3", "--timeout", "3600"]
 

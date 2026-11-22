@@ -2,7 +2,7 @@
 
 Prototyp rozwiązania zadania „Misja AED – Dane na ratunek”. Instrukcja prowadzi przez uruchomienie i cztery ścieżki demonstracyjne: wykaz AED w portalu, firma, zarządca, ministerstwo. Wskazuje też, gdzie sprawdzić każde wymaganie i kryterium oceny z treści zadania. Wszystkie dane osobowe w prototypie są fikcyjne (domeny `.example`).
 
-Stan zgodny z repozytorium na dzień 22.11.2026. Rzeczy, które jeszcze nie istnieją, zebrano na końcu w sekcji „Do uzupełnienia”. Znacznik `[do sprawdzenia]` oznacza krok, którego nikt jeszcze nie przeszedł w przeglądarce. Ścieżki A–D i K przeszliśmy 22.11 w przeglądarce na usłudze AED uruchomionej lokalnie (bez Dockera).
+Stan zgodny z repozytorium na dzień 22.11.2026. Rzeczy, które jeszcze nie istnieją, zebrano na końcu w sekcji „Do uzupełnienia”. Znacznik `[do sprawdzenia]` oznacza krok, którego nikt jeszcze nie przeszedł w przeglądarce. Ścieżki A–D i K przeszliśmy 22.11 w przeglądarce na usłudze AED uruchomionej lokalnie (bez Dockera), a ok. 02:00 jeszcze raz od zera na Dockerze (`docker compose down -v`, potem `docker compose up -d --build`; pierwsza budowa ok. 2,5 min na Macu M-series, gotowość usługi ok. 10 s później).
 
 ## 0. Adres publiczny (bez instalacji)
 
@@ -24,13 +24,13 @@ Wymagany jest Docker (z Docker Compose).
 1. Otwórz terminal w katalogu głównym repozytorium.
 2. Uruchom: `docker compose up --build`. Pierwsza budowa trwa kilka minut (README). Usługa AED przy pierwszym starcie zakłada konta demo i importuje rejestr z `datasets/raw/` (kilka sekund, wg `aed_service/README.md`).
 3. Gdy w terminalu usługi pojawi się gotowość, otwórz `http://localhost:8080/pl/aed`.
-4. Zobaczysz żółty pasek „Prototyp hackathonowy HackNation 2026 – to nie jest serwis dane.gov.pl. Dane demonstracyjne.” i zakładki: Start, Rejestr urządzeń, Panel firmy, Panel ministerstwa, Ranking firm. Konwerter do standardu jest podlinkowany na stronie startowej.
+4. Zobaczysz żółty pasek „Prototyp hackathonowy HackNation 2026 – to nie jest serwis dane.gov.pl. Dane demonstracyjne.” i zakładki: Start, Rejestr urządzeń, Panel firmy, Panel ministerstwa, Ranking firm, Konwerter.
 5. Inny port: zmienna `WEB_PORT` (domyślnie 8080). Zatrzymanie: `Ctrl+C`.
-6. Reset danych: baza leży w wolumenie Dockera `aed-data`; wyczyść go poleceniem `docker compose down -v` [do sprawdzenia: nie testowano w tej sesji].
+6. Reset danych: baza leży w wolumenie Dockera `aed-data`; wyczyść go poleceniem `docker compose down -v` (sprawdzone 22.11: po ponownym `up` usługa zakłada konta demo i importuje rejestr od nowa).
 
 Uwagi:
 
-- Strony portalu poza obszarem AED (np. „Dane”, „Dostawcy”) czytają tylko publiczne API dane.gov.pl, więc wymagają internetu. Nie loguj się tam kontami portalu (README). Obszar AED działa bez zewnętrznego API.
+- Strony portalu poza obszarem AED (np. „Dane”, „Dostawcy”) czytają tylko publiczne API dane.gov.pl, więc wymagają internetu. Mapa zasobu działa w tym buildzie (sprawdzone 22.11 na Dockerze: `http://localhost:8080/pl/dataset/3624/resource/54632/map` – Krosno, znaczniki i kafelki mapy; zasób Legionowa na publicznym portalu ma tylko tabelę). Nie loguj się tam kontami portalu (README). Obszar AED działa bez zewnętrznego API.
 - Prototyp nie wysyła e-maili. Wiadomości do zarządców trafiają do skrzynki w panelu ministerstwa (`aed_service/README.md`, „Uwagi prototypu”).
 
 ### Konta demonstracyjne (dane fikcyjne, z `aed_service/README.md`)
@@ -90,7 +90,7 @@ Pliki do wgrania: `wzorzec/przyklad-sprzedawca-bledy.csv` (10 wierszy, celowe b�
 
 Zrzut ekranu: `frontend/aed-zrzuty/05-qr-dysponent-telefon.jpg`.
 
-1. Otwórz link aktywacyjny: z kroku A9 albo w panelu ministerstwa w sekcji „Wiadomości do dysponentów” przez „Otwórz link dysponenta dla urządzenia AED-…” (to zastępuje e-mail). Adres ma postać `/aed/qr/{id_aed}?t=<token>`; token jest jednorazowym uprawnieniem zarządcy, sam skan kodu bez tokenu nie daje prawa edycji (`docs/api-aed.md`).
+1. Otwórz link aktywacyjny: z kroku A9 albo w panelu ministerstwa w sekcji „Wiadomości do dysponentów” przez „Otwórz link dysponenta dla urządzenia AED-…” (to zastępuje e-mail). Adres ma postać `/pl/aed/qr/{id_aed}?t=<token>`; token jest jednorazowym uprawnieniem zarządcy, sam skan kodu bez tokenu nie daje prawa edycji (`docs/api-aed.md`).
 2. Strona pokazuje id urządzenia, producenta, model i status „Zgłoszony”, następnie „Potwierdź dane defibrylatora – trzy kroki, około minuty”.
 3. Krok 1 z 3, „Gdzie znajduje się urządzenie”: kliknij „Użyj lokalizacji telefonu” albo rozwiń „Wpisz współrzędne ręcznie” (np. 52.229676 i 21.012229) i uzupełnij nazwę miejsca (wymagana), miejscowość i adres.
 4. Krok 2 z 3, „Kto i kiedy ma dostęp”: wybierz dostęp (np. „Publiczny”), a w „Godziny dostępu” – „Całą dobę, we wszystkie dni” albo „W wybranych dniach i godzinach” (zaznacz np. „Dni robocze (poniedziałek–piątek)” i wpisz godziny od–do).
@@ -106,9 +106,9 @@ Zrzut ekranu: `frontend/aed-zrzuty/04-panel-ministerstwa.jpg`.
 
 1. Zakładka „Panel ministerstwa”; zaloguj się `ministerstwo@aed.example` / `ministerstwo-demo`.
 2. „Stan rejestru”: liczba urządzeń, potwierdzone w ostatnich 90 dniach, firmy zgłaszające, średnia kompletność, tabele „według statusu” i „według źródła” (tekst i ikona przy każdym statusie).
-3. „Możliwe duplikaty do przeglądu”: zestawienie pary rekordów (odległość w metrach, podobieństwo nazwy i adresu, kolumna „Zgodność”). Wybierz „To samo urządzenie – połącz”, „Różne urządzenia – zostaw oba” albo „Pomiń tę parę”. Po połączeniu zostaje rekord A, a B dostaje status „wycofany”.
-4. „Zadania cykliczne”: „Uruchom przypomnienia” (prośby o potwierdzenie po 183 dniach bez weryfikacji, przypomnienia 60 dni przed końcem ważności baterii lub elektrod, status `nieaktualny` po 365 dniach; reguły w `aed_service/README.md`). Wynik zależy od danych demonstracyjnych; w przebiegu testowym 22.11 (baza z danymi demo) było: prośby o potwierdzenie 1, przypomnienia o terminach 1, nieaktualne 0.
-5. „Uruchom mapper źródeł”: ponownie czyta źródła, dokłada nowe rekordy i deduplikuje. Wynik na bazie po pierwszym imporcie: dodane 0, zmienione 0, połączone automatycznie 266 (jak w `datasets/out/raport.json`), do ręcznego przeglądu 0 – pary z pierwszego importu są już w kolejce z kroku 3, a ta liczba obejmuje tylko nowe pary.
+3. „Możliwe duplikaty do przeglądu”: na świeżej bazie „Para 1 z 195”; zestawienie pary rekordów (odległość w metrach, podobieństwo nazwy i adresu, kolumna „Zgodność”). Wybierz „To samo urządzenie – połącz”, „Różne urządzenia – zostaw oba” albo „Pomiń tę parę”. Po połączeniu zostaje rekord A, a B dostaje status „wycofany”.
+4. „Zadania cykliczne”: „Uruchom przypomnienia” (prośby o potwierdzenie po 183 dniach bez weryfikacji, przypomnienia 60 dni przed końcem ważności baterii lub elektrod, status `nieaktualny` po 365 dniach; reguły w `aed_service/README.md`). Wynik zależy od danych demonstracyjnych; na świeżej bazie (22.11, Docker) było: prośby o potwierdzenie 1, przypomnienia o terminach 1, nieaktualne 0.
+5. „Uruchom mapper źródeł”: ponownie czyta źródła, dokłada nowe rekordy i deduplikuje. Wynik na bazie po pierwszym imporcie (22.11, Docker): dodane 0, zmienione 0, połączone automatycznie 266, wycofane 0 (jak w `datasets/out/raport.json`), do ręcznego przeglądu 0 – pary z pierwszego importu są już w kolejce z kroku 3, a ta liczba obejmuje tylko nowe pary.
 6. „Wiadomości do dysponentów”: skrzynka nadawcza (odbiorca, temat, treść, link, data) zamiast wysyłki e-mail.
 7. Kliknij „Pobierz zbiór do publikacji na dane.gov.pl (CSV)”. Plik `aed_dane_gov_pl.csv` zawiera tylko rekordy gotowe do publikacji: bez rekordów znanych wyłącznie z OpenStreetMap (licencja ODbL), bez dostępu „prywatny”, bez fikcyjnych urządzeń demonstracyjnych i bez pól `numer_seryjny`, `dysponent_email`, `dysponent_telefon` (kolumny zostają, wartości puste; `aed_service/app.py`).
 
@@ -119,8 +119,8 @@ Zrzut ekranu: `docs/zrzuty/09-przejecie-punktu.png`.
 1. Panel ministerstwa (konto ministerstwa), sekcja „Zaproś dysponenta do przejęcia punktu”. W polu „Identyfikator urządzenia” wpisz id rekordu znanego tylko z OpenStreetMap (np. z rejestru, filtr „Niepotwierdzony”, źródło `openstreetmap`), opcjonalnie e-mail instytucji, i kliknij „Wystaw link dysponenta”. Pojawi się „Link dla urządzenia AED-… jest ważny 90 dni” i pole „Link do skopiowania”; przy podanym e-mailu wiadomość trafia do skrzynki.
 2. Otwórz link. Ekran QR pokazuje komunikat „Ten punkt znaleźliśmy w otwartej mapie (OpenStreetMap). Nie przepisujemy z niej danych…” i pusty formularz (nazwa, współrzędne, adres, dostęp, godziny). Jest też sekcja „Kontakt do dysponenta”.
 3. Uzupełnij nazwę, współrzędne, miejscowość, dostęp, godziny i stan, kliknij „Potwierdź dane”. Wynik: status „aktywny”.
-4. W panelu ministerstwa pobierz zbiór CSV: rekord ma `status = aktywny`, `licencja = CC0 1.0`, `zrodlo = zgloszenie`, `wprowadzajacy_typ = dysponent`, w `powiazane_zrodla` tylko odnośnik `openstreetmap:node/…`; kontakt dysponenta jest pusty.
-5. To samo dla rekordu ze zbioru miejskiego bez kontaktu (np. Krosno, źródło `dane.gov.pl/3624`): formularz ma wypełnione dane położenia ze źródła i sekcję „Kontakt do dysponenta”; po potwierdzeniu rekord zostaje przy źródle i licencji zbioru miejskiego, a podany e-mail zapisuje się w rejestrze (w eksporcie pusty).
+4. W panelu ministerstwa pobierz zbiór CSV (kroki 1–4 sprawdzone 22.11 na Dockerze): rekord ma `status = aktywny`, `licencja = CC0 1.0`, `zrodlo = zgloszenie`, `wprowadzajacy_typ = dysponent`, w `powiazane_zrodla` tylko odnośnik `openstreetmap:node/…`; kontakt dysponenta jest pusty.
+5. To samo dla rekordu ze zbioru miejskiego bez kontaktu (np. Krosno, źródło `dane.gov.pl/3624`): formularz ma wypełnione dane położenia ze źródła i sekcję „Kontakt do dysponenta”; po potwierdzeniu rekord zostaje przy źródle i licencji zbioru miejskiego, a podany e-mail zapisuje się w rejestrze (w eksporcie pusty). [do sprawdzenia na Dockerze]
 
 ### Ścieżka K. Konwerter pliku dostawcy do standardu (bez logowania)
 
@@ -128,9 +128,9 @@ Zrzuty ekranu: `docs/zrzuty/07-konwerter-mapowanie.png`, `docs/zrzuty/08-konwert
 
 1. Na stronie startowej `/pl/aed` kliknij „Konwerter do standardu AED” (adres `/pl/aed/konwerter`).
 2. Krok 1 z 3: wybierz `datasets/raw/dane_gov_pl/krosno/resource_54632.csv`. Krok 2 z 3 pokazuje plik, format (CSV, przecinek), kodowanie (UTF-8), 21 wierszy i tabelę „Kolumny pliku i pola standardu” z propozycjami (np. „Lokalizacja” → „Nazwa miejsca”, „Adres” → „Adres w jednym polu”, kolumna „Nazwa” pominięta).
-3. Kliknij „Przekształć plik do standardu”. Krok 3 z 3: „Wykaz jest zgodny ze standardem”, wiersze 21, poprawne 21, odrzucone 0. „Pobierz wykaz w standardzie (CSV)” zapisuje plik `resource_54632-wykaz-aed.csv` z kolumnami standardu (kolumny systemowe – status, źródło, licencja – zostają puste; uzupełnia je portal przy wczytaniu wykazu).
+3. Kliknij „Przekształć plik do standardu”. Krok 3 z 3: „Wykaz jest zgodny ze standardem”, wiersze 21, poprawne 21, odrzucone 0, średnia kompletność 32,4% (kroki 1–3 sprawdzone 22.11 na Dockerze). „Pobierz wykaz w standardzie (CSV)” zapisuje plik `resource_54632-wykaz-aed.csv` z kolumnami standardu (kolumny systemowe – status, źródło, licencja – zostają puste; uzupełnia je portal przy wczytaniu wykazu).
 4. Plik Marek `datasets/raw/dane_gov_pl/marki/resource_68353.csv` ma zamienione nagłówki współrzędnych: konwerter proponuje przypisanie według wartości (kolumna „Długość geograficzna” → szerokość) i informuje o rozpakowaniu wierszy w cudzysłowach; wynik: 8 z 8 poprawnych.
-5. Błędy: plik `.xlsx` – „Przyjmujemy pliki: .csv, .geojson, .json.”; pusty plik – „Plik jest pusty.”; plik większy niż 5 MB – „Plik jest większy niż 5 MB. Podziel go na mniejsze części.”
+5. Błędy [do sprawdzenia: konwerter czyta już także XLSX, więc komunikat o formatach się zmienił]: plik `.xlsx` – „Przyjmujemy pliki: .csv, .geojson, .json.”; pusty plik – „Plik jest pusty.”; plik większy niż 5 MB – „Plik jest większy niż 5 MB. Podziel go na mniejsze części.”
 
 ## 3. Dane maszynowo czytelne i wyniki przetwarzania
 
@@ -224,7 +224,7 @@ Z linii poleceń (Python 3, bez dodatkowych pakietów):
 
 ## 6. Znane ograniczenia (skrót)
 
-- Wykaz AED w portalu działa w lokalnym pełnym stosie forka, ale nie na serwerze publicznym; wdrożenie pod domeną jest przygotowane, ale nieuruchomione (`docs/wdrozenie-serwer.md`). Harmonogram 03:45 nie był sprawdzony – scalanie uruchamiano ręcznie.
+- Wykaz AED w portalu działa w lokalnym pełnym stosie forka, ale nie na serwerze publicznym; wdrożenie pod domeną uruchomiono 22.11 tylko lokalnie, pod domeną testową `aed.localhost` (`docs/wdrozenie-serwer.md`, rozdział 11). Harmonogram 03:45 nie był sprawdzony – scalanie uruchamiano ręcznie.
 - Zbiór do publikacji ma 781 rekordów, z czego 708 z API Warszawy; średnia kompletność rejestru 39,2 na 100.
 - Harvester XML i CKAN nie przenoszą flagi „Wykaz AED” (XSD 1.13 jej nie ma); zasób z harvestera oznacza redaktor w panelu.
 - Po wgraniu zwykłego CSV do portalu typy kolumn wykrytych jako liczby całkowite (`nr_budynku`, `kod_terc`, `kod_simc`, `zrodlo_id`, `kompletnosc`) trzeba zmienić ręcznie na tekst w zakładce „Zmiana typu” – sprawdzone 22.11, potem walidacja danych SUCCESS (`docs/panel-portalu-krok-po-kroku.md`); zasób zbiorczy AED ma schemat ustawiony od razu.

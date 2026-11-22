@@ -8,9 +8,15 @@
 # Reports and meeting attachments need the portal's login check (X-Accel in 03-admin.conf.template), which this
 # proxy does not replay - they are blocked on every host instead.
 
+# A handle block, not a bare respond: Caddy runs handle/handle_path before respond, so the /media file server below
+# would answer first. Single path matcher, so it sorts before the broader handle_path /media/*.
 (protected_media) {
-	@protected path /media/reports/* /media/meetings/*
-	respond @protected 403
+	handle /media/reports/* {
+		respond 403
+	}
+	handle /media/meetings/* {
+		respond 403
+	}
 }
 
 {$AED_DOMAIN} {

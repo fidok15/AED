@@ -28,7 +28,9 @@ services:
   mcod-local-api:
     <<: *from-test-image
     networks: {backend: {ipv4_address: 172.30.18.102}}
-  mcod-local-cms: {networks: {backend: {ipv4_address: 172.30.18.103}}}
+  mcod-local-cms:  # needed by docker-compose.aed-domain.yml; same image, no second amd64 build
+    <<: *from-test-image
+    networks: {backend: {ipv4_address: 172.30.18.103}}
   mcod-local-ws: {networks: {backend: {ipv4_address: 172.30.18.104}}}
   mcod-local-celery:
     <<: *from-test-image
