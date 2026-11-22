@@ -10,6 +10,7 @@ Pełny fork portalu (wariant z `docs/wdrozenie-serwer.md`) działa w kontenerze 
 | `https://aed-admin.heckyeah.pl` | panel administracyjny (konto jury: `docs/wdrozenie-serwer.md`, rozdział 8) |
 | `https://aed-cms.heckyeah.pl` | CMS (Wagtail) |
 | `https://aed.heckyeah.pl/prezentacja.html` | prezentacja (`prezentacja-html/prezentacja.html` z wdrożonego commitu) |
+| `https://aed.heckyeah.pl/prezentacja.pdf` | prezentacja w PDF (`prezentacja-html/prezentacja.pdf`) |
 | `https://aed.heckyeah.pl/film.mp4` | film (`video/out/misja-aed-pitch.mp4`, wgrywany ręcznie – niżej) |
 
 ## Jak to jest zbudowane
@@ -53,7 +54,7 @@ Zmiana gałęzi: `systemctl edit aed-deploy.service` i `Environment=AED_BRANCH=<
 
 ## Prezentacja i film
 
-Caddy podaje `/prezentacja.html` wprost z katalogu `prezentacja-html/` repozytorium, więc każde wdrożenie wystawia wersję z `main` bez restartu. Filmu nie ma w gicie (`video/out/` jest w `.gitignore`), dlatego renderuje się go na laptopie i kopiuje na serwer; wdrożenia go nie ruszają:
+Caddy podaje `/prezentacja.html` i `/prezentacja.pdf` wprost z katalogu `prezentacja-html/` repozytorium, więc każde wdrożenie wystawia wersję z `main` bez restartu. Filmu nie ma w gicie (`video/out/` jest w `.gitignore`), dlatego renderuje się go na laptopie i kopiuje na serwer; wdrożenia go nie ruszają:
 
 ```sh
 cd video && npm ci && npm run render                       # out/misja-aed-pitch.mp4
