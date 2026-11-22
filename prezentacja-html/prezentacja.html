@@ -169,6 +169,13 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size:
 .browser .bar span { margin-left: 14px; font: 400 15px ui-monospace, Menlo, monospace; color: #C9D6F0; }
 .browser img { width: 100%; height: calc(100% - 40px); display: block; object-fit: cover; object-position: top; }
 
+.tbl { width: 100%; border-collapse: collapse; font-size: 19px; }
+.tbl th { text-align: left; font: 600 16px ui-monospace, Menlo, monospace; color: var(--muted); padding: 14px 16px; border-bottom: 3px solid var(--navy); background: var(--cream); white-space: nowrap; }
+.tbl td { padding: 13px 16px; border-bottom: 1px solid var(--cream2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 330px; }
+.tbl td.mono { font-size: 16px; color: var(--muted); }
+.flow { display: flex; align-items: center; gap: 18px; }
+.flow .stat b { font-size: 60px; } .flow .stat span { font-size: 19px; }
+.flow i { font: 700 40px "Lexend"; color: var(--amber); font-style: normal; }
 /* ---------- footer ---------- */
 .foot { position: absolute; left: 120px; right: 120px; bottom: 48px; display: flex; justify-content: space-between; align-items: center; font: 600 22px "Lexend"; }
 .brand { display: flex; align-items: center; gap: 14px; }
@@ -418,6 +425,33 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size:
   </div>
 </section>
 
+<!-- 11b · WYKAZ KRAJOWY W PORTALU -->
+<section class="slide" data-scene="wykaz" aria-label="Krajowy wykaz AED w portalu">
+  <div class="bg-band"></div>
+  <div class="text" style="width:1680px;top:100px">
+    <p class="kicker in d1">Wykaz w portalu · działa pod adresem publicznym</p>
+    <h2 class="in d2">Wiele wykazów. <span class="accent" style="display:inline">Jedna tabela na dane.gov.pl.</span></h2>
+  </div>
+  <div class="browser in d4" style="left:120px;top:330px;width:1160px;height:500px">
+    <div class="bar"><i></i><i></i><i></i><span>aed.heckyeah.pl/pl/dataset/4215/resource/40210/table · Krajowy wykaz AED</span></div>
+    <table class="tbl"><caption style="position:absolute;left:-9999px">Pierwsze wiersze Krajowego wykazu AED</caption><thead><tr><th>id_aed</th><th>nazwa</th><th>miejscowosc</th><th>szerokosc_…</th><th>dlugosc_…</th><th>licencja</th><th>kompletnosc</th></tr></thead><tbody><tr class="in" style="animation-delay:1.50s"><td class="mono">AED-24YWRY5EXSHR</td><td>Stacja metra Kondratowicza linii M2</td><td>Warszawa</td><td class="mono">52.292164</td><td class="mono">21.048942</td><td>CC BY 4.0</td><td>58</td></tr><tr class="in" style="animation-delay:1.72s"><td class="mono">AED-2ZS3ODVR54VK</td><td>Komenda Powiatowa Policji</td><td>Legionowo</td><td class="mono">52.402691</td><td class="mono">20.927850</td><td>CC0 1.0</td><td>39</td></tr><tr class="in" style="animation-delay:1.94s"><td class="mono">AED-2LUVYDHPUR55</td><td>OSP Białobrzegi</td><td>Krosno</td><td class="mono">49.706695</td><td class="mono">21.749909</td><td>CC0 1.0</td><td>36</td></tr><tr class="in" style="animation-delay:2.16s"><td class="mono">AED-7ROFBM4CDGNX</td><td>Szkoła Podstawowa nr 1</td><td>Marki</td><td class="mono">52.32396</td><td class="mono">21.098185</td><td>CC BY 4.0</td><td>36</td></tr><tr class="in" style="animation-delay:2.38s"><td class="mono">AED-534L4XPEAEXY</td><td>Defibrylator (AED 9471) Hala Sportowa POSiR</td><td>Przemyśl</td><td class="mono">49.782322</td><td class="mono">22.783785</td><td>CC0 1.0</td><td>36</td></tr><tr class="in" style="animation-delay:2.60s"><td class="mono">AED-23EPGK7NNHUD</td><td>Biuro Wydawnictwa Bauer</td><td>Warszawa</td><td class="mono">52.233276</td><td class="mono">21.082770</td><td>CC BY 4.0</td><td>67</td></tr><tr class="in" style="animation-delay:2.82s"><td class="mono">AED-3E4JOVFFSLOG</td><td>Zespół Szkolno-Przedszkolny nr 2</td><td>Legionowo</td><td class="mono">52.405901</td><td class="mono">20.918020</td><td>CC0 1.0</td><td>39</td></tr></tbody></table>
+    <p class="small fade d12" style="padding:14px 16px">Strona 1 z 40 · <b data-count="781">781</b> rekordów · 42 kolumny · CSV, JSON-LD, API</p>
+  </div>
+  <div class="card in d6" style="left:1340px;top:330px;width:460px;padding:32px 36px">
+    <p class="kicker" style="font-size:17px">Scalanie wykazów</p>
+    <div class="flow" style="margin-top:22px">
+      <div class="stat pop d7"><b data-count="805">805</b><span>z wykazów</span></div><i class="fade d8">→</i>
+      <div class="stat pop d9"><b class="accent" data-count="781">781</b><span>po deduplikacji</span></div>
+    </div>
+    <ul class="bullets" style="margin-top:26px;gap:14px">
+      <li class="in d10" style="font-size:21px"><span><b>2 wykazy przyjęte</b>: Ministerstwo Cyfryzacji i Legionowo.</span></li>
+      <li class="in d11 n" style="font-size:21px"><span><b>1 odrzucony</b> (Krosno) – portal podaje w raporcie, co poprawić.</span></li>
+      <li class="in d12 z" style="font-size:21px"><span>Tabela, mapa i API – <b>odczyt bez logowania</b>.</span></li>
+    </ul>
+  </div>
+  <p class="src fade d13">aed-api.heckyeah.pl/aed-aggregated · stan 22.11.2026 · ten sam mechanizm, którym portal scala wykazy DGA</p>
+</section>
+
 <!-- 12 · ZAKRES I DEDUPLIKACJA -->
 <section class="slide" data-scene="funnel" aria-label="Zakres i deduplikacja">
   <svg class="art"></svg>
@@ -531,14 +565,19 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size:
   </div>
   <div class="card in d7" style="left:1000px;top:150px;width:800px;padding:40px 44px">
     <p class="kicker">Sprawdź sam</p>
-    <pre class="mono" style="margin-top:22px;background:var(--navy);color:#fff;border-radius:16px;padding:22px 26px;font-size:24px;line-height:1.6">docker compose up --build
-open http://localhost:8080/pl/aed</pre>
+    <div style="margin-top:22px;background:var(--navy);border-radius:16px;padding:18px 26px;display:grid;grid-template-columns:auto 1fr;gap:10px 22px;align-items:baseline;font-size:21px">
+      <span style="color:#C9D6F0">prototyp AED</span><a class="mono" href="https://aed.heckyeah.pl/pl/aed" style="color:#fff">aed.heckyeah.pl/pl/aed</a>
+      <span style="color:#C9D6F0">portal z forka</span><a class="mono" href="https://aed.heckyeah.pl/pl" style="color:#fff">aed.heckyeah.pl/pl</a>
+      <span style="color:#C9D6F0">wykaz krajowy</span><a class="mono" href="https://aed-api.heckyeah.pl/aed-aggregated" style="color:#fff">aed-api.heckyeah.pl/aed-aggregated</a>
+      <span style="color:#C9D6F0">panel portalu</span><a class="mono" href="https://aed-admin.heckyeah.pl/" style="color:#fff">aed-admin.heckyeah.pl/</a>
+    </div>
     <table style="margin-top:26px;font-size:21px;border-collapse:collapse;width:100%">
       <tr><td style="padding:8px 0;color:var(--muted)">ministerstwo</td><td class="mono">ministerstwo@aed.example</td><td class="mono">ministerstwo-demo</td></tr>
       <tr><td style="padding:8px 0;color:var(--muted)">sprzedawca</td><td class="mono">serwis@aed.example</td><td class="mono">serwis-demo</td></tr>
       <tr><td style="padding:8px 0;color:var(--muted)">producent</td><td class="mono">pulsar@aed.example</td><td class="mono">pulsar-demo</td></tr>
+      <tr><td style="padding:8px 0;color:var(--muted)">panel portalu</td><td class="mono">jury@aed.example</td><td class="mono">jury-demo-2026</td></tr>
     </table>
-    <p class="small" style="margin-top:22px">Krok po kroku: <code>docs/instrukcja-dla-jury.md</code></p>
+    <p class="small" style="margin-top:22px">Lokalnie: <code>docker compose up --build</code>, potem <code>localhost:8080/pl/aed</code>. Krok po kroku: <code>docs/instrukcja-dla-jury.md</code></p>
   </div>
 </section>
 
