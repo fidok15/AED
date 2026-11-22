@@ -25,6 +25,10 @@
         <p class="aed-device__place">{{ record['nazwa'] }}, {{ record['miejscowosc'] }}</p>
       }
       <app-aed-status [status]="record.status" />
+      <p class="aed-device__condition">
+        Stan urządzenia:
+        <app-aed-condition [value]="record['stan_urzadzenia']" [date]="record['data_stanu']" />
+      </p>
       @if (!done() && t()) {
         @for (note of expiryNotes(); track note) {
           <p class="aed-device__expiry"><span class="visually-hidden">Uwaga: </span>{{ note }}</p>
@@ -33,7 +37,7 @@
     </section>
 
     @if (done() === 'problem') {
-      <!-- A problem report is not a success: neutral mark, and the device is not shown as active. -->
+      <!-- A problem report is not a success: neutral mark; the device is marked temporarily unavailable. -->
       <section class="aed-card aed-result">
         <svg
           class="aed-result__mark aed-result__mark--problem"
@@ -45,13 +49,14 @@
         </svg>
         <h1 class="aed-qr__title" id="aed-done" tabindex="-1">Zgłoszenie problemu zapisane</h1>
         <p>
-          Zapisaliśmy dane urządzenia i opis problemu. Urządzenie nie jest teraz pokazywane jako zweryfikowane – ma status „{{
-            statusLabels[record.status]
-          }}”.
+          Zapisaliśmy dane urządzenia i opis problemu. Urządzenie jest teraz oznaczone jako
+          <strong>czasowo niedostępne</strong>. Nie pojawia się na liście „Dostępne teraz” ani wśród najbliższych
+          defibrylatorów, więc nikt nie zostanie do niego skierowany.
         </p>
         <p>
-          Gdy problem zostanie usunięty, otwórz ten link jeszcze raz i potwierdź, że urządzenie jest na miejscu i gotowe
-          do użycia.
+          Dane miejsca zostają w rejestrze bez zmian (status danych: „{{ statusLabels[record.status] }}”). Gdy problem
+          zostanie usunięty, otwórz ten link jeszcze raz i w kroku 3 wybierz „Jest na miejscu i jest gotowe do użycia”
+          – urządzenie wróci do list jako gotowe do użycia.
         </p>
         <p>Możesz zamknąć tę stronę.</p>
       </section>
@@ -64,8 +69,8 @@
         @if (done() === 'potwierdzenie') {
           <h1 class="aed-qr__title" id="aed-done" tabindex="-1">Dane potwierdzone</h1>
           <p>
-            Urządzenie ma teraz status „{{ statusLabels.aktywny }}”. Data weryfikacji: {{ record['data_weryfikacji'] }}. Kompletność
-            danych: {{ record.kompletnosc }}%.
+            Dane mają teraz status „{{ statusLabels.zweryfikowany }}”, a urządzenie jest oznaczone jako gotowe do użycia.
+            Data weryfikacji: {{ record['data_weryfikacji'] }}. Kompletność danych: {{ record.kompletnosc }}%.
           </p>
           <p>Gdy zbliży się termin kolejnego potwierdzenia, wyślemy wiadomość na adres e-mail dysponenta.</p>
         } @else {
@@ -139,6 +144,9 @@
           }
           @for (field of spot; track field.name) {
             <app-aed-field [field]="field" [control]="values.controls[field.name]" />
+          }
+          @if (values.controls['wewnatrz_budynku'].value === 'tak') {
+            <app-aed-field [field]="floor" [control]="values.controls[floor.name]" />
           }
           <p class="aed-note">Nie podawaj danych osób ani kodów do szafek. Te informacje będą publiczne.</p>
         </section>

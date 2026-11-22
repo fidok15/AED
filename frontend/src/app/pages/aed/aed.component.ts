@@ -39,6 +39,6 @@ export class AedComponent {
         matrixParams: 'ignored',
       }),
     );
-    return active?.label ?? 'Rejestr AED';
+    return active?.label ?? 'Opiekun AED';
   }
 }

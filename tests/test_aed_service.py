@@ -141,13 +141,13 @@ class ServiceTest(unittest.TestCase):
         self.assertNotIn(id_aed, c.simulate_get("/api/aed/eksport/dane-gov-pl.csv").text)
         r = c.simulate_post(url, json=self.confirm_body(token))
         self.assertEqual(r.status_code, 200, r.text)
-        self.assertEqual((r.json["status"], r.json["sposob_weryfikacji"]), ("aktywny", "qr"))
+        self.assertEqual((r.json["status"], r.json["sposob_weryfikacji"]), ("zweryfikowany", "qr"))
         exp = c.simulate_get("/api/aed/eksport/dane-gov-pl.csv")
         rows = list(csv.DictReader(io.StringIO(exp.text)))
         mine = [x for x in rows if x["id_aed"] == id_aed]
         self.assertEqual(len(mine), 1)
         self.assertEqual(mine[0]["numer_seryjny"], "")
-        self.assertEqual(mine[0]["status"], "aktywny")
+        self.assertEqual(mine[0]["status"], "zweryfikowany")
         gj = c.simulate_get("/api/aed/urzadzenia.geojson?bbox=20,52,21,53").json
         self.assertEqual([f["properties"]["id_aed"] for f in gj["features"]], [id_aed])
         # duplicate re-submission
@@ -216,7 +216,9 @@ class ServiceTest(unittest.TestCase):
         c, ns = self.client, "{http://www.w3.org/2000/svg}"
         id_aed = self.submit(seller_csv(["STICKER-1"])).json["przyjete"][0]["id_aed"]
         url = "/api/aed/urzadzenia/%s/naklejka.svg" % id_aed
-        root = ET.fromstring(c.simulate_get(url).text)
+        # without a logo file first (aed_service/naklejka-logo.svg exists in the repository)
+        with mock.patch.object(svc, "STICKER_LOGO_PATH", os.path.join(self.tmp.name, "brak-logo.svg")):
+            root = ET.fromstring(c.simulate_get(url).text)
         _, _, w, h = [float(v) for v in root.get("viewBox").split()]
         texts = [(t.text, float(t.get("font-size"))) for t in root.iter(ns + "text")]
         self.assertIn(id_aed, [t for t, _ in texts])
@@ -840,7 +842,7 @@ class JobsAndDemoTest(unittest.TestCase):
         self.assertEqual(c.simulate_post("/api/aed/duplikaty/%d" % pair["id"], json={"decyzja": "polacz"}, headers=m).status_code, 200)
         self.assertEqual(c.simulate_get("/api/aed/urzadzenia/" + near["id_aed"]).json["status"], "wycofany")
         kept = c.simulate_get("/api/aed/urzadzenia/" + item["id_aed"]).json
-        self.assertEqual(kept["status"], "aktywny")
+        self.assertEqual(kept["status"], "zweryfikowany")
         self.assertIn(near["id_aed"], kept["powiazane_zrodla"])
         self.assertEqual(c.simulate_post(url, json=self.confirm_body(item)).status_code, 200)  # decided: not re-queued
         self.assertEqual(c.simulate_get("/api/aed/duplikaty", headers=m).json["razem"], 0)
@@ -889,14 +891,14 @@ class JobsAndDemoTest(unittest.TestCase):
         self.assertEqual(r.status_code, 200, r.text)
         rec = r.json["rekord"]
         self.assertEqual((rec["status"], rec["licencja"], rec["zrodlo"], rec["powiazane_zrodla"]),
-                         ("aktywny", "CC0 1.0", "zgloszenie", "openstreetmap:node/42"))
+                         ("zweryfikowany", "CC0 1.0", "zgloszenie", "openstreetmap:node/42"))
         self.assertEqual((rec["opis_lokalizacji"], rec["producent"], rec["dysponent_email"]), ("", "", "aed@gmina.example.org"))
         self.assertNotIn("OSM", json.dumps(rec))
         self.assertIn(osm["id_aed"], export())
         # the next mapper run brings the same OSM record again: the manager's record stays as it is
         self.mapper(c, [osm])
         again = c.simulate_get("/api/aed/urzadzenia/" + osm["id_aed"]).json
-        self.assertEqual((again["status"], again["licencja"], again["nazwa"]), ("aktywny", "CC0 1.0", "Urząd Gminy"))
+        self.assertEqual((again["status"], again["licencja"], again["nazwa"]), ("zweryfikowany", "CC0 1.0", "Urząd Gminy"))
         self.assertEqual(c.simulate_get("/api/aed/statystyki").json["razem"], 1)
 
     def test_old_link_cannot_confirm_withdrawn_record(self):
@@ -921,7 +923,7 @@ class JobsAndDemoTest(unittest.TestCase):
         r = c.simulate_post("/api/aed/urzadzenia/%s/potwierdzenie" % rec["id_aed"], json=body)
         self.assertEqual(r.status_code, 200, r.text)
         out = r.json["rekord"]
-        self.assertEqual((out["status"], out["dysponent_email"], out["dysponent_nazwa"]), ("aktywny", "aed@gmina.example.org", "Gmina Test"))
+        self.assertEqual((out["status"], out["dysponent_email"], out["dysponent_nazwa"]), ("zweryfikowany", "aed@gmina.example.org", "Gmina Test"))
         self.assertEqual((out["nazwa"], out["opis_lokalizacji"], out["licencja"]), ("Szkoła z zbioru miejskiego", "Hol", "CC BY 4.0"))
         # a record that already has a contact keeps it
         item = self.add_device(c, "CON-1")

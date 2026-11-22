@@ -36,8 +36,10 @@ def public_problem(p: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _signature(entry: Dict[str, Any]):
-    problems = tuple((p["wiersz"], p["pole"], p["kod"], p["komunikat"]) for p in entry.get("problemy", []))
-    return entry["status"], entry.get("wiersze", 0) - entry.get("przyjete", 0), entry.get("problemy_razem", 0), problems
+    """What the provider is told about: status, rejected rows and the errors by code. Warnings and aed_standard's
+    wording are left out, so a new warning or a reworded message in the standard does not send the mail again."""
+    errors = tuple((p["wiersz"], p["pole"], p["kod"]) for p in entry.get("problemy", []) if p.get("poziom") == ERROR)
+    return entry["status"], entry.get("wiersze", 0) - entry.get("przyjete", 0), errors
 
 
 def lists_to_notify(old_report: Optional[Dict[str, Any]], new_report: Dict[str, Any]) -> List[Dict[str, Any]]:

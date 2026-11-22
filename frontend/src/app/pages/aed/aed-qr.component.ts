@@ -17,13 +17,13 @@ import { AedFieldComponent } from './aed-field.component';
 import { AedHoursPickerComponent } from './aed-hours-picker.component';
 import { aedPlural } from './aed-map.component';
 import { aedControl, aedField, aedRequired, aedRequiredForStatus } from './aed-schema';
-import { AED_STATUS_LABELS, AedStatusComponent } from './aed-status.component';
+import { AED_STATUS_LABELS, AedConditionComponent, AedStatusComponent } from './aed-status.component';
 
 /** As in the service: a reminder goes out this many days before the battery or the electrodes expire. */
 const EXPIRY_NOTICE_DAYS = 60;
 /** Validator codes of missing values; as in the service, they do not block a problem report. */
 const ODBL = 'ODbL 1.0';
-const REQUIRED_CODES = ['brak_wymaganego', 'wymagane_dla_aktywnego'];
+const REQUIRED_CODES = ['brak_wymaganego', 'wymagane_dla_zweryfikowanego'];
 
 /**
  * Phone screen opened from the QR sticker: /aed/qr/{id_aed}.
@@ -39,6 +39,7 @@ const REQUIRED_CODES = ['brak_wymaganego', 'wymagane_dla_aktywnego'];
     AedFieldComponent,
     AedHoursPickerComponent,
     AedStatusComponent,
+    AedConditionComponent,
     ScrollToFirstErrorDirective,
   ],
   templateUrl: './aed-qr.component.html',
@@ -70,21 +71,35 @@ export class AedQrComponent implements OnInit {
   protected readonly locationError = signal('');
 
   // Manager: fields of the confirmation request, in the order of the three steps.
-  // Required: what publication needs plus what the schema demands for status `aktywny`.
-  private readonly required = [...aedRequired('publikacja'), ...aedRequiredForStatus('aktywny')];
+  // Required: what publication needs plus what the schema demands for status `zweryfikowany`.
+  private readonly required = [...aedRequired('publikacja'), ...aedRequiredForStatus('zweryfikowany')];
   protected readonly coordinates = ['szerokosc_geograficzna', 'dlugosc_geograficzna'].map(aedField);
   protected readonly place = ['nazwa', 'miejscowosc', 'nazwa_ulicy', 'nr_budynku', 'kod_pocztowy'].map(aedField);
   protected readonly spot = ['opis_lokalizacji', 'wewnatrz_budynku'].map(aedField);
+  /** Optional, shown only for a device inside a building: 0 = ground floor, negative = below ground. */
+  protected readonly floor = aedField('pietro');
+  /**
+   * Schema `sposob_ustalenia_polozenia`, sent with the coordinates: set when the phone position is used,
+   * cleared when the manager types the numbers (the service then leaves the method empty).
+   */
+  private positionMethod: 'pomiar_przy_urzadzeniu' | null = null;
   protected readonly access = aedField('dostep');
   protected readonly hours = aedField('godziny_dostepu');
   protected readonly hoursNote = aedField('godziny_dostepu_opis');
   /** Optional step: after replacing the battery or the electrodes the manager enters the new expiry date. */
   protected readonly expiry = ['data_waznosci_baterii', 'data_waznosci_elektrod'].map(aedField);
+  /**
+   * Last valid day (RRRR-MM-DD) of the battery and the electrodes, from `waznosc_do` of the service:
+   * a month-only date (RRRR-MM) is valid to the end of that month, and only the service applies that rule.
+   */
+  private readonly validUntil = computed(
+    () => (this.record() as unknown as { waznosc_do?: Record<string, string> })?.waznosc_do ?? {},
+  );
   /** Expiry dates that have passed or pass within the reminder window; then the step moves to the top. */
   protected readonly expiring = computed(() => {
     const limit = new Date(Date.now() + EXPIRY_NOTICE_DAYS * 86_400_000).toISOString().slice(0, 10);
     return this.expiry.filter((field) => {
-      const date = String(this.record()?.[field.name] ?? '');
+      const date = this.validUntil()[field.name] ?? '';
       return date !== '' && date <= limit;
     });
   });
@@ -92,7 +107,7 @@ export class AedQrComponent implements OnInit {
   protected readonly expiryNotes = computed(() => {
     const today = Date.parse(new Date().toLocaleDateString('sv-SE'));
     return this.expiring().map((field) => {
-      const value = String(this.record()?.[field.name]);
+      const value = this.validUntil()[field.name];
       const date = new Date(value).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' });
       const days = Math.round((Date.parse(value) - today) / 86_400_000);
       const [part, valid] = field.name === 'data_waznosci_baterii' ? ['Bateria', 'ważna'] : ['Elektrody', 'ważne'];
@@ -104,9 +119,16 @@ export class AedQrComponent implements OnInit {
   });
   protected readonly values = new FormGroup(
     Object.fromEntries(
-      [...this.coordinates, ...this.place, ...this.spot, this.access, this.hours, this.hoursNote, ...this.expiry].map(
-        (field) => [field.name, aedControl(field, this.required.includes(field.name))],
-      ),
+      [
+        ...this.coordinates,
+        ...this.place,
+        ...this.spot,
+        this.floor,
+        this.access,
+        this.hours,
+        this.hoursNote,
+        ...this.expiry,
+      ].map((field) => [field.name, aedControl(field, this.required.includes(field.name))]),
     ),
   );
   /**
@@ -144,12 +166,25 @@ export class AedQrComponent implements OnInit {
   private signalPosition: { szerokosc_geograficzna: number; dlugosc_geograficzna: number } | null = null;
 
   ngOnInit(): void {
-    this.seo.setPageTitle([this.t() ? 'Potwierdź dane defibrylatora' : 'Defibrylator AED', 'Rejestr AED']);
+    this.seo.setPageTitle([this.t() ? 'Potwierdź dane defibrylatora' : 'Defibrylator AED', 'Opiekun AED']);
 
     this.stan.valueChanges.subscribe((stan) => {
       this.uwagi.setValidators(stan === 'problem' ? Validators.required : null);
       this.uwagi.updateValueAndValidity();
     });
+
+    // The floor is asked only for a device inside a building; a disabled control does not block the form.
+    const floor = this.values.controls['pietro'];
+    const syncFloor = (inside: unknown) => (inside === 'tak' ? floor.enable() : floor.disable());
+    syncFloor(null);
+    this.values.controls['wewnatrz_budynku'].valueChanges.subscribe(syncFloor);
+
+    // Coordinates typed by hand: no method is claimed (patchValue from locate() emits no user input event).
+    for (const field of this.coordinates) {
+      this.values.controls[field.name].valueChanges.subscribe(() => {
+        if (this.values.controls[field.name].dirty) this.positionMethod = null;
+      });
+    }
 
     this.api.device(this.id(), this.t()).subscribe({
       next: (record) => {
@@ -179,6 +214,7 @@ export class AedQrComponent implements OnInit {
           dlugosc_geograficzna: +coords.longitude.toFixed(6),
         };
         this.values.patchValue(position);
+        this.positionMethod = 'pomiar_przy_urzadzeniu';
         this.signalPosition = position;
         const accuracy = Math.round(coords.accuracy);
         this.located.set(
@@ -219,10 +255,11 @@ export class AedQrComponent implements OnInit {
     // otherwise the old text would stay in the record; untouched empty fields are left out.
     const controls = { ...this.values.controls, ...(this.needsContact() ? this.owner.controls : {}) };
     const sent = Object.entries(controls)
-      .filter(([, control]) => control.dirty || (control.value !== null && control.value !== ''))
+      .filter(([, control]) => control.enabled && (control.dirty || (control.value !== null && control.value !== '')))
       .map(([name, control]) => [name, control.value ?? '']);
     const body = {
       ...Object.fromEntries(sent),
+      ...(this.positionMethod ? { sposob_ustalenia_polozenia: this.positionMethod } : {}),
       t: this.t(),
       stan: this.stan.value,
       uwagi: this.uwagi.value || undefined,
@@ -230,8 +267,9 @@ export class AedQrComponent implements OnInit {
     this.api.confirm(this.id(), body).subscribe({
       next: (record) => {
         this.record.set(record);
-        // The service decides: only a device reported as ready becomes `aktywny`.
-        this.finish(record.status === 'aktywny' ? 'potwierdzenie' : 'problem');
+        // A problem report keeps the data status (a verified record stays verified) and marks the device
+        // itself as temporarily unavailable, so the result is read from `stan_urzadzenia`.
+        this.finish(record['stan_urzadzenia'] === 'czasowo_niedostepny' ? 'problem' : 'potwierdzenie');
       },
       // A problem report may be incomplete: the service lists missing fields too, but only wrong values block it.
       error: (error) =>

@@ -120,12 +120,12 @@ docker-compose.yml, docker-compose.prod.yml    lekki prototyp (usługa AED + bui
 kampania/       nazwa i hasło, brief logo, szablon księgi znaku, zachęty; docelowo pliki logo
 docs/           zadanie, research, api-aed.md (kontrakt API), wykaz-dga-analiza.md, wykaz-aed-w-portalu.md,
                 panel-portalu-krok-po-kroku.md, integracja-portal-backend.md, wdrozenie-serwer.md,
-                prezentacja-konspekt.md, instrukcja-dla-jury.md, opis-projektu.md, przeglad-codex.md, użycie AI
+                instrukcja-dla-jury.md, opis-projektu.md, przeglad-codex.md, użycie AI
 ```
 
 Kontrakt między frontendem a usługą: `docs/api-aed.md`. Ustalenia z kodu portalu i plan wdrożenia w forku: `docs/integracja-portal-backend.md`. Wykaz AED w portalu: `docs/wykaz-dga-analiza.md` (jak działa wykaz DGA i co z niego wzięliśmy), `docs/wykaz-aed-w-portalu.md` (włączenie i pokaz). Logika scalania jest w `aed_standard/wykaz.py`, więc ta sama w portalu i w testach.
 
-Stan źródeł na 21.11: cztery zbiory z dane.gov.pl z plikami (Krosno, Marki, Przemyśl, Legionowo – razem 74 rekordy), API Warszawy (708 urządzeń; zbiór Warszawy na dane.gov.pl to tylko odnośnik do tego API), OpenAEDMap (18 298 obiektów). Po mapowaniu i deduplikacji: rejestr 18 814 rekordów, wszystkie `niepotwierdzony`, średnia kompletność 39,2; eksport publikacyjny 781, z czego 708 z API Warszawy (liczby w `datasets/out/raport.json`). Eksporty nie zawierają numeru seryjnego ani kontaktu dysponenta – jedna reguła dla wszystkich (`HIDDEN_PUBLIC` w `aed_standard/build.py`). Usługa pokazuje publicznie mniej rekordów niż rejestr, bo pomija rekordy z dostępem `prywatny`. Innych maszynowo czytelnych zbiorów miejskich nie znaleziono; Kraków („Impuls Życia”) i Koszalin („Punkty Życia”) publikują tylko listy na stronach WWW.
+Stan źródeł na 21.11: cztery zbiory z dane.gov.pl z plikami (Krosno, Marki, Przemyśl, Legionowo – razem 74 rekordy), API Warszawy (708 urządzeń; zbiór Warszawy na dane.gov.pl to tylko odnośnik do tego API), OpenAEDMap (18 298 obiektów). Po mapowaniu i deduplikacji: rejestr 18 814 rekordów, wszystkie `niepotwierdzony`, średnia kompletność 38,5; eksport publikacyjny 781, z czego 708 z API Warszawy (liczby w `datasets/out/raport.json`). Eksporty nie zawierają numeru seryjnego ani kontaktu dysponenta – jedna reguła dla wszystkich (`HIDDEN_PUBLIC` w `aed_standard/build.py`). Usługa pokazuje publicznie mniej rekordów niż rejestr, bo pomija rekordy z dostępem `prywatny`. Innych maszynowo czytelnych zbiorów miejskich nie znaleziono; Kraków („Impuls Życia”) i Koszalin („Punkty Życia”) publikują tylko listy na stronach WWW.
 
 Fakty o portalu ustalone w kodzie:
 
@@ -212,7 +212,7 @@ Gotowe, gdy: juror przechodzi ścieżkę sprzedawca → naklejka QR → potwierd
 
 ### E. Kampania i prezentacja – zespół (logo projektują ludzie; 25% oceny)
 
-Materiały przygotowane przez agenta czekają na decyzje człowieka: `kampania/nazwa-i-haslo.md` (kandydaci; czołówka: „Opiekun AED”, „Na Widoku”, „Pokaż AED”), `kampania/brief-logo.md`, `kampania/ksiega-znaku-szablon.md`, `kampania/zachety.md`, `docs/prezentacja-konspekt.md`, `docs/instrukcja-dla-jury.md`. Znak rysuje człowiek.
+Stan 22.11 rano: nazwa akcji **Opiekun AED**, hasło „Dbasz o AED? Pokaż to w danych.”; logo w `kampania/logo/` (SVG, PNG, JPG, PDF; układ pełny i sygnet; kolor, mono, negatyw), księga znaku `kampania/opiekun-aed-ksiega-znaku.pdf`, prezentacja `prezentacja-html/prezentacja.html` (jedyna aktualna), wideo `video/`. Materiały robocze: `kampania/nazwa-i-haslo.md`, `kampania/brief-logo.md`, `kampania/ksiega-znaku-szablon.md`, `kampania/zachety.md`, `docs/instrukcja-dla-jury.md`.
 
 1. Nazwa i hasło akcji; sprawdzić kolizje z istniejącymi nazwami.
 2. Logo w SVG z eksportem do PNG, JPG, PDF; księga znaku w PDF (koncepcja w 3–5 zdaniach, kolorystyka, pole ochronne, minimalna wielkość, niedozwolone użycia).

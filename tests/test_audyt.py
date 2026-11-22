@@ -160,12 +160,17 @@ class AuditServiceTest(unittest.TestCase):
     def test_problem_report_still_gets_periodic_requests(self):
         item = self.one(self.firma())["przyjete"][0]
         self.confirm(item)
-        self.assertEqual(self.confirm(item, stan="problem", uwagi="Brak elektrod").status_code, 200)
-        old = (datetime.date.today() - datetime.timedelta(days=200)).isoformat()
-        self.db.execute("UPDATE devices SET data=json_set(data,'$.data_aktualizacji',?,'$.data_weryfikacji',?)"
-                        " WHERE id_aed=?", (old, old, item["id_aed"]))
+        r = self.confirm(item, stan="problem", uwagi="Brak elektrod")
+        # 0.3.0: the problem concerns the device; the confirmed data stay confirmed
+        self.assertEqual((r.status_code, r.json["status"], r.json["stan_urzadzenia"]), (200, "zweryfikowany", "czasowo_niedostepny"))
+        self.assertEqual(svc.reminders(self.db)["prosby_o_potwierdzenie"], 0)   # just reported
+        old = (datetime.date.today() - datetime.timedelta(days=31)).isoformat()
+        self.db.execute("UPDATE devices SET data=json_set(data,'$.data_stanu',?) WHERE id_aed=?", (old, item["id_aed"]))
         self.db.commit()
-        self.assertEqual(svc.reminders(self.db)["prosby_o_potwierdzenie"], 1)
+        self.assertEqual(svc.reminders(self.db)["prosby_o_potwierdzenie"], 1)   # a month later: one request, not two
+        self.assertEqual(svc.reminders(self.db)["prosby_o_potwierdzenie"], 0)
+        msg = self.db.execute("SELECT temat FROM messages WHERE rodzaj='prosba' AND id_aed=?", (item["id_aed"],)).fetchall()
+        self.assertEqual([m[0] for m in msg], ["Zaktualizuj stan urządzenia AED %s" % item["id_aed"]])
 
     # owner decision: serial numbers only for the submitting company and the ministry
     def test_serial_visible_only_to_owner_and_ministry(self):

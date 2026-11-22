@@ -234,7 +234,7 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size:
   <div class="bg-diag"></div>
   <svg class="art"></svg>
   <div class="phone in d5" style="left:1000px;top:150px;width:364px;height:780px"><img src="../frontend/aed-zrzuty/gif/zarzadca.gif" alt="Nagranie strony zarządcy: lokalizacja z telefonu, godziny dostępu, stan urządzenia, potwierdzenie danych"></div>
-  <div class="chip pop d11" style="left:1220px;top:770px"><span class="sq"></span><span>Status: aktywny<small>rekord trafia do eksportu</small></span></div>
+  <div class="chip pop d11" style="left:1220px;top:770px"><span class="sq"></span><span>Status: zweryfikowany<small>rekord trafia do eksportu</small></span></div>
   <div class="text">
     <p class="kicker in d1">Krok 2 · zarządca</p>
     <h1><span class="in d2">Zeskanuj naklejkę.</span><span class="accent in d3">Potwierdź dane.</span></h1>
@@ -355,8 +355,8 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size:
     </ul>
     <p class="kicker" style="font-size:17px;margin-top:32px">Średnia kompletność (0–100)</p>
     <div style="display:flex;gap:46px;margin-top:16px">
-      <div class="stat"><b style="font-size:56px">39,2</b><span>rejestr</span></div>
-      <div class="stat"><b class="accent" style="font-size:56px">51,4</b><span>zbiór do publikacji</span></div>
+      <div class="stat"><b style="font-size:56px">38,5</b><span>rejestr</span></div>
+      <div class="stat"><b class="accent" style="font-size:56px">55,9</b><span>zbiór do publikacji</span></div>
     </div>
   </div>
   <p class="src fade d10">datasets/out/raport.json · powody wykluczenia mogą się nakładać</p>
@@ -373,7 +373,7 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size:
     <p class="lead in d3" style="font:500 34px Lexend;color:var(--blue);margin-top:14px">Dbasz o AED? Pokaż to w danych.</p>
     <ul class="bullets">
       <li class="in d4"><span><b>Jedno miejsce</b> raportowania dla producentów, sprzedawców, zarządców i gmin.</span></li>
-      <li class="in d5"><span><b>Odznaka</b> dla firmy z aktualnymi danymi: kompletność co najmniej 70 i co najmniej połowa urządzeń aktywnych.</span></li>
+      <li class="in d5"><span><b>Odznaka</b> dla firmy z aktualnymi danymi: kompletność co najmniej 70 i co najmniej połowa urządzeń zweryfikowanych.</span></li>
       <li class="in d6"><span><b>Ranking</b> kompletności i darmowe <b>przypomnienia</b> o terminach baterii i elektrod.</span></li>
       <li class="in d7"><span>Punkt odniesienia: AED przy Paczkomatach InPost – widoczny znak w przestrzeni publicznej.</span></li>
     </ul>
@@ -676,7 +676,7 @@ function buildNodes() {
   svg.innerHTML = lines;
 }
 function buildStates() {
-  const S = [["Z", "zgłoszony", "sprzedawca podał dane urządzenia"], ["A", "aktywny", "zarządca potwierdził miejsce i dostęp"], ["N", "nieaktualny", "brak potwierdzenia przez 365 dni"], ["W", "wycofany", "urządzenie wycofane z użycia"]];
+  const S = [["Z", "zgłoszony", "sprzedawca podał dane urządzenia"], ["✓", "zweryfikowany", "dysponent potwierdził miejsce i dostęp"], ["N", "nieaktualny", "brak potwierdzenia przez 365 dni"], ["W", "wycofany", "urządzenie wycofane z użycia"]];
   const cx = i => 300 + i * 420, Y = 520;
   let h = "", svg = "";
   S.forEach(([k, name, d], i) => {

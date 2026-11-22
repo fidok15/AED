@@ -15,6 +15,7 @@ import { AedApiService, aedLinkFactory } from './aed-api.service';
   imports: [RouterLink, LocalizeRouterPipe],
   template: `
     <h1 class="heading heading--md">Jeden rejestr defibrylatorów AED dla Polski</h1>
+    <p class="aed-slogan">Dbasz o AED? Pokaż to w danych.</p>
     <p class="aed-lede">
       Firma zgłasza sprzedane urządzenie, jego dysponent potwierdza miejsce z naklejki z kodem QR, a ministerstwo
       prowadzi rejestr i publikuje zbiór na dane.gov.pl.
@@ -93,7 +94,7 @@ export class AedHomeComponent implements OnInit {
   protected readonly publicQr = signal<UrlTree | null>(null);
 
   ngOnInit(): void {
-    this.seo.setPageTitle('Rejestr AED');
+    this.seo.setPageTitle('Opiekun AED');
     this.api.devices({ status: 'zgloszony', na_stronie: 1 }).subscribe({
       next: (page) => this.publicQr.set(page.dane[0] ? this.link(`/aed/qr/${page.dane[0].id_aed}`) : null),
       error: () => this.publicQr.set(null),

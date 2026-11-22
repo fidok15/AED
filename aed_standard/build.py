@@ -9,7 +9,7 @@ from collections import Counter, defaultdict
 from . import schema as S
 from .dedup import deduplicate, make_id
 from .sources import load_all
-from .validate import ERROR, LAT, LON, check_record, completeness
+from .validate import ERROR, LAT, LON, check_record, completeness, public_completeness
 
 
 def publication_reasons(record):
@@ -27,13 +27,20 @@ def publication_reasons(record):
     return reasons + ["profil publikacja – " + c for c in codes]
 
 
-# Never in the open dataset: the portal cannot tell an institutional contact from a personal one (hard rule 6),
-# and publishing serial numbers is an open decision.
-HIDDEN_PUBLIC = ("dysponent_email", "dysponent_telefon", "numer_seryjny")
+# Never in the open dataset ("publiczne": false in schema.json): the portal cannot tell an institutional contact
+# from a personal one (hard rule 6), and publishing serial numbers is an open decision. Kept for older imports.
+HIDDEN_PUBLIC = tuple(S.HIDDEN_FIELDS)
+
+
+def to_public(record):
+    """The record as open data shows it: hidden columns blank, completeness of the public fields only."""
+    out = dict(record, **{k: "" for k in HIDDEN_PUBLIC})
+    out["kompletnosc"] = str(public_completeness(out))
+    return out
 
 
 def publication_export(records):
-    return [dict(r, **{k: "" for k in HIDDEN_PUBLIC}) for r in records if not publication_reasons(r)]
+    return [to_public(r) for r in records if not publication_reasons(r)]
 
 
 def build_registry(raw_dir, registry_path=None):

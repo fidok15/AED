@@ -35,8 +35,9 @@ Pełny fork portalu (frontend, API, panel administracyjny, wykaz AED) z usługą
 | `backend/` | fork backendu dane.gov.pl; zmiany wydzielone w `mcod/aed/` (wykaz AED) plus pole zasobu `contains_aed_list` (model, formularz, migracja); wdrożenie pod domeną: `docker-compose.aed-domain.yml`, `aed-domain/` |
 | `wzorzec/` | `wzorzec-aed.xlsx` – wzorcowy zakres danych – oraz przykładowe pliki CSV |
 | `datasets/` | surowe źródła (`raw/`) i wynik mappera (`out/`) |
-| `kampania/` | materiały akcji promocyjnej |
-| `docs/` | treść zadania, kontrakt API, instrukcja dla jury, prezentacja (`docs/prezentacja/misja-aed.pptx`) |
+| `prezentacja-html/` | prezentacja dla jury: `prezentacja.html` (jeden plik, otwiera się bez sieci) |
+| `kampania/` | akcja „Opiekun AED”: logo w czterech formatach, księga znaku (PDF), hasło, zachęty |
+| `docs/` | treść zadania, kontrakt API, instrukcja dla jury, pozostałe dokumenty |
 
 ## Praca bez Dockera
 

@@ -15,6 +15,7 @@ from .registry import REGISTRY_PATH, load_registry
 from .validate import LAT, LON
 
 OSM = "openstreetmap"
+POSITION_METHOD = "sposob_ustalenia_polozenia"
 ODBL = "ODbL 1.0"
 WARSAW = "um.warszawa.pl"
 OSM_ROW_MESSAGE = ("Wiersz pochodzi z OpenStreetMap (licencja ODbL 1.0), a takich danych nie łączymy z danymi "
@@ -47,7 +48,7 @@ def _manifest(raw_dir):
 
 def _record(zrodlo, zrodlo_id, licencja, data_aktualizacji, **values):
     rec = S.blank_record()
-    rec.update({k: _clean(v) for k, v in values.items() if k in rec})
+    rec.update({k: S.canonical(k, _clean(v)) for k, v in values.items() if k in rec})
     # id_aed, powiazane_zrodla and kompletnosc are computed by the build: a file with "fields": "*" and an id_aed
     # column must not inject ids (a repeated or foreign id would collide with another record).
     rec.update(zrodlo=zrodlo, zrodlo_id=_clean(zrodlo_id), licencja=licencja, data_aktualizacji=data_aktualizacji,
@@ -385,6 +386,8 @@ def load_all(raw_dir, registry_path=None):
         copy_values = source["copy_values_on_merge"] and licence != ODBL
         for r in recs:
             r["_priority"], r["_copy_values"] = source["priority"], copy_values
+            if r[LAT] and r[LON] and not r[POSITION_METHOD]:  # a source file in the standard may name its own
+                r[POSITION_METHOD] = "import"
         records.extend(recs)
         notes.extend(n)
     return records, notes, errors, skipped

@@ -70,7 +70,7 @@ export class AedStickersComponent implements OnInit {
   );
 
   ngOnInit(): void {
-    this.seo.setPageTitle(['Naklejki QR do wydruku', 'Rejestr AED']);
+    this.seo.setPageTitle(['Naklejki QR do wydruku', 'Opiekun AED']);
     this.api.submissions().subscribe({
       next: (submissions) => {
         this.submissions.set(submissions);

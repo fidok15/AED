@@ -38,7 +38,7 @@ export class AedSellersComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly waiting = computed(() => (this.sellers()?.dane ?? []).filter((seller) => !seller.liczba_urzadzen));
 
   ngOnInit(): void {
-    this.seo.setPageTitle(['Firmy zgłaszające urządzenia', 'Rejestr AED']);
+    this.seo.setPageTitle(['Firmy zgłaszające urządzenia', 'Opiekun AED']);
   }
 
   ngAfterViewInit(): void {

@@ -75,7 +75,8 @@ class GeocoderTest(unittest.TestCase):
         rows = list(csv.DictReader(io.StringIO(text)))
         self.assertEqual((rows[0]["szerokosc_geograficzna"], rows[0]["kod_terc"], rows[0]["kod_simc"]),
                          ("50.067825", "126101", "0950463"))
-        self.assertEqual(rows[0]["opis_lokalizacji"], geokod.SOURCE_NOTE)
+        # 0.3.0: the method is a column of its own; the description is left to the provider
+        self.assertEqual((rows[0]["sposob_ustalenia_polozenia"], rows[0]["opis_lokalizacji"]), ("geokodowanie_adresu", ""))
         self.assertEqual(rows[1]["szerokosc_geograficzna"], "")
         geo = rep["geokodowanie"]
         self.assertEqual((geo["uzupelnione"], geo["nieuzupelnione"], rep["poprawne"]), (1, 1, 1))

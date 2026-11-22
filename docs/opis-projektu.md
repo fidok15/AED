@@ -1,14 +1,14 @@
 # Tytuł i opis projektu (formularz zgłoszeniowy)
 
-„Misja AED – Dane na ratunek” to nazwa zadania konkursowego. Poniżej tytuł roboczy projektu; nazwę akcji wybiera zespół (kandydaci: `kampania/nazwa-i-haslo.md`) i po wyborze dopisuje ją przed tytułem. Liczby: stan z `datasets/out/raport.json` (rejestr z mappera) z 22.11.
+„Misja AED – Dane na ratunek” to nazwa zadania konkursowego. Nazwa akcji to „Opiekun AED”, hasło: „Dbasz o AED? Pokaż to w danych.” (`kampania/nazwa-i-haslo.md`, znak i księga znaku w `kampania/`). Liczby: stan z `datasets/out/raport.json` (rejestr z mappera) z 22.11.
 
-## Tytuł roboczy
+## Tytuł
 
-Wykaz AED w dane.gov.pl: jeden standard, wielu dostawców, jeden zbiór ministerstwa
+Opiekun AED – wykaz AED w dane.gov.pl: jeden standard, wielu dostawców, jeden zbiór ministerstwa
 
 ## Opis szczegółowy
 
-Dane o defibrylatorach AED są dziś rozproszone po kilku bazach i nikt nie bierze za nie odpowiedzialności. Zebraliśmy sześć dostępnych źródeł: cztery zbiory samorządowe z dane.gov.pl, API Warszawy i OpenStreetMap. Po scaleniu powstał rejestr z mappera: 18 814 urządzeń (stan z `raport.json`). Żadne z nich nie ma potwierdzenia od zarządcy, średnia kompletność rekordu wynosi 39,2 na 100, a w czterech zbiorach samorządowych żaden rekord nie ma godzin dostępu.
+Dane o defibrylatorach AED są dziś rozproszone po kilku bazach i nikt nie bierze za nie odpowiedzialności. Zebraliśmy sześć dostępnych źródeł: cztery zbiory samorządowe z dane.gov.pl, API Warszawy i OpenStreetMap. Po scaleniu powstał rejestr z mappera: 18 814 urządzeń (stan z `raport.json`). Żadne z nich nie ma potwierdzenia od zarządcy, średnia kompletność rekordu wynosi 38,5 na 100, a w czterech zbiorach samorządowych żaden rekord nie ma godzin dostępu.
 
 Proponujemy rozwiązanie zbudowane na mechanizmach portalu dane.gov.pl, a nie obok niego. W kodzie portalu znaleźliśmy wykaz zasobów chronionych danych (DGA). To jedyny mechanizm, który zbiera zasoby wielu dostawców i scala je w jeden zasób zbiorczy. Na jego wzór dodaliśmy do forka portalu wykaz AED. Dostawca, czyli samorząd, instytucja albo firma, publikuje w swoim zbiorze zasób CSV oznaczony jako „Wykaz AED”. Plik CSV portal sprawdza przy zapisie i podaje błędy po polsku na poziomie wiersza i pola; wykaz XLSX i wykaz-link sprawdza dopiero scalanie. Scalanie wszystkich wykazów (zadanie Celery, w harmonogramie codziennie o 03:45) usuwa duplikaty i zostawia tylko rekordy spełniające profil publikacji. Scalanie sprawdziliśmy ręcznym uruchomieniem zadania; samego harmonogramu w działaniu – jeszcze nie. Wynik to zasób zbiorczy w zbiorze Ministerstwa Cyfryzacji. Jest dostępny bez logowania jako tabela, mapa i API, razem z publicznym raportem przyjętych i odrzuconych wykazów. Pełny fork portalu uruchomiliśmy lokalnie; adres publiczny podamy po wdrożeniu na serwer.
 

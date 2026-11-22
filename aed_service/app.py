@@ -42,7 +42,7 @@ CORS_ORIGINS = os.environ.get("AED_CORS_ORIGINS", "http://localhost:4200").split
 
 # Seller badge: both thresholds must hold and the company needs at least one device.
 BADGE_MIN_COMPLETENESS = 70   # average completeness (0-100)
-BADGE_MIN_ACTIVE_SHARE = 0.5  # share of devices with status "aktywny"
+BADGE_MIN_ACTIVE_SHARE = 0.5  # share of devices with status "zweryfikowany"
 
 # Reminder rules (days).
 REQUEST_AFTER_DAYS = 183   # ask the manager to confirm after ~6 months without verification
@@ -52,13 +52,22 @@ RETIRE_MIN_SHARE = 0.5      # mapper output below this share of the current impo
 TOKEN_DAYS = 90           # every manager link stays valid this long; several links per device are valid at once
 RESEND_GAP_DAYS = 30       # do not repeat the same kind of message for a device within this gap
 
-HIDDEN_PUBLIC = aed_standard.build.HIDDEN_PUBLIC  # one rule for every public export
-CONFIRM_FIELDS = ("nazwa", "szerokosc_geograficzna", "dlugosc_geograficzna", "miejscowosc", "cecha_ulicy",
-                  "nazwa_ulicy", "nr_budynku", "nr_lokalu", "kod_pocztowy", "opis_lokalizacji", "wewnatrz_budynku",
-                  "dostep", "godziny_dostepu", "godziny_dostepu_opis", "data_waznosci_baterii", "data_waznosci_elektrod")
+HIDDEN_PUBLIC = tuple(aed_standard.hidden_fields())  # schema.json "publiczne": false; one rule for every public export
+CONFIRM_FIELDS = ("nazwa", "szerokosc_geograficzna", "dlugosc_geograficzna", "sposob_ustalenia_polozenia", "miejscowosc",
+                  "cecha_ulicy", "nazwa_ulicy", "nr_budynku", "nr_lokalu", "kod_pocztowy", "opis_lokalizacji",
+                  "wewnatrz_budynku", "pietro", "dostep", "godziny_dostepu", "godziny_dostepu_opis",
+                  "data_waznosci_baterii", "data_waznosci_elektrod")
+VERIFIED = "zweryfikowany"
+OLD_VERIFIED = "aktywny"   # 0.2.0 spelling: an input alias (schema.json "aliasy") and the migration only
+LAT, LON, POSITION_METHOD = "szerokosc_geograficzna", "dlugosc_geograficzna", "sposob_ustalenia_polozenia"
+EXPIRY_FIELDS = ("data_waznosci_baterii", "data_waznosci_elektrod")
+# Device condition (stan_urzadzenia), separate from the data status. These two are left out of "available now".
+UNAVAILABLE = ("czasowo_niedostepny", "wycofany_z_uzycia")
+STAN_SQL = "coalesce(json_extract(data, '$.stan_urzadzenia'), '')"
+AVAILABLE_SQL = "%s NOT IN ('czasowo_niedostepny','wycofany_z_uzycia')" % STAN_SQL
 OWNER_FIELDS = ("dysponent_nazwa", "dysponent_email", "dysponent_telefon")  # set by the manager when the record has no contact
 ODBL = "ODbL 1.0"
-REQUIRED_CODES = ("brak_wymaganego", "wymagane_dla_aktywnego")  # not an error in an incomplete problem report
+REQUIRED_CODES = ("brak_wymaganego", "wymagane_dla_zweryfikowanego")  # not an error in an incomplete problem report
 SIGNAL_TYPES = ("jest", "brak", "uszkodzony", "zamkniety")
 
 SCHEMA_SQL = """
@@ -107,6 +116,8 @@ def migrate(db):
     db.execute("INSERT OR IGNORE INTO tokens(hash,id_aed,utworzono,wygasa) SELECT token_hash,id_aed,?,? FROM devices"
                " WHERE token_hash IS NOT NULL", (now(), exp))
     db.execute("UPDATE devices SET token_hash=NULL WHERE token_hash IS NOT NULL")
+    migrate_device_condition(db)
+    migrate_verified_status(db)
     # zrodlo_id of submissions used to be "producent|serial": replace it with an opaque value (id_aed stays as issued)
     for id_aed, data in db.execute("SELECT id_aed, data FROM devices WHERE zrodlo='zgloszenie'").fetchall():
         rec = json.loads(data)
@@ -114,6 +125,38 @@ def migrate(db):
             rec["zrodlo_id"] = secrets.token_hex(6)
             db.execute("UPDATE devices SET data=? WHERE id_aed=?", (json.dumps(rec, ensure_ascii=False), id_aed))
     db.commit()
+
+
+def migrate_device_condition(db):
+    """Schema 0.3.0, once per record (a record without the key stan_urzadzenia): new fields added, filled only where
+    the database holds proof. A device confirmed "sprawny" by its manager (QR) -> gotowy since that verification; the
+    last manager answer "problem" (uwagi_zarzadcy is kept only then) -> czasowo_niedostepny since that update, and a
+    record that this report demoted from aktywny to niepotwierdzony (it still holds its QR verification) is verified
+    again: the data were confirmed, only the device was out. Imported coordinates -> import. Nothing else is guessed.
+    Runs before migrate_verified_status, so it still sees the 0.2.0 value "aktywny"."""
+    rows = db.execute("SELECT id_aed, data, origin, uwagi_zarzadcy FROM devices WHERE json_type(data, '$.stan_urzadzenia')"
+                      " IS NULL").fetchall()
+    for id_aed, data, origin, uwagi in rows:
+        rec = json.loads(data)
+        rec = dict({k: "" for k in aed_standard.field_names()}, **rec)
+        by_qr = origin == "zarzadca" and rec["sposob_weryfikacji"] == "qr" and rec["data_weryfikacji"]
+        if origin == "zarzadca" and uwagi:
+            rec.update(stan_urzadzenia="czasowo_niedostepny", data_stanu=rec["data_aktualizacji"])
+            if rec["status"] == "niepotwierdzony" and by_qr:
+                rec["status"] = "aktywny"   # 0.2.0 value; renamed by migrate_verified_status right after
+        elif rec["status"] == "aktywny" and by_qr:
+            rec.update(stan_urzadzenia="gotowy", data_stanu=rec["data_weryfikacji"])
+        if origin == "import" and rec[LAT] and rec[LON] and not rec[POSITION_METHOD]:
+            rec[POSITION_METHOD] = "import"
+        rec["kompletnosc"] = str(aed_standard.completeness(rec))
+        db.execute("UPDATE devices SET data=?, status=?, kompletnosc=? WHERE id_aed=?",
+                   (json.dumps(rec, ensure_ascii=False), rec["status"], int(rec["kompletnosc"]), id_aed))
+
+
+def migrate_verified_status(db):
+    """Schema 0.3.0: status "aktywny" (0.2.0) is now "zweryfikowany", in the column and in the stored record."""
+    db.execute("UPDATE devices SET status=?, data=json_set(data, '$.status', ?) WHERE status=? OR "
+               "json_extract(data, '$.status')=?", (VERIFIED, VERIFIED, OLD_VERIFIED, OLD_VERIFIED))
 
 
 def today():
@@ -527,7 +570,8 @@ def process_submission(db, account, records, report, filename, dry_run, demo=Fal
         rec_id = aed_standard.make_id("zgloszenie", opaque)
         rec.update(id_aed=rec_id, status="zgloszony", zrodlo="zgloszenie", zrodlo_id=opaque, licencja="CC0 1.0",
                    wprowadzajacy_typ=account["typ_podmiotu"], wprowadzajacy_nazwa=account["nazwa"],
-                   data_aktualizacji=today().isoformat(), data_weryfikacji="", sposob_weryfikacji="")
+                   data_aktualizacji=today().isoformat(), data_weryfikacji="", sposob_weryfikacji="",
+                   stan_urzadzenia="", data_stanu="")  # the device's condition is the manager's answer, not the seller's
         rec["kompletnosc"] = str(aed_standard.completeness(rec))
         accepted.append(rec)
         if other:
@@ -616,9 +660,19 @@ def schema(req, resp):
 
 # ---------- devices ----------
 
+def expiry_days(rec):
+    """{field: last valid day RRRR-MM-DD} for the QR screen: RRRR-MM is valid to the end of the month."""
+    out = {}
+    for field in EXPIRY_FIELDS:
+        day = aed_standard.valid_until(rec.get(field) or "")
+        if day:
+            out[field] = day.isoformat()
+    return out
+
+
 def device_get(req, resp, id_aed):
     row = get_device(req.context.db, id_aed)
-    rec = json.loads(row["data"])
+    rec = dict(json.loads(row["data"]), waznosc_do=expiry_days(json.loads(row["data"])))
     account = need_account(req) if (req.get_header("Authorization") or "").startswith("Bearer ") else None
     if account and (account["rola"] == "ministerstwo" or account["id"] == row["konto_id"]):
         resp.media = dict(rec, demo=bool(row["demo"]))  # full record: the ministry, or the company that submitted it
@@ -635,7 +689,7 @@ def device_get(req, resp, id_aed):
 STICKER_W = 360                # sticker width in user units; widened only if a long URL needs a bigger QR
 STICKER_MARGIN = 20            # text must stay this far from both edges
 STICKER_LOGO_PATH = os.environ.get("AED_STICKER_LOGO", os.path.join(HERE, "naklejka-logo.svg"))  # optional campaign logo
-STICKER_LOGO_H = 50
+STICKER_LOGO_H = 56  # Opiekun AED lockup: >= 35 mm wide (brand book minimum) on the A4 sheet of 3 stickers across
 STICKER_CAPTION = ("Zeskanuj kod QR", "i sprawdź lub zgłoś stan AED")  # two short lines, see test for the width rule
 FONT = 'font-family="Arial,sans-serif" text-anchor="middle"'
 
@@ -760,12 +814,17 @@ def apply_confirmation(db, id_aed, data, on=None):
     elif not rec.get("dysponent_email"):
         # No contact yet (e.g. a city dataset): the manager may add one, otherwise reminders skip the device.
         fields = CONFIRM_FIELDS + OWNER_FIELDS
-    rec.update({k: v for k, v in clean(data).items() if k in fields and k in data})
+    given = clean(data)
+    moved = any(k in data and to_float(given[k]) != to_float(rec.get(k)) for k in (LAT, LON))
+    rec.update({k: v for k, v in given.items() if k in fields and k in data})
+    if moved and POSITION_METHOD not in data:
+        rec[POSITION_METHOD] = ""   # new coordinates without a method: the old method no longer describes them
     rec["data_aktualizacji"] = on
     if stan == "sprawny":
-        rec.update(status="aktywny", data_weryfikacji=on, sposob_weryfikacji="qr")
-    elif rec["status"] == "aktywny":
-        rec["status"] = "niepotwierdzony"
+        rec.update(status=VERIFIED, data_weryfikacji=on, sposob_weryfikacji="qr", stan_urzadzenia="gotowy", data_stanu=on)
+    else:
+        # A problem concerns the DEVICE: the data status stays (a verified record stays verified).
+        rec.update(stan_urzadzenia="czasowo_niedostepny", data_stanu=on)
     rec["kompletnosc"] = str(aed_standard.completeness(rec))
     report = aed_standard.validate_records([rec], "publikacja")
     errors = [p for p in report["problemy"] if p["poziom"] == "blad"]
@@ -786,8 +845,8 @@ def apply_confirmation(db, id_aed, data, on=None):
 
 def confirm(req, resp, id_aed):
     rec = apply_confirmation(req.context.db, id_aed, body(req))
-    resp.media = dict({k: rec[k] for k in ("id_aed", "status", "data_weryfikacji", "sposob_weryfikacji", "kompletnosc")},
-                      rekord=rec)
+    resp.media = dict({k: rec[k] for k in ("id_aed", "status", "data_weryfikacji", "sposob_weryfikacji", "stan_urzadzenia",
+                                            "data_stanu", "kompletnosc")}, rekord=rec)
 
 
 def signal(req, resp, id_aed):
@@ -873,7 +932,7 @@ def device_filters(req):
     for param in EXACT_FILTERS:
         if req.get_param(param):
             where.append("%s=?" % param)  # column names come from code, values are bound
-            args.append(req.get_param(param))
+            args.append(aed_standard.schema.canonical(param, req.get_param(param)))  # status=aktywny still works
     for param, expr in TEXT_FILTERS.items():
         if (req.get_param(param) or "").strip():
             where.append("lower(%s) = lower(?)" % expr)
@@ -883,6 +942,13 @@ def device_filters(req):
         args.append(ALL_DAY)
     if req.get_param_as_bool("z_godzinami"):
         where.append("godziny != ''")
+    stan = (req.get_param("stan_urzadzenia") or "").strip()
+    if stan:
+        # empty means nieznany (schema.json)
+        where.append("%s IN ('', 'nieznany')" % STAN_SQL if stan == "nieznany" else "%s = ?" % STAN_SQL)
+        args += [] if stan == "nieznany" else [stan]
+    if req.get_param_as_bool("dostepny_teraz") or (req.get_param("lat") is not None and req.get_param("lon") is not None):
+        where.append(AVAILABLE_SQL)   # "available now" and "nearest" never send anyone to a device reported out
     return where, args
 
 
@@ -953,13 +1019,15 @@ def geojson(req, resp):
         where.append("lon BETWEEN ? AND ? AND lat BETWEEN ? AND ?")
         args += [x1, x2, y1, y2]
     rows = req.context.db.execute(
-        "SELECT id_aed,nazwa,status,dostep,godziny,kompletnosc,zrodlo,lon,lat,demo FROM devices WHERE " + " AND ".join(where), args)
+        "SELECT id_aed,nazwa,status,dostep,godziny,kompletnosc,zrodlo,lon,lat,demo,json_extract(data,'$.stan_urzadzenia'),"
+        "json_extract(data,'$.data_stanu') FROM devices WHERE " + " AND ".join(where), args)
     if req.get_param_as_bool("dostepny_teraz"):
         state = open_states()
         rows = [r for r in rows if state(r[4]) == "dostepny"]
     feats = [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [r[7], r[8]]},
               "properties": {"id_aed": r[0], "nazwa": r[1], "status": r[2], "dostep": r[3], "godziny_dostepu": r[4],
-                             "kompletnosc": r[5], "zrodlo": r[6], "demo": bool(r[9])}} for r in rows]
+                             "kompletnosc": r[5], "zrodlo": r[6], "demo": bool(r[9]), "stan_urzadzenia": r[10] or "",
+                             "data_stanu": r[11] or ""}} for r in rows]
     resp.content_type = "application/geo+json"
     resp.text = json.dumps({"type": "FeatureCollection", "features": feats}, ensure_ascii=False, separators=(",", ":"))
 
@@ -1024,23 +1092,29 @@ def filter_options(req, resp):
         "dostep": dict(db.execute("SELECT dostep, COUNT(*) FROM devices WHERE %s GROUP BY dostep" % pub).fetchall()),
         "wewnatrz_budynku": {v: one("%s = ?" % t["wewnatrz_budynku"], v) for v in ("tak", "nie")},
         "z_godzinami": one("godziny != ''"),
-        "calodobowo": one("godziny = ?", ALL_DAY)}
+        "calodobowo": one("godziny = ?", ALL_DAY),
+        # empty = nieznany (schema.json); every dictionary value is listed, also with 0
+        "stan_urzadzenia": dict({v: 0 for v in aed_standard.schema.enum("stan_urzadzenia")}, **{
+            (v or "nieznany"): n for v, n in db.execute("SELECT nullif(%s, 'nieznany') v, COUNT(*) FROM devices WHERE %s"
+                                                        " GROUP BY v" % (STAN_SQL, pub))})}
 
 
 def sellers(req, resp):
     rows = req.context.db.execute(
         "SELECT a.nazwa, a.typ_podmiotu, a.miejscowosc, a.lat, a.lon, COUNT(d.id_aed) n, AVG(d.kompletnosc) avg_k,"
-        " AVG(d.status='aktywny') share FROM accounts a LEFT JOIN devices d ON d.konto_id=a.id"
+        " AVG(d.status='zweryfikowany') share FROM accounts a LEFT JOIN devices d ON d.konto_id=a.id"
         " WHERE a.rola='firma' GROUP BY a.id ORDER BY avg_k DESC")
     out = []
     for r in rows:
         avg, share = round(r["avg_k"] or 0, 1), round(r["share"] or 0, 2)
         out.append({"nazwa": r["nazwa"], "typ_podmiotu": r["typ_podmiotu"], "miejscowosc": r["miejscowosc"],
                     "szerokosc_geograficzna": r["lat"], "dlugosc_geograficzna": r["lon"], "liczba_urzadzen": r["n"],
-                    "srednia_kompletnosc": avg, "udzial_aktywnych": share,
+                    "srednia_kompletnosc": avg, "udzial_zweryfikowanych": share,
+                    "udzial_aktywnych": share,   # 0.2.0 name, kept until the frontend reads udzial_zweryfikowanych
                     "odznaka": "tak" if r["n"] > 0 and avg >= BADGE_MIN_COMPLETENESS and share >= BADGE_MIN_ACTIVE_SHARE else "nie"})
     resp.media = {"dane": out, "progi": {"srednia_kompletnosc": BADGE_MIN_COMPLETENESS,
-                                         "udzial_aktywnych": BADGE_MIN_ACTIVE_SHARE}}
+                                         "udzial_zweryfikowanych": BADGE_MIN_ACTIVE_SHARE,
+                                         "udzial_aktywnych": BADGE_MIN_ACTIVE_SHARE}}   # 0.2.0 name
 
 
 def publication_csv(db):
@@ -1069,7 +1143,7 @@ FEED_DESCRIPTION = (
     "seryjnych, urządzeń prywatnych ani rekordów znanych tylko z OpenStreetMap.")
 RESOURCE_DESCRIPTION = (
     "Plik CSV (UTF-8, separator przecinek, daty RRRR-MM-DD) z rekordami spełniającymi profil publikacji standardu AED. "
-    "Kolumna status mówi, czy dysponent potwierdził urządzenie (wartość aktywny, w interfejsie „zweryfikowany”), a kompletnosc - jak pełny jest rekord (0-100).")
+    "Kolumna status mówi, czy dysponent potwierdził urządzenie (wartość zweryfikowany), a kompletnosc - jak pełny jest rekord (0-100).")
 
 
 def harvester_xml_bytes(db):
@@ -1197,29 +1271,39 @@ def reminders(db):
     # 1) stale: active but not confirmed for 12 months
     counts["nieaktualne"] = db.execute(
         "UPDATE devices SET status='nieaktualny', data=json_set(data,'$.status','nieaktualny')"
-        " WHERE status='aktywny' AND data_weryfikacji!='' AND data_weryfikacji<?", (day(-STALE_AFTER_DAYS),)).rowcount
+        " WHERE status='zweryfikowany' AND data_weryfikacji!='' AND data_weryfikacji<?", (day(-STALE_AFTER_DAYS),)).rowcount
 
     def sent_recently(kind, id_aed):
         return db.execute("SELECT 1 FROM messages WHERE rodzaj=? AND id_aed=? AND data>=?",
                           (kind, id_aed, day(-RESEND_GAP_DAYS))).fetchone()
 
-    for row in db.execute("SELECT * FROM devices WHERE status IN ('aktywny','zgloszony','nieaktualny','niepotwierdzony')"
+    for row in db.execute("SELECT * FROM devices WHERE status IN ('zweryfikowany','zgloszony','nieaktualny','niepotwierdzony')"
                           " AND dostep != 'prywatny'").fetchall():
         rec = json.loads(row["data"])
         email = rec.get("dysponent_email")
         if not email:
             continue
         last = rec.get("data_weryfikacji") or rec.get("data_aktualizacji") or ""
-        # niepotwierdzony: only after a manager's problem report (an imported record waits for a takeover link)
-        if (row["status"] != "niepotwierdzony" or row["uwagi_zarzadcy"]) and last and last < day(-REQUEST_AFTER_DAYS) \
-                and not sent_recently("prosba", row["id_aed"]):
+        out = rec.get("stan_urzadzenia") == "czasowo_niedostepny"
+        if out:
+            # reported out by its manager: ask for the current condition a month after the report (and monthly after)
+            due = (rec.get("data_stanu") or last) < day(-RESEND_GAP_DAYS)
+            text = ("Dysponent zgłosił, że urządzenie jest czasowo niedostępne. Zaktualizuj stan urządzenia: potwierdź, "
+                    "że jest znowu sprawne, albo opisz, co jeszcze trzeba zrobić.")
+        else:
+            # an imported record (niepotwierdzony) waits for a takeover link
+            due = row["status"] != "niepotwierdzony" and last and last < day(-REQUEST_AFTER_DAYS)
+            text = ("Od ponad 6 miesięcy nie potwierdzono danych urządzenia. Potwierdź lokalizację, godziny dostępu "
+                    "i stan urządzenia, baterii oraz elektrod.")
+        if due and not sent_recently("prosba", row["id_aed"]):
             link = activation_link(row["id_aed"], new_token(db, row["id_aed"]))
-            queue_message(db, "prosba", row["id_aed"], email, "Potwierdź dane urządzenia AED %s" % row["id_aed"],
-                          "Od ponad 6 miesięcy nie potwierdzono danych urządzenia. Potwierdź lokalizację, godziny dostępu "
-                          "i stan urządzenia, baterii oraz elektrod.", link)
+            queue_message(db, "prosba", row["id_aed"], email, ("Zaktualizuj stan urządzenia AED %s" if out else
+                                                                "Potwierdź dane urządzenia AED %s") % row["id_aed"], text, link)
             counts["prosby_o_potwierdzenie"] += 1
         for field, what in (("data_waznosci_baterii", "baterii"), ("data_waznosci_elektrod", "elektrod")):
-            if rec.get(field) and rec[field] <= day(EXPIRY_WARNING_DAYS) and not sent_recently("termin_" + field, row["id_aed"]):
+            until = aed_standard.valid_until(rec.get(field) or "")
+            if until and until <= t + datetime.timedelta(days=EXPIRY_WARNING_DAYS) \
+                    and not sent_recently("termin_" + field, row["id_aed"]):
                 link = activation_link(row["id_aed"], new_token(db, row["id_aed"]))
                 queue_message(db, "termin_" + field, row["id_aed"], email,
                               "Zbliża się termin ważności %s w urządzeniu AED %s" % (what, row["id_aed"]),

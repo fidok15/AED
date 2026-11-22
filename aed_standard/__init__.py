@@ -8,9 +8,11 @@ from . import schema as _schema
 from .build import build_registry, publication_export
 from .hours import open_now, warsaw_now
 from .dedup import CANDIDATE_M, find_candidates, make_id
-from .validate import completeness, validate_csv, validate_records
+from .schema import hidden_fields, public_fields
+from .validate import completeness, public_completeness, valid_until, validate_csv, validate_records
 
-__all__ = ["load_schema", "field_names", "validate_records", "validate_csv", "completeness", "make_id", "find_candidates",
+__all__ = ["load_schema", "field_names", "public_fields", "hidden_fields", "validate_records", "validate_csv",
+           "completeness", "public_completeness", "valid_until", "make_id", "find_candidates",
            "CANDIDATE_M", "open_now", "warsaw_now",
            "build_registry", "publication_export"]
 

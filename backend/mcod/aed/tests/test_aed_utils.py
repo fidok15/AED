@@ -1,10 +1,17 @@
 """Modelled on mcod/resources/tests/test_main_dga.py. Needs the portal test stack (Postgres, Docker)."""
+import csv
 import datetime
+import io
+import re
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
+
+import aed_standard
+from aed_standard import schema as S
+from aed_standard.validate import WARNING
 
 from mcod.aed import constants as C
 from mcod.aed.aed_utils import (
@@ -14,10 +21,12 @@ from mcod.aed.aed_utils import (
     create_main_aed_resource_with_dataset,
     get_all_aed_list_resources,
     main_aed_tabular_schema,
+    public_report,
     update_or_create_aggr_aed_info_and_delete_old_main_aed,
     validate_aed_list_file,
 )
 from mcod.aed.models import AggregatedAEDInfo
+from mcod.aed.notifications import lists_to_notify
 from mcod.core.tests.helpers.tasks import run_on_commit_events
 from mcod.datasets.factories import DatasetFactory
 from mcod.datasets.models import Dataset
@@ -106,6 +115,47 @@ def test_main_aed_tabular_schema_has_map_markers():
     assert tds["geo"]["l"]["col_name"] == "dlugosc_geograficzna"
     assert tds["geo"]["label"]["col_name"] == "nazwa"
     assert {f["type"] for f in tds["fields"] if f.get("geo") in ("b", "l")} == {"number"}
+    # Built from the standard's column order (0.3.0: sposob_ustalenia_polozenia after the coordinates): every marker
+    # points at its own column, and every other column, pietro (integer in the standard) included, is text, so
+    # empty cells pass the portal's tabular validation.
+    assert names == S.FIELD_NAMES and len(names) == 42
+    assert all(names[m["col_index"]] == m["col_name"] for m in tds["geo"].values())
+    assert {f["name"] for f in tds["fields"] if f["type"] != "string"} == {"szerokosc_geograficzna", "dlugosc_geograficzna"}
+
+
+def test_every_standard_problem_code_has_a_public_description():
+    """The public report and the e-mail show C.PROBLEM_DESCRIPTIONS, never aed_standard's raw messages. Codes are read
+    from aed_standard's source, so a new code in the standard without a description fails here."""
+    source = "".join(p.read_text(encoding="utf-8") for p in Path(aed_standard.__file__).parent.glob("*.py"))
+    codes = set()
+    for pattern in (r'issue\([^,()]+,\s*[^,()]+,\s*(?:ERROR|WARNING),\s*"(\w+)"',  # issue(row, field, level, code, ...)
+                    r'\[\("(\w+)"',  # check_value: [(code, message)]
+                    r'fail\("(\w+)"',  # validate_csv: fail(code, message)
+                    r'code="(\w+)"'):  # wykaz.rejected(..., code="odczyt")
+        codes |= set(re.findall(pattern, source))
+    assert {"terc_bez_rodzaju", "godziny_nieczytelne", "dysponent_osoba", "wymagane_dla_zweryfikowanego"} <= codes
+    assert sorted(codes - set(C.PROBLEM_DESCRIPTIONS)) == []
+
+
+def test_list_in_schema_0_2_0_is_accepted_into_a_0_3_0_national_list():
+    """A provider's list in the 0.2.0 header (no new columns, status "aktywny") keeps working: accepted in full,
+    the 6-digit TERC is only a warning (status stays "przyjety", no e-mail), the national list has the 0.3.0
+    header and the alias becomes "zweryfikowany"."""
+    old = (DATA_DIR / "wykaz_schemat_0_2_0.csv").read_bytes()
+    assert b"sposob_ustalenia_polozenia" not in old and b",aktywny," in old
+    resource = ResourceFactory.create(contains_aed_list=True, status="published")
+
+    with patch("mcod.aed.aed_utils.read_resource_bytes", return_value=(old, None)):
+        content, report = build_main_aed_list([resource])
+
+    entry = report["wykazy"][0]
+    assert (entry["status"], entry["przyjete"], entry["wiersze"]) == ("przyjety", 2, 2)
+    assert [(p["kod"], p["poziom"]) for p in entry["problemy"]] == [("terc_bez_rodzaju", WARNING)]
+    assert public_report(report)["wykazy"][0]["problemy"][0]["opis"] == C.PROBLEM_DESCRIPTIONS["terc_bez_rodzaju"]
+    assert lists_to_notify(None, report) == []
+    rows = list(csv.DictReader(io.StringIO(content)))
+    assert list(rows[0]) == S.FIELD_NAMES
+    assert {r["status"] for r in rows} == {"zweryfikowany", "niepotwierdzony"}
 
 
 def test_update_aggr_aed_info_replaces_old_resource():
@@ -137,6 +187,7 @@ def test_main_aed_resource_end_to_end_with_portal_validation(aed_owner):
     """The task's steps on real files, with the portal's own file and tabular data validation (eager Celery)."""
     legionowo = _aed_list_resource("legionowo_resource_2625221.csv")
     krosno = _aed_list_resource("krosno_resource_54632.csv")
+    old_header = _aed_list_resource("wykaz_schemat_0_2_0.csv")
     run_on_commit_events()
 
     file_path, report = create_main_aed_file()
@@ -148,7 +199,7 @@ def test_main_aed_resource_end_to_end_with_portal_validation(aed_owner):
     clean_up_after_main_aed_resource_creation(exception_occurred=False)
 
     statuses = {w["zasob"]: w["status"] for w in report["wykazy"]}
-    assert statuses == {legionowo.pk: "przyjety", krosno.pk: "odrzucony"}
+    assert statuses == {legionowo.pk: "przyjety", krosno.pk: "odrzucony", old_header.pk: "przyjety"}
     resource.refresh_from_db()
     assert resource.format == "csv"
     assert resource.tabular_data_schema["geo"]["b"]["col_name"] == "szerokosc_geograficzna"

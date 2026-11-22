@@ -16,6 +16,8 @@ import {
 import { AedFieldComponent } from './aed-field.component';
 import { aedControl, aedGroups, aedRequired } from './aed-schema';
 
+const CONDITION_FIELDS = ['stan_urzadzenia', 'data_stanu'];
+
 /** Single-device form of a seller, generated from aed_standard/schema.json (profile `sprzedaz`). */
 @Component({
   selector: 'app-aed-device-form',
@@ -31,7 +33,10 @@ export class AedDeviceFormComponent implements OnInit {
 
   /** What the seller knows at the moment of sale, then what may already be known about the place. */
   protected readonly sale = aedGroups('sprzedawca');
-  protected readonly place = aedGroups('dysponent');
+  // The device's condition is the manager's own answer on the QR page; the service ignores it from a seller.
+  protected readonly place = aedGroups('dysponent')
+    .map((group) => ({ ...group, fields: group.fields.filter((f) => !CONDITION_FIELDS.includes(f.name)) }))
+    .filter((group) => group.fields.length);
   protected readonly form = new FormGroup(
     Object.fromEntries(
       [...this.sale, ...this.place]
@@ -46,7 +51,7 @@ export class AedDeviceFormComponent implements OnInit {
   protected readonly error = signal('');
 
   ngOnInit(): void {
-    this.seo.setPageTitle(['Zgłoś urządzenie', 'Rejestr AED']);
+    this.seo.setPageTitle(['Zgłoś urządzenie', 'Opiekun AED']);
   }
 
   protected readonly qrLink = aedLinkFactory();

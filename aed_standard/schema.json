@@ -1,8 +1,19 @@
 {
   "name": "aed-standard",
   "title": "Wzorcowy zakres danych o defibrylatorach AED",
-  "version": "0.2.0",
-  "description": "Jeden wiersz to jedno urządzenie AED. Format zgodny z Frictionless Table Schema; klucze grupa, waga, przyklad i zrodla są rozszerzeniami tego standardu. CSV: UTF-8, separator przecinek, jeden wiersz nagłówka, kropka dziesiętna, daty RRRR-MM-DD, współrzędne WGS84.",
+  "version": "0.3.0",
+  "description": "Jeden wiersz to jedno urządzenie AED. Format zgodny z Frictionless Table Schema; klucze grupa, waga, waga_dla_statusu, publiczne, dokladnosc_daty, aliasy, przyklad, zrodla, wypelnia i etykiety są rozszerzeniami tego standardu. CSV: UTF-8, separator przecinek, jeden wiersz nagłówka, kropka dziesiętna, daty RRRR-MM-DD (daty produkcji i ważności także RRRR-MM), współrzędne WGS84.",
+  "zmiany": {
+    "0.3.0": [
+      "Nowe pola: stan_urzadzenia i data_stanu (stan urządzenia osobno od statusu danych), pietro, sposob_ustalenia_polozenia. Wszystkie opcjonalne na wejściu: plik zgodny z 0.2.0 pozostaje poprawny.",
+      "data_produkcji, data_waznosci_elektrod i data_waznosci_baterii przyjmują RRRR-MM-DD albo RRRR-MM (typ string z wzorcem, bo Table Schema nie ma typu łączącego date i yearmonth).",
+      "Atrybut publiczne: false oznacza pole zbierane w rejestrze, ale puste w danych otwartych (kontakt dysponenta, numer seryjny).",
+      "Atrybut waga_dla_statusu: waga pola w kompletności zależna od statusu rekordu. Kompletność w danych otwartych liczona tylko z pól publicznych.",
+      "kod_terc: kanon 7 cyfr; 6 cyfr przyjmowane z ostrzeżeniem. Ostrzeżenie dla rekordu zweryfikowanego z godzinami dostępu, których nie da się odczytać.",
+      "Status: wartość techniczna aktywny zmieniona na zweryfikowany (etykieta „Zweryfikowany” bez zmian). Na wejściu aktywny jest przyjmowany jako alias (klucz aliasy przy polu) i zamieniany na zweryfikowany.",
+      "dysponent_nazwa jest publikowana: wartość wyglądająca na imię i nazwisko osoby daje ostrzeżenie."
+    ]
+  },
   "missingValues": [
     ""
   ],
@@ -49,18 +60,20 @@
     "pochodzenie": "Pochodzenie danych"
   },
   "wymagane_dla_statusu": {
-    "aktywny": [
+    "zweryfikowany": [
       "dostep",
       "godziny_dostepu",
       "data_weryfikacji"
     ]
   },
   "reguly": [
-    "Rekord zweryfikowany (status aktywny) musi mieć wypełnione pola dostep, godziny_dostepu i data_weryfikacji.",
+    "Rekord zweryfikowany (status zweryfikowany) musi mieć wypełnione pola dostep, godziny_dostepu i data_weryfikacji.",
     "Współrzędne muszą leżeć w prostokącie obejmującym Polskę (to przybliżenie, nie granica państwa – punkt tuż za granicą przechodzi sprawdzenie); zamienione szerokość i długość są zgłaszane jako błąd z podpowiedzią.",
-    "Daty nie mogą być z przyszłości, z wyjątkiem dat ważności elektrod i baterii.",
-    "Minięta data ważności elektrod lub baterii jest ostrzeżeniem, nie błędem.",
-    "Para producent i numer_seryjny jest unikalna."
+    "Daty nie mogą być z przyszłości, z wyjątkiem dat ważności elektrod i baterii (data RRRR-MM jest z przyszłości, gdy z przyszłości jest pierwszy dzień miesiąca).",
+    "Minięta data ważności elektrod lub baterii jest ostrzeżeniem, nie błędem; data RRRR-MM jest ważna do ostatniego dnia miesiąca.",
+    "Para producent i numer_seryjny jest unikalna.",
+    "Rekord zweryfikowany (status zweryfikowany) z godzinami dostępu, których nie da się odczytać (np. opis słowny zamiast składni opening_hours), dostaje ostrzeżenie.",
+    "Kod TERC z 6 cyframi (bez cyfry rodzaju gminy) jest ostrzeżeniem, nie błędem."
   ],
   "fields": [
     {
@@ -135,6 +148,33 @@
         "osm": "geometry.coordinates[0]"
       },
       "wypelnia": "dysponent"
+    },
+    {
+      "name": "sposob_ustalenia_polozenia",
+      "title": "Sposób ustalenia położenia",
+      "type": "string",
+      "grupa": "polozenie",
+      "waga": 0,
+      "description": "Skąd pochodzą współrzędne: pomiar_przy_urzadzeniu (telefon lub odbiornik GPS przy urządzeniu), wskazanie_na_mapie (punkt wskazany ręcznie na mapie), geokodowanie_adresu (punkt adresowy budynku, nie miejsce montażu), import (przejęte ze źródła bez informacji o sposobie), nieznany.",
+      "constraints": {
+        "enum": [
+          "pomiar_przy_urzadzeniu",
+          "wskazanie_na_mapie",
+          "geokodowanie_adresu",
+          "import",
+          "nieznany"
+        ]
+      },
+      "przyklad": "pomiar_przy_urzadzeniu",
+      "zrodla": {},
+      "wypelnia": "system",
+      "etykiety": {
+        "pomiar_przy_urzadzeniu": "Pomiar przy urządzeniu",
+        "wskazanie_na_mapie": "Wskazanie na mapie",
+        "geokodowanie_adresu": "Geokodowanie adresu (punkt adresowy budynku)",
+        "import": "Przejęte ze źródła",
+        "nieznany": "Nieznany"
+      }
     },
     {
       "name": "miejscowosc",
@@ -239,7 +279,7 @@
       "type": "string",
       "grupa": "polozenie",
       "waga": 1,
-      "description": "Identyfikator gminy z rejestru TERYT: 7 cyfr z rodzajem gminy; dopuszczalne 6 cyfr bez rodzaju.",
+      "description": "Identyfikator gminy z rejestru TERYT. Kanon: 7 cyfr – 6 cyfr województwa, powiatu i gminy oraz cyfra rodzaju gminy, np. 1408011. Dopuszczalne 6 cyfr bez cyfry rodzaju (taki kod zwraca państwowa usługa geokodowania GUGiK) – walidator przyjmuje je z ostrzeżeniem. Zapisywany jako tekst.",
       "constraints": {
         "pattern": "^[0-9]{6,7}$"
       },
@@ -255,7 +295,7 @@
       "type": "string",
       "grupa": "polozenie",
       "waga": 0,
-      "description": "Identyfikator miejscowości z rejestru TERYT, 7 cyfr.",
+      "description": "Identyfikator miejscowości z rejestru TERYT: 7 cyfr z zerami wiodącymi, zapisywany jako tekst (np. 0920806, nie 920806).",
       "constraints": {
         "pattern": "^[0-9]{7}$"
       },
@@ -297,6 +337,21 @@
         "warszawa": "device_location",
         "osm": "indoor"
       },
+      "wypelnia": "dysponent"
+    },
+    {
+      "name": "pietro",
+      "title": "Piętro",
+      "type": "integer",
+      "grupa": "polozenie",
+      "waga": 1,
+      "description": "Kondygnacja, na której jest urządzenie: 0 = parter, 1 = pierwsze piętro, wartości ujemne = kondygnacje podziemne (-1 = pierwsza pod ziemią).",
+      "constraints": {
+        "minimum": -5,
+        "maximum": 60
+      },
+      "przyklad": "0",
+      "zrodla": {},
       "wypelnia": "dysponent"
     },
     {
@@ -386,6 +441,7 @@
       "type": "string",
       "grupa": "urzadzenie",
       "waga": 2,
+      "publiczne": false,
       "description": "Numer seryjny nadany przez producenta. Razem z producentem jednoznacznie wskazuje urządzenie.",
       "przyklad": "B21K-04127",
       "zrodla": {},
@@ -394,10 +450,17 @@
     {
       "name": "data_produkcji",
       "title": "Data produkcji",
-      "type": "date",
+      "type": "string",
+      "dokladnosc_daty": [
+        "dzien",
+        "miesiac"
+      ],
       "grupa": "urzadzenie",
       "waga": 1,
-      "description": "Data produkcji urządzenia.",
+      "description": "Data produkcji urządzenia: RRRR-MM-DD albo RRRR-MM, gdy producent podaje tylko miesiąc.",
+      "constraints": {
+        "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])(-(0[1-9]|[12][0-9]|3[01]))?$"
+      },
       "przyklad": "2024-03-01",
       "zrodla": {},
       "wypelnia": "sprzedawca"
@@ -405,10 +468,17 @@
     {
       "name": "data_waznosci_elektrod",
       "title": "Data ważności elektrod",
-      "type": "date",
+      "type": "string",
+      "dokladnosc_daty": [
+        "dzien",
+        "miesiac"
+      ],
       "grupa": "urzadzenie",
       "waga": 2,
-      "description": "Data, do której elektrody są zdatne do użycia.",
+      "description": "Data, do której elektrody są zdatne do użycia: RRRR-MM-DD albo RRRR-MM, gdy na opakowaniu jest tylko miesiąc. Wartość RRRR-MM oznacza ważność do ostatniego dnia tego miesiąca.",
+      "constraints": {
+        "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])(-(0[1-9]|[12][0-9]|3[01]))?$"
+      },
       "przyklad": "2028-03-31",
       "zrodla": {},
       "wypelnia": "sprzedawca"
@@ -416,10 +486,17 @@
     {
       "name": "data_waznosci_baterii",
       "title": "Data ważności baterii",
-      "type": "date",
+      "type": "string",
+      "dokladnosc_daty": [
+        "dzien",
+        "miesiac"
+      ],
       "grupa": "urzadzenie",
       "waga": 2,
-      "description": "Data, do której bateria jest zdatna do użycia.",
+      "description": "Data, do której bateria jest zdatna do użycia: RRRR-MM-DD albo RRRR-MM, gdy na baterii jest tylko miesiąc. Wartość RRRR-MM oznacza ważność do ostatniego dnia tego miesiąca.",
+      "constraints": {
+        "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])(-(0[1-9]|[12][0-9]|3[01]))?$"
+      },
       "przyklad": "2030-01-31",
       "zrodla": {},
       "wypelnia": "sprzedawca"
@@ -430,7 +507,7 @@
       "type": "string",
       "grupa": "odpowiedzialnosc",
       "waga": 2,
-      "description": "Instytucja lub firma, która odpowiada za urządzenie i jego dane (właściciel albo zarządca). Nie osoba fizyczna.",
+      "description": "Instytucja lub firma, która odpowiada za urządzenie i jego dane (właściciel albo zarządca). Pole jest publikowane w danych otwartych, więc wpisz nazwę instytucji albo firmy, nie imię i nazwisko osoby; wartość, która wygląda na imię i nazwisko, daje ostrzeżenie.",
       "przyklad": "Urząd Miasta Legionowo",
       "zrodla": {
         "osm": "operator"
@@ -458,6 +535,7 @@
       "format": "email",
       "grupa": "odpowiedzialnosc",
       "waga": 1,
+      "publiczne": false,
       "description": "Adres instytucjonalny, na który trafiają prośby o potwierdzenie danych i przypomnienia o terminach. Nie adres prywatny.",
       "przyklad": "aed@um.legionowo.pl",
       "zrodla": {
@@ -472,6 +550,7 @@
       "type": "string",
       "grupa": "odpowiedzialnosc",
       "waga": 1,
+      "publiczne": false,
       "description": "Telefon instytucji czynny w godzinach dostępu. Nie numer prywatny.",
       "przyklad": "+48 22 766 40 00",
       "zrodla": {
@@ -522,22 +601,25 @@
       "type": "string",
       "grupa": "weryfikacja",
       "waga": 0,
-      "description": "Stan rekordu: zgloszony (znane urządzenie, miejsce niepotwierdzone), aktywny (etykieta „Zweryfikowany”: dysponent potwierdził miejsce, dostęp i godziny dostępu; data w polu data_weryfikacji), niepotwierdzony (z importu, nikt odpowiedzialny nie potwierdził), nieaktualny (brak potwierdzenia w terminie), wycofany.",
+      "description": "Stan rekordu (weryfikacja DANYCH): zgloszony (znane urządzenie, miejsce niepotwierdzone), zweryfikowany (dysponent potwierdził miejsce, dostęp i godziny dostępu; data w polu data_weryfikacji), niepotwierdzony (z importu, nikt odpowiedzialny nie potwierdził), nieaktualny (brak potwierdzenia w terminie), wycofany (rekord wycofany z rejestru, np. scalony z innym albo usunięty ze źródła). Stan samego urządzenia jest w polu stan_urzadzenia. Do wersji 0.2.0 wartość zweryfikowany nazywała się aktywny – ta pisownia jest przyjmowana na wejściu jako alias.",
       "constraints": {
         "enum": [
           "zgloszony",
-          "aktywny",
+          "zweryfikowany",
           "niepotwierdzony",
           "nieaktualny",
           "wycofany"
         ]
       },
-      "przyklad": "aktywny",
+      "aliasy": {
+        "aktywny": "zweryfikowany"
+      },
+      "przyklad": "zweryfikowany",
       "zrodla": {},
       "wypelnia": "system",
       "etykiety": {
         "zgloszony": "Zgłoszony",
-        "aktywny": "Zweryfikowany",
+        "zweryfikowany": "Zweryfikowany",
         "niepotwierdzony": "Niepotwierdzony",
         "nieaktualny": "Nieaktualny",
         "wycofany": "Wycofany"
@@ -580,6 +662,48 @@
         "email": "Link z wiadomości e-mail",
         "import": "Data przejęta ze źródła"
       }
+    },
+    {
+      "name": "stan_urzadzenia",
+      "title": "Stan urządzenia",
+      "type": "string",
+      "grupa": "weryfikacja",
+      "waga": 0,
+      "waga_dla_statusu": {
+        "zweryfikowany": 3
+      },
+      "description": "Gotowość samego urządzenia do użycia, niezależna od statusu danych: nieznany (nikt nie ocenił; pusta wartość znaczy to samo), gotowy (dysponent potwierdził, że urządzenie jest sprawne), czasowo_niedostepny (dysponent zgłosił problem, np. wymiana baterii, serwis), wycofany_z_uzycia (urządzenie zdemontowane albo trwale niesprawne).",
+      "constraints": {
+        "enum": [
+          "nieznany",
+          "gotowy",
+          "czasowo_niedostepny",
+          "wycofany_z_uzycia"
+        ]
+      },
+      "przyklad": "gotowy",
+      "zrodla": {},
+      "wypelnia": "dysponent",
+      "etykiety": {
+        "nieznany": "Nieznany",
+        "gotowy": "Gotowy do użycia",
+        "czasowo_niedostepny": "Czasowo niedostępny",
+        "wycofany_z_uzycia": "Wycofany z użycia"
+      }
+    },
+    {
+      "name": "data_stanu",
+      "title": "Data oceny stanu",
+      "type": "date",
+      "grupa": "weryfikacja",
+      "waga": 0,
+      "waga_dla_statusu": {
+        "zweryfikowany": 3
+      },
+      "description": "Data, w której ostatnio oceniono stan urządzenia (pole stan_urzadzenia).",
+      "przyklad": "2026-11-15",
+      "zrodla": {},
+      "wypelnia": "dysponent"
     },
     {
       "name": "data_aktualizacji",

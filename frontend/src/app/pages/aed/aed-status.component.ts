@@ -20,7 +20,7 @@ export interface AedMark {
  * An active (confirmed) device is the only pin – the one to look for.
  */
 export const AED_MARKS: Record<AedStatus, AedMark> = {
-  aktywny: {
+  zweryfikowany: {
     box: [32, 42],
     size: [30, 39],
     anchor: [15, 38],
@@ -90,4 +90,68 @@ export class AedStatusComponent {
   readonly status = input.required<AedStatus>();
   protected readonly labels = AED_STATUS_LABELS;
   protected readonly mark = computed(() => AED_MARKS[this.status()]);
+}
+
+/** Schema enum `stan_urzadzenia`; an empty value means `nieznany`. */
+export type AedDeviceCondition = 'nieznany' | 'gotowy' | 'czasowo_niedostepny' | 'wycofany_z_uzycia';
+
+export const aedConditionOf = (value: unknown): AedDeviceCondition =>
+  (String(value ?? '') || 'nieznany') as AedDeviceCondition;
+
+/** The device itself cannot be used: such devices are left out of "available now" and of the nearest list. */
+export const aedUnavailable = (value: unknown): boolean =>
+  ['czasowo_niedostepny', 'wycofany_z_uzycia'].includes(aedConditionOf(value));
+
+const dayText = (date: unknown) =>
+  String(date ?? '')
+    .split('-')
+    .reverse()
+    .join('.');
+
+/** "gotowe do użycia (potwierdzone 12.11.2026)", "czasowo niedostępne (od 20.11.2026)", "wycofane z użycia", "nieznany". */
+export function aedConditionText(value: unknown, date: unknown): string {
+  const day = dayText(date);
+  switch (aedConditionOf(value)) {
+    case 'gotowy':
+      return 'gotowe do użycia' + (day ? ` (potwierdzone ${day})` : '');
+    case 'czasowo_niedostepny':
+      return 'czasowo niedostępne' + (day ? ` (od ${day})` : '');
+    case 'wycofany_z_uzycia':
+      return 'wycofane z użycia';
+    default:
+      return 'nieznany';
+  }
+}
+
+/** Icon of each device condition: a different shape inside a square, so it never reads as the data status. */
+const CONDITION_GLYPHS: Record<AedDeviceCondition, string> = {
+  gotowy: 'M6 12.5l4 4 8-9',
+  czasowo_niedostepny: 'M12 6v7.5M12 17.5v.5',
+  wycofany_z_uzycia: 'M7.5 7.5l9 9M16.5 7.5l-9 9',
+  nieznany: 'M9.3 9.2a2.8 2.8 0 1 1 4.2 2.4c-.9.5-1.5 1-1.5 2.1M12 17.5v.5',
+};
+
+/**
+ * Device condition (`stan_urzadzenia`), shown apart from the data status and from "available now":
+ * a square icon and the text, in the registry list, in the map panel and on the QR page.
+ */
+@Component({
+  selector: 'app-aed-condition',
+  standalone: true,
+  template: `
+    <span class="aed-condition aed-condition--{{ condition() }}">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+        <rect class="aed-condition__box" x="1.5" y="1.5" width="21" height="21" rx="4" />
+        <path class="aed-condition__glyph" [attr.d]="glyph()" />
+      </svg>
+      <span>{{ text() }}</span>
+    </span>
+  `,
+})
+export class AedConditionComponent {
+  readonly value = input<unknown>('');
+  readonly date = input<unknown>('');
+  protected readonly condition = computed(() => aedConditionOf(this.value()));
+  protected readonly glyph = computed(() => CONDITION_GLYPHS[this.condition()]);
+  protected readonly text = computed(() => aedConditionText(this.value(), this.date()));
 }

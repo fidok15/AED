@@ -165,15 +165,15 @@ Z linii poleceń (Python 3, bez dodatkowych pakietów):
 | Wymaganie | Gdzie | Kroki |
 |---|---|---|
 | Szczegółowy opis i tytuł projektu | `docs/opis-projektu.md`, `README.md` | 1. Otwórz `docs/opis-projektu.md`: tytuł roboczy, opis szczegółowy, wersja krótka. 2. W `README.md` sprawdź opis dwóch kanałów i tabelę katalogów. Nazwa akcji: patrz „Do uzupełnienia”. |
-| Prezentacja, min. 5 slajdów | **`docs/prezentacja/misja-aed.pptx`** (14 slajdów, zrzuty na dziewięciu); źródło treści `docs/prezentacja/slajdy.json`, spis w `docs/prezentacja-konspekt.md` | 1. Otwórz plik PPTX. 2. Policz slajdy (14). 3. Porównaj zrzuty ze spisem w konspekcie. |
+| Prezentacja, min. 5 slajdów | **`prezentacja-html/prezentacja.html`** (17 slajdów; jeden plik, otwiera się w przeglądarce bez sieci); źródło: `prezentacja-html/index.html`, budowanie: `python3 prezentacja-html/build.py` | 1. Otwórz plik dwuklikiem. 2. Przejdź slajdy strzałkami: zrzuty ekranu, kroki użytkownika, ograniczenia. |
 | Dowody na realizację wymagań technicznych (zrzuty ekranu) | `frontend/aed-zrzuty/` (zrzuty 01–18 prototypu AED, wersje 320 px, tryby kontrastu, wyniki axe) | 1. Otwórz pliki. 2. Porównaj z ekranami z sekcji 2. Zrzuty portalu z forka (wykaz AED, tabela, mapa, panel): `docs/zrzuty/portal-*.png`, opis w sekcji 5, pkt 7. |
 | Opis funkcjonalności i kroki użytkownika | sekcja 2 tej instrukcji; slajdy 6 i 8 prezentacji | 1. Wykonaj ścieżki W, A, B, C. |
 | Lista ograniczeń | slajd 12 prezentacji; sekcja 6 tej instrukcji | 1. Przeczytaj listę. |
 | Prototyp | adres publiczny z sekcji 0 albo `http://localhost:8080/pl/aed` po `docker compose up --build` | 1. Wykonaj sekcję 0 albo 1. 2. Wykonaj ścieżki W i A–C. |
 | Plik z wzorcowym zakresem danych (xlsx) | `wzorzec/wzorzec-aed.xlsx` | 1. Otwórz w arkuszu kalkulacyjnym. 2. Karta „Dane”: nagłówek 38 kolumn. 3. „Słownik pól”: opis pól. 4. „Słowniki”: wartości dozwolone. 5. „Mapowanie źródeł”: skąd pochodzą pola. 6. „Instrukcja”: zasady wypełniania. |
 | Kod źródłowy | całe repozytorium: `aed_standard/`, `aed_service/`, `backend/mcod/aed/` (wykaz AED w forku portalu), `frontend/src/app/pages/aed/`, `docker-compose*.yml`, `scripts/` | 1. Otwórz `README.md`, tabela „Co jest w repozytorium”. 2. Sprawdź `aed_standard/schema.json` jako źródło prawdy. 3. Uruchom testy (sekcja 3, krok 5). |
-| Logotyp w .jpg, .png, .pdf i formacie otwartym | patrz „Do uzupełnienia” (logo projektuje zespół); wymagania i warianty: `kampania/brief-logo.md` | po dostarczeniu: sprawdź pięć formatów i warianty kolor, mono, negatyw |
-| Księga znaku w .pdf | patrz „Do uzupełnienia”; szkielet: `kampania/ksiega-znaku-szablon.md` | po dostarczeniu: sprawdź koncepcję 3–5 zdań, kolorystykę, pole ochronne, minimalną wielkość, niedozwolone użycia |
+| Logotyp w .jpg, .png, .pdf i formacie otwartym | `kampania/logo/` – katalogi `svg/` (format otwarty), `png/`, `jpg/`, `pdf/`; znak „Opiekun AED” w układzie pełnym (`lockup`) i jako sam sygnet, każdy w wariantach kolor, mono, negatyw; plansza koncepcji `kampania/logo/opiekun-aed-plansza-koncepcji.png` | 1. Otwórz po jednym pliku z każdego katalogu. 2. Sprawdź sześć plików w każdym formacie (2 układy × 3 warianty). |
+| Księga znaku w .pdf | `kampania/opiekun-aed-ksiega-znaku.pdf` (źródło: `kampania/ksiega-znaku/ksiega-znaku.html`) | Sprawdź w pliku: opis koncepcji, kolorystykę, pole ochronne, minimalną wielkość, niedozwolone użycia. |
 
 ### B. Wymagania techniczne (sekcja 5)
 
@@ -215,7 +215,7 @@ Z linii poleceń (Python 3, bez dodatkowych pakietów):
 | Kreatywność i innowacyjność (15%) | wykaz AED z publicznym raportem przyjętych i odrzuconych wykazów (ścieżka W); ścieżki A–C: kanał sprzedawcy z walidacją, naklejka QR, potwierdzenie zarządcy, kompletność, deduplikacja z kolejką przeglądu; `kampania/zachety.md` |
 | Zgodność z tematem wyzwania (15%) | sekcja C powyżej; ścieżka W |
 | Wzorcowy zakres danych (10%) | `wzorzec/wzorzec-aed.xlsx`, `aed_standard/schema.json` |
-| Prezentacja (5%) | `docs/prezentacja/misja-aed.pptx` |
+| Prezentacja (5%) | `prezentacja-html/prezentacja.html` |
 
 ## 5. Zgodność z zasadami dane.gov.pl: co pokazujemy
 
@@ -231,7 +231,7 @@ Z linii poleceń (Python 3, bez dodatkowych pakietów):
 ## 6. Znane ograniczenia (skrót)
 
 - Wykaz AED w portalu działa w lokalnym pełnym stosie forka, ale nie na serwerze publicznym; wdrożenie pod domeną uruchomiono 22.11 tylko lokalnie, pod domeną testową `aed.localhost` (`docs/wdrozenie-serwer.md`, rozdział 11). Harmonogram 03:45 nie był sprawdzony – scalanie uruchamiano ręcznie.
-- Zbiór do publikacji ma 781 rekordów, z czego 708 z API Warszawy; średnia kompletność rejestru 39,2 na 100.
+- Zbiór do publikacji ma 781 rekordów, z czego 708 z API Warszawy; średnia kompletność rejestru 38,5 na 100.
 - Harvester: fork ma XSD 1.14 z `containsAedList` (test parsera i serializera), ale usługa wystawia 1.13, pełnego importu nie uruchomiono, a CKAN flagi nie przenosi; zasób z XML 1.13 albo CKAN oznacza redaktor w panelu.
 - Przy zapisie portal sprawdza tylko plik CSV; wykaz XLSX i wykaz-link – dopiero przy scalaniu.
 - Ponowne scalanie tworzy nowy zasób zbiorczy, poprzedni adres zasobu zwraca 404.

@@ -44,16 +44,24 @@
       }
     </label>
     <p class="aed-field__hint" [id]="hintId">
-      {{ field().description }}
-      @if (field().przyklad) {
-        Przykład: {{ field().przyklad }}.
+      @if (monthDate()) {
+        {{ monthDateHint }}.
+        @if (field().name.startsWith('data_waznosci')) {
+          Gdy na opakowaniu jest tylko miesiąc, wpisz miesiąc – oznacza ważność do jego ostatniego dnia.
+        }
+      } @else {
+        {{ field().description }}
+        @if (field().przyklad) {
+          Przykład: {{ field().przyklad }}.
+        }
       }
     </p>
     <input
       class="form-control"
       [id]="id()"
       [type]="inputType()"
-      [attr.step]="inputType() === 'number' ? 'any' : null"
+      [attr.step]="inputType() === 'number' ? (field().type === 'integer' ? 1 : 'any') : null"
+      [attr.autocomplete]="monthDate() ? 'off' : null"
       [formControl]="control()"
       [class.is-invalid]="invalid"
       [attr.aria-required]="required ? true : null"

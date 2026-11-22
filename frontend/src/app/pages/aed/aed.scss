@@ -490,7 +490,7 @@
       flex-basis: 0;
       background: var(--aed-muted);
 
-      &--aktywny {
+      &--zweryfikowany {
         background: var(--aed-ok);
       }
 
@@ -940,7 +940,7 @@
       stroke-linejoin: round;
     }
 
-    &--aktywny {
+    &--zweryfikowany {
       --mark: var(--aed-ok);
     }
 
@@ -1472,7 +1472,8 @@
   // Sticker sheet: three across on A4; on screen a preview of the same grid.
   .aed-stickers__sheet {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+    // 17rem: the Opiekun AED lockup on the preview stays above the brand book's screen minimum (160 px).
+    grid-template-columns: repeat(auto-fill, minmax(min(17rem, 100%), 1fr));
     gap: 1rem;
     margin: 1.5rem 0 0;
     padding: 0;
@@ -2026,4 +2027,153 @@ html:has(.aed--app) {
     font-weight: 400;
     color: var(--aed-muted);
   }
+}
+
+// Device condition (stan_urzadzenia, schema 0.3.0): a square icon and plain-weight text, so it never reads as
+// the data status (map symbol, bold) or as "available now" (round mark). Colour only repeats the icon.
+.aed .aed-condition {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  --cond: var(--aed-muted);
+
+  svg {
+    flex: none;
+  }
+
+  &__box {
+    fill: var(--cond);
+  }
+
+  &__glyph {
+    fill: none;
+    stroke: var(--aed-paper);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &--gotowy {
+    --cond: var(--aed-ok);
+  }
+
+  &--czasowo_niedostepny {
+    --cond: var(--aed-warn);
+    font-weight: 700;
+  }
+
+  &--wycofany_z_uzycia {
+    --cond: var(--aed-error);
+  }
+}
+
+// Warning on a device that its manager reported as temporarily unavailable (list row and map panel).
+.aed .aed-unavailable {
+  margin: 0.5rem 0;
+  font-weight: 700;
+}
+
+// Map marker of a temporarily unavailable device: an exclamation badge on the status symbol (the marker's
+// label says it in words); the device is drawn under the others.
+.aed .aed-mark__badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border: 2px solid var(--aed-paper);
+  border-radius: 3px;
+  background: var(--aed-warn);
+  color: var(--aed-paper);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.aed .aed-legend .aed-mark__badge--sample {
+  position: static;
+  display: inline-grid;
+  flex: none;
+  margin: 0 0.25rem;
+}
+
+.aed .aed-legend li:has(.aed-mark__badge--sample) {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+// Campaign mark "Opiekun AED" (kampania/logo/svg, clear space 1X inside the file): in the section bar and on the
+// QR phone screen, never below the brand book's screen minimum (lockup 160 px wide without the clear space).
+// The portal's high-contrast modes swap in the negative (black ground) or the one-colour mark (yellow ground).
+.aed .aed-brand {
+  display: inline-flex;
+  flex: none;
+
+  &__logo {
+    display: block;
+    width: 172px;
+    height: auto;
+
+    &--negatyw,
+    &--mono {
+      display: none;
+    }
+  }
+}
+
+body.black-white .aed .aed-brand__logo,
+body.black-yellow .aed .aed-brand__logo {
+  &--kolor {
+    display: none;
+  }
+
+  &--negatyw {
+    display: block;
+  }
+}
+
+body.yellow-black .aed .aed-brand__logo {
+  &--kolor {
+    display: none;
+  }
+
+  &--mono {
+    display: block;
+  }
+}
+
+.aed .aed-nav__brand {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  margin-right: 0.5rem;
+}
+
+.aed .aed-appbar {
+  flex-wrap: wrap;
+}
+
+// Campaign slogan on the start page (brand book: Lexend SemiBold; the portal font stands in for it here).
+.aed .aed-slogan {
+  margin: -0.25rem 0 1rem;
+  color: #14274e;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+body.black-white .aed .aed-slogan,
+body.black-yellow .aed .aed-slogan,
+body.yellow-black .aed .aed-slogan {
+  color: inherit;
+}
+
+.aed .aed-device__condition {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
 }
