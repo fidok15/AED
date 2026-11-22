@@ -1953,6 +1953,11 @@ html:has(.aed--app) {
   }
 }
 
+// Messages quoting column names (szerokosc_geograficzna) widened the page at 320 px.
+.aed .aed-message {
+  overflow-wrap: anywhere;
+}
+
 // Duplicate comparison on a narrow screen (tester round, 22.11): below 640 px the four-column table squeezed
 // values into one-letter lines. Each field becomes a block: its name, then A, B and the verdict, each labelled.
 @media (max-width: 640px) {
