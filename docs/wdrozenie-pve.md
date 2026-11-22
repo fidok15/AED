@@ -60,6 +60,8 @@ cd video && npm ci && npm run render                       # out/misja-aed-pitch
 scp out/misja-aed-pitch.mp4 pve:/tmp/ && ssh pve 'pct push 118 /tmp/misja-aed-pitch.mp4 /opt/aed/video/out/misja-aed-pitch.mp4 && rm /tmp/misja-aed-pitch.mp4'
 ```
 
+Cloudflare trzyma `.mp4` w cache (także odpowiedź 404 sprzed wgrania pliku), więc po podmianie filmu trzeba wyczyścić cache adresu `https://aed.heckyeah.pl/film.mp4` (panel Cloudflare → Caching → Purge Cache → Custom Purge). Reguła konfiguracji w strefie `heckyeah.pl` wyłącza dla hostów `aed*` zaciemnianie adresów e-mail i Rocket Loader; bez niej Cloudflare zamieniał adresy kont demo w HTML na `[email protected]`.
+
 ## Klucz deploy (do zrobienia przez właściciela repozytorium)
 
 Repozytorium jest prywatne. LXC pobiera je kluczem `/root/.ssh/aed_deploy` (ed25519, bez hasła, tylko na tym kontenerze). Do czasu dodania klucza timer kończy się błędem `git fetch`, a strona działa na stanie z pierwszego uruchomienia.
