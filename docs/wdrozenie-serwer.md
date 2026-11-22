@@ -115,16 +115,19 @@ W katalogu `backend/` repozytorium:
 git clone <repozytorium> aed && cd aed/backend
 sh aed-domain/init-env.sh aed.example.pl                 # 1. .env z sekretami; wypisze hasło kont demo AED
 cp mcod/settings/local.py.sample mcod/settings/local.py  # 2. lokalne ustawienia portalu (plik jest w .gitignore)
-docker compose up -d --build                             # 3. budowa i start (pierwszy raz długo)
+docker compose up -d --build --scale caddy=0             # 3. budowa i start BEZ wejścia z internetu (pierwszy raz długo)
 docker compose exec mcod-local-admin python manage.py init_mcod_db            # 4. migracje + dane startowe
 docker compose exec mcod-local-admin python manage.py search_index --rebuild -f  # 5. indeksy wyszukiwarki
 docker compose exec mcod-local-admin python manage.py compilemessages          # 6. polskie tłumaczenia panelu
 docker compose exec mcod-local-admin python manage.py changepassword admin@mcod.local
 docker compose exec mcod-local-admin python manage.py changepassword pelnomocnik@mcod.local
+docker compose up -d caddy                               # 7. dopiero teraz otwórz porty 80/443
 ```
 
 Uwagi:
 
+- Caddy startuje na końcu celowo: `init_mcod_db` zakłada konta z hasłami znanymi z danych startowych. Do zmiany haseł serwer nie może być osiągalny z internetu.
+- `/media/reports/` i `/media/meetings/` są zablokowane na wszystkich hostach (403): w oryginale chroni je logowanie przez `X-Accel`, którego ten serwer pośredniczący nie odtwarza. Pliki zasobów (`/media/resources/`) są serwowane wprost z dysku, także dla zasobów w wersji roboczej – nie wgrywaj tu danych, które nie mają być publiczne.
 - `init_mcod_db` wykonuje `migrate`, więc zakłada też tabele AED (`resources.0076_resource_contains_aed_list`, `aed.0001_initial`) i ładuje `basic_data.json` (`core/management/commands/init_mcod_db.py`). **[nie uruchomiono]**
 - Krok 6 jest potrzebny, bo `docker-compose.local.yml` montuje katalog `translations/` z repozytorium, a w nim nie ma plików `.mo`. Bez tego panel może być po angielsku (wniosek z `docs/integracja-portal-backend.md`).
 - Kontrola: `docker compose ps` (wszystkie `running`, `aed-service` `healthy`), potem `curl -sI https://<domena>/pl/aed`, `curl -s https://api.<domena>/aed-aggregated`, `curl -s https://<domena>/api/aed/eksport/dane-gov-pl.md5`.
