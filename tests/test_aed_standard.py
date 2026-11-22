@@ -374,5 +374,19 @@ class ReviewPairsTest(unittest.TestCase):
         self.assertEqual(len(keys), len(set(keys)))
 
 
+class DateHintTest(unittest.TestCase):
+    def test_ambiguous_date_is_not_guessed(self):
+        from aed_standard.validate import check_value
+
+        def msg(value):
+            return check_value("data_waznosci_baterii", value)[0][1]
+
+        self.assertIn("czy chodzi o 3 kwietnia czy 4 marca 2028 r.", msg("03/04/2028"))
+        self.assertNotIn("Zamień", msg("03/04/2028"))
+        self.assertIn("Zamień na 2028-12-25.", msg("25.12.2028"))
+        self.assertIn("Zamień na 2020-01-13.", msg("01/13/2020"))
+        self.assertNotIn("Zamień", msg("31.02.2030"))
+
+
 if __name__ == "__main__":
     unittest.main()
