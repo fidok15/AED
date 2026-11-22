@@ -799,10 +799,32 @@ def list_devices(req, resp):
     size = min(max(req.get_param_as_int("na_stronie") or 50, 1), 200)
     cond = " AND ".join(where)
     db = req.context.db
-    total = db.execute("SELECT COUNT(*) FROM devices WHERE " + cond, args).fetchone()[0]
-    rows = db.execute("SELECT data, demo FROM devices WHERE %s ORDER BY id_aed LIMIT ? OFFSET ?" % cond,
-                      args + [size, (page - 1) * size]).fetchall()
-    resp.media = {"dane": [dict(public(json.loads(r[0])), demo=bool(r[1])) for r in rows], "razem": total, "strona": page, "na_stronie": size}
+    extra = {}
+    if req.get_param_as_bool("dostepny_teraz"):
+        # The hours can't be read in SQL: check every matching row in Python, then page the open ones.
+        state = open_states()
+        ids, unknown = [], 0
+        for id_aed, hours in db.execute("SELECT id_aed, godziny FROM devices WHERE %s ORDER BY id_aed" % cond, args):
+            answer = state(hours)
+            if answer == "dostepny":
+                ids.append(id_aed)
+            unknown += answer == "nieznane"
+        total, extra["bez_godzin"] = len(ids), unknown
+        chosen = ids[(page - 1) * size:page * size]
+        rows = db.execute("SELECT data, demo FROM devices WHERE id_aed IN (%s) ORDER BY id_aed"
+                          % ",".join("?" * len(chosen)), chosen).fetchall() if chosen else []
+    else:
+        total = db.execute("SELECT COUNT(*) FROM devices WHERE " + cond, args).fetchone()[0]
+        rows = db.execute("SELECT data, demo FROM devices WHERE %s ORDER BY id_aed LIMIT ? OFFSET ?" % cond,
+                          args + [size, (page - 1) * size]).fetchall()
+    resp.media = dict({"dane": [dict(public(json.loads(r[0])), demo=bool(r[1])) for r in rows], "razem": total,
+                       "strona": page, "na_stronie": size}, **extra)
+
+
+def open_states():
+    """`open_now` at the current minute in Poland, memoised per hours text (thousands of rows share a few values)."""
+    at, memo = aed_standard.warsaw_now(), {}
+    return lambda hours: memo[hours] if hours in memo else memo.setdefault(hours, aed_standard.open_now(hours, at))
 
 
 def geojson(req, resp):
@@ -817,6 +839,9 @@ def geojson(req, resp):
         args += [x1, x2, y1, y2]
     rows = req.context.db.execute(
         "SELECT id_aed,nazwa,status,dostep,godziny,kompletnosc,zrodlo,lon,lat,demo FROM devices WHERE " + " AND ".join(where), args)
+    if req.get_param_as_bool("dostepny_teraz"):
+        state = open_states()
+        rows = [r for r in rows if state(r[4]) == "dostepny"]
     feats = [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [r[7], r[8]]},
               "properties": {"id_aed": r[0], "nazwa": r[1], "status": r[2], "dostep": r[3], "godziny_dostepu": r[4],
                              "kompletnosc": r[5], "zrodlo": r[6], "demo": bool(r[9])}} for r in rows]

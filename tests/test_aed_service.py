@@ -323,6 +323,37 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual(self.client.simulate_get("/api/aed/urzadzenia/" + b["id_aed"]).json["nazwa"], "Punkt 2")
         self.assertEqual(self.client.simulate_get("/api/aed/duplikaty", headers=m).json["razem"], 0)
 
+    def test_open_now_filter(self):
+        def rec(i, hours, **kw):
+            base = {n: "" for n in aed_standard.field_names()}
+            base.update(id_aed="AED-OPENTEST%04d" % i, nazwa="Punkt %d" % i, szerokosc_geograficzna="50.1",
+                        dlugosc_geograficzna="20.1", miejscowosc="Kraków", status="niepotwierdzony", zrodlo="godziny",
+                        zrodlo_id=str(i), licencja="CC BY 4.0", dostep="publiczny", kompletnosc="40",
+                        godziny_dostepu=hours)
+            base.update(kw)
+            return base
+        recs = [rec(1, "24/7"), rec(2, "Mo-Fr 08:00-16:00"), rec(3, "Sa 09:00-13:00"), rec(4, ""),
+                rec(5, "sunrise-sunset"), rec(6, "24/7", dostep="prywatny")]
+        with mock.patch.object(aed_standard, "build_registry", return_value=(recs, [], {"polaczenia": {"razem": 0}})):
+            self.client.simulate_post("/api/aed/mapper/uruchom", headers=self.ministry())
+
+        def ids(at, path="/api/aed/urzadzenia?zrodlo=godziny&dostepny_teraz=1"):
+            with mock.patch.object(aed_standard, "warsaw_now", return_value=at):
+                return self.client.simulate_get(path).json
+        tuesday = ids(datetime.datetime(2026, 11, 24, 10, 0))
+        self.assertEqual([r["id_aed"] for r in tuesday["dane"]], ["AED-OPENTEST0001", "AED-OPENTEST0002"])
+        self.assertEqual((tuesday["razem"], tuesday["bez_godzin"]), (2, 2))
+        saturday = ids(datetime.datetime(2026, 11, 28, 10, 0))
+        self.assertEqual([r["id_aed"] for r in saturday["dane"]], ["AED-OPENTEST0001", "AED-OPENTEST0003"])
+        night = ids(datetime.datetime(2026, 11, 28, 23, 0), "/api/aed/urzadzenia?zrodlo=godziny&dostepny_teraz=1&na_stronie=1&strona=1")
+        self.assertEqual((night["razem"], len(night["dane"])), (1, 1))  # only 24/7, paged after the filter
+        plain = self.client.simulate_get("/api/aed/urzadzenia?zrodlo=godziny").json
+        self.assertEqual(plain["razem"], 5)  # without the parameter: no filter, no extra field
+        self.assertNotIn("bez_godzin", plain)
+        geo = ids(datetime.datetime(2026, 11, 24, 10, 0), "/api/aed/urzadzenia.geojson?dostepny_teraz=1&bbox=20,50,20.2,50.2")
+        self.assertEqual(sorted(f["properties"]["id_aed"] for f in geo["features"] if f["properties"]["zrodlo"] == "godziny"),
+                         ["AED-OPENTEST0001", "AED-OPENTEST0002"])
+
     def test_duplicate_decisions_survive_mapper_runs(self):
         def rec(i, **kw):
             base = {n: "" for n in aed_standard.field_names()}

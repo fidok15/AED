@@ -29,23 +29,6 @@ const CELL = 72;
   selector: 'app-aed-map',
   standalone: true,
   template: `
-    <fieldset class="aed-filter">
-      <legend class="aed-filter__legend">Pokaż na mapie według dostępności teraz</legend>
-      <label class="aed-filter__option">
-        <input type="radio" name="aed-open" value="" [checked]="open() === ''" (change)="open.set('')" />
-        <span>Wszystkie</span>
-      </label>
-      @for (state of states; track state) {
-        <label class="aed-filter__option">
-          <input type="radio" name="aed-open" [value]="state" [checked]="open() === state" (change)="open.set(state)" />
-          <span>{{ openLabels[state] }}</span>
-        </label>
-      }
-    </fieldset>
-    <p class="aed-note">
-      Dostępność wynika z godzin podanych w rejestrze i z bieżącej godziny w Polsce. Gdy godzin nie podano albo nie da
-      się ich jednoznacznie odczytać, urządzenie ma stan „nieznana”.
-    </p>
     @if (error()) {
       <p class="aed-message aed-message--error" role="alert">{{ error() }}</p>
     }
@@ -64,10 +47,9 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
 
   /** Status chosen in the registry filter; the map follows it. */
   readonly status = input<AedStatus | ''>('');
+  /** "Dostępny teraz" chosen above the list; same rule as `dostepny_teraz=1` of the API (aed_standard/hours.py). */
+  readonly openNow = input(false);
 
-  protected readonly states: AedOpenState[] = ['dostepny', 'zamkniety', 'nieznane'];
-  protected readonly openLabels = AED_OPEN_LABELS;
-  protected readonly open = signal<AedOpenState | ''>('');
   protected readonly summary = signal('Wczytuję mapę…');
   protected readonly error = signal('');
 
@@ -81,7 +63,7 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
   constructor() {
     effect(() => {
       this.status();
-      this.open();
+      this.openNow();
       untracked(() => this.draw()); // draw() writes the summary signal
     });
   }
@@ -146,7 +128,7 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
   private draw(): void {
     if (!this.map || !this.loaded) return;
     const status = this.status();
-    const open = this.open();
+    const open = this.openNow();
     const now = aedWarsawNow();
     const openStates = new Map<string, AedOpenState>(); // many devices share the same hours text
     const openState = (hours: string) =>
@@ -161,7 +143,7 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
       const { properties } = feature;
       if (!view.contains([lat, lng])) continue;
       if (status && properties.status !== status) continue;
-      if (open && openState(properties.godziny_dostepu) !== open) continue;
+      if (open && openState(properties.godziny_dostepu) !== 'dostepny') continue;
       count++;
       const point = this.map.project([lat, lng], zoom);
       const key = `${Math.floor(point.x / CELL)}:${Math.floor(point.y / CELL)}`;
