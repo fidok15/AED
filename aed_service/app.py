@@ -26,6 +26,7 @@ import segno
 
 import aed_standard
 from aed_standard import konwerter
+from aed_standard.sources import haversine_m
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -785,6 +786,21 @@ def issue_link(req, resp, id_aed):
 
 # ---------- registry ----------
 
+def origin_param(req):
+    """(`lat`, `lon`) the list is sorted from, or None. Never stored; __main__ logs requests without the query."""
+    lat, lon = req.get_param("lat"), req.get_param("lon")
+    if lat is None and lon is None:
+        return None
+    try:
+        point = float(lat), float(lon)
+    except (TypeError, ValueError):
+        point = None
+    if not point or not (-90 <= point[0] <= 90 and -180 <= point[1] <= 180):  # also rejects nan
+        raise ApiError(422, "zle_wspolrzedne", "Parametry „lat” i „lon” podaje się razem, jako liczby: szerokość "
+                                               "od -90 do 90, długość od -180 do 180 (WGS84, kropka dziesiętna).")
+    return point
+
+
 def list_devices(req, resp):
     where, args = ["dostep != 'prywatny'"], []
     for param in ("status", "zrodlo", "dostep"):
@@ -793,32 +809,49 @@ def list_devices(req, resp):
             args.append(req.get_param(param))
     q = (req.get_param("q") or "").strip().casefold()
     if q:
-        where.append("szukaj LIKE ? ESCAPE '\\'")
-        args.append("%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%")
+        # name or town; or the exact id, which the map's "Pokaż na liście" searches for
+        where.append("(szukaj LIKE ? ESCAPE '\\' OR lower(id_aed) = ?)")
+        args += ["%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%", q]
     page = max(req.get_param_as_int("strona") or 1, 1)
     size = min(max(req.get_param_as_int("na_stronie") or 50, 1), 200)
+    near = origin_param(req)
+    if near:
+        where.append("lat IS NOT NULL AND lon IS NOT NULL")  # a device without a position has no distance
     cond = " AND ".join(where)
     db = req.context.db
-    extra = {}
-    if req.get_param_as_bool("dostepny_teraz"):
-        # The hours can't be read in SQL: check every matching row in Python, then page the open ones.
+    extra, distance = {}, {}
+    open_only = req.get_param_as_bool("dostepny_teraz")
+    if open_only or near:
+        # Hours and distances can't be computed in SQL: check every matching row in Python, then page.
         state = open_states()
         ids, unknown = [], 0
-        for id_aed, hours in db.execute("SELECT id_aed, godziny FROM devices WHERE %s ORDER BY id_aed" % cond, args):
-            answer = state(hours)
-            if answer == "dostepny":
-                ids.append(id_aed)
-            unknown += answer == "nieznane"
-        total, extra["bez_godzin"] = len(ids), unknown
+        for id_aed, hours, lat, lon in db.execute(
+                "SELECT id_aed, godziny, lat, lon FROM devices WHERE %s ORDER BY id_aed" % cond, args):
+            if open_only:
+                answer = state(hours)
+                unknown += answer == "nieznane"
+                if answer != "dostepny":
+                    continue
+            ids.append(id_aed)
+            if near:
+                distance[id_aed] = round(haversine_m(near[0], near[1], lat, lon))
+        if near:
+            ids.sort(key=distance.get)  # stable: equal distances keep the id order
+        if open_only:
+            extra["bez_godzin"] = unknown
+        total = len(ids)
         chosen = ids[(page - 1) * size:page * size]
-        rows = db.execute("SELECT data, demo FROM devices WHERE id_aed IN (%s) ORDER BY id_aed"
-                          % ",".join("?" * len(chosen)), chosen).fetchall() if chosen else []
+        found = {r[0]: r[1:] for r in db.execute("SELECT id_aed, data, demo FROM devices WHERE id_aed IN (%s)"
+                                                 % ",".join("?" * len(chosen)), chosen)} if chosen else {}
+        rows = [found[i] for i in chosen]
     else:
         total = db.execute("SELECT COUNT(*) FROM devices WHERE " + cond, args).fetchone()[0]
         rows = db.execute("SELECT data, demo FROM devices WHERE %s ORDER BY id_aed LIMIT ? OFFSET ?" % cond,
                           args + [size, (page - 1) * size]).fetchall()
-    resp.media = dict({"dane": [dict(public(json.loads(r[0])), demo=bool(r[1])) for r in rows], "razem": total,
-                       "strona": page, "na_stronie": size}, **extra)
+    dane = [dict(public(json.loads(data)), demo=bool(demo)) for data, demo in rows]
+    for item in dane if near else []:
+        item["odleglosc_m"] = distance[item["id_aed"]]
+    resp.media = dict({"dane": dane, "razem": total, "strona": page, "na_stronie": size}, **extra)
 
 
 def open_states():

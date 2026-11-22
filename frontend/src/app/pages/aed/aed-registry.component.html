@@ -68,6 +68,33 @@
   których nie da się jednoznacznie odczytać, nie przechodzą tego filtra; lista podaje, ile ich jest.
 </p>
 
+<section class="aed-near" aria-labelledby="aed-near-heading">
+  <h2 class="aed-h2" id="aed-near-heading">Najbliższe urządzenia</h2>
+  <p class="aed-note" id="aed-near-note">
+    Lista ułoży się od najbliższego urządzenia; odległość liczymy w linii prostej, nie wzdłuż drogi. Położenie trafia
+    tylko do zapytania o listę – usługa go nie przechowuje i nie zapisuje w dzienniku.
+  </p>
+  <div class="aed-near__actions">
+    <button
+      class="btn btn-primary"
+      type="button"
+      (click)="locate()"
+      [disabled]="locating()"
+      aria-describedby="aed-near-note">
+      {{ locating() ? 'Ustalam lokalizację…' : 'Użyj mojej lokalizacji' }}
+    </button>
+    <button class="btn btn-outline-primary" type="button" (click)="picking.set(!picking())" [attr.aria-pressed]="picking()">
+      Wskaż punkt na mapie
+    </button>
+    @if (origin()) {
+      <button class="btn btn-link" type="button" (click)="setOrigin(null)">Nie sortuj po odległości</button>
+    }
+  </div>
+  @if (nearError()) {
+    <p class="aed-message aed-message--warn" role="alert">{{ nearError() }}</p>
+  }
+</section>
+
 <form class="aed-search" role="search" (submit)="$event.preventDefault(); filter({ query: search.value })">
   <label class="aed-field__label" for="aed-search">Szukaj po nazwie miejsca lub miejscowości</label>
   <div class="aed-search__row">
@@ -87,14 +114,24 @@
   @for (record of records(); track record.id_aed) {
     <li class="aed-row">
       <div class="aed-row__main">
-        <h3 class="aed-row__name">{{ record['nazwa'] || 'Miejsce bez nazwy' }}</h3>
+        <h3 class="aed-row__name" id="aed-row-{{ record.id_aed }}" tabindex="-1">
+          {{ record['nazwa'] || 'Miejsce bez nazwy' }}
+        </h3>
+        @if (record['odleglosc_m'] !== undefined) {
+          <p class="aed-row__distance">{{ distanceText(+record['odleglosc_m']) }}</p>
+        }
+        <app-aed-status [status]="record.status" />
         <p class="aed-row__address">
           {{ address(record) || record['opis_lokalizacji'] || record['dysponent_nazwa'] }}
         </p>
         <p class="aed-row__id">{{ record.id_aed }}</p>
       </div>
       <div class="aed-row__status">
-        <app-aed-status [status]="record.status" />
+        @if (hasPoint(record)) {
+          <button class="btn btn-link aed-row__map" type="button" (click)="showOnMap(record)">
+            Pokaż na mapie<span class="visually-hidden">: {{ record['nazwa'] || record.id_aed }}</span>
+          </button>
+        }
         @if (record['data_weryfikacji']) {
           <p class="aed-row__note">{{ title('data_weryfikacji') }}: {{ record['data_weryfikacji'] }}</p>
         }
@@ -110,7 +147,9 @@
             <dd>{{ record['godziny_dostepu'] || 'brak danych' }}</dd>
           </div>
         </dl>
-        <p class="aed-row__note">{{ openNow(record) }}</p>
+        @if (record['godziny_dostepu']) {
+          <p class="aed-row__note">{{ openNow(record) }}</p>
+        }
       </div>
       <p class="aed-row__gauge">
         <span>{{ title('kompletnosc') }} {{ record.kompletnosc }}%</span>
@@ -129,8 +168,14 @@
 <section class="aed-map" aria-labelledby="aed-map-heading">
   <h2 class="aed-h2" id="aed-map-heading">Mapa</h2>
   <p>
-    Mapa pokazuje urządzenia z tego samego rejestru i uwzględnia status oraz dostępność teraz wybrane nad listą.
+    Mapa pokazuje urządzenia z tego samego rejestru i uwzględnia status, dostępność teraz i punkt wybrane nad listą.
     Wszystkie informacje z mapy są też na liście; wyszukiwanie działa tylko na liście.
   </p>
-  <app-aed-map [status]="status()" [openNow]="openNowOnly()" />
+  <app-aed-map
+    [status]="status()"
+    [openNow]="openNowOnly()"
+    [origin]="origin()"
+    [picking]="picking()"
+    (picked)="setOrigin($event)"
+    (showOnList)="showOnList($event)" />
 </section>

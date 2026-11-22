@@ -1,11 +1,21 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import {
+  afterNextRender,
+  Component,
+  computed,
+  ElementRef,
+  inject,
+  Injector,
+  OnInit,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 
 import { SeoService } from '@app/services/seo.service';
 import { PaginationComponent } from '@app/shared/pagination/pagination.component';
 import { AedApiService, aedErrorMessage, AedRecord, AedStatus } from './aed-api.service';
-import { AED_OPEN_LABELS, aedOpenNow } from './aed-hours';
-import { AedMapComponent } from './aed-map.component';
+import { AED_OPEN_LABELS, AED_SCHEDULE_LABELS, aedOpenNow } from './aed-hours';
+import { AedMapComponent, aedDistanceText, AedOrigin } from './aed-map.component';
 import { aedField, aedOptions } from './aed-schema';
 import { AED_STATUS_LABELS, AedStatusComponent } from './aed-status.component';
 
@@ -19,18 +29,27 @@ import { AED_STATUS_LABELS, AedStatusComponent } from './aed-status.component';
 export class AedRegistryComponent implements OnInit {
   private readonly api = inject(AedApiService);
   private readonly seo = inject(SeoService);
+  private readonly injector = inject(Injector);
+  private readonly map = viewChild(AedMapComponent);
+  private readonly search = viewChild<ElementRef<HTMLInputElement>>('search');
 
   protected readonly perPage = 25;
   protected readonly statuses = aedOptions(aedField('status')) as AedStatus[];
   protected readonly labels = AED_STATUS_LABELS;
   protected readonly title = (column: string) => aedField(column).title;
   protected readonly number = (value: number) => value.toLocaleString('pl-PL');
+  protected readonly distanceText = aedDistanceText;
 
   protected readonly stats = toSignal(this.api.stats());
   protected readonly status = signal<AedStatus | ''>('');
   protected readonly query = signal('');
   protected readonly openNowOnly = signal(false);
   protected readonly openLabel = AED_OPEN_LABELS.dostepny;
+  /** Point the list is sorted from; kept only in this component, sent only as `lat`/`lon` of the list request. */
+  protected readonly origin = signal<AedOrigin | null>(null);
+  protected readonly picking = signal(false);
+  protected readonly locating = signal(false);
+  protected readonly nearError = signal('');
   /** Devices left out by the filter because their hours are unknown (only while the filter is on). */
   protected readonly withoutHours = signal<number | null>(null);
   protected readonly page = signal(1);
@@ -42,11 +61,12 @@ export class AedRegistryComponent implements OnInit {
     const range = this.records().length ? `${first}–${first + this.records().length - 1}` : '0';
     const status = this.status() ? `, status: ${this.labels[this.status()]}` : '';
     const query = this.query() ? `, szukane: „${this.query()}”` : '';
-    const open = this.openNowOnly() ? ', tylko dostępne teraz' : '';
+    const open = this.openNowOnly() ? ', tylko dostępne teraz według harmonogramu' : '';
+    const near = this.origin() ? ', od najbliższego (odległość w linii prostej)' : '';
     const unknown = this.withoutHours()
       ? ` Dla ${this.number(this.withoutHours())} urządzeń godziny dostępu nie są znane, więc nie ma ich na liście.`
       : '';
-    return `Pokazano ${range} z ${this.number(this.total())}${status}${query}${open}.${unknown}`;
+    return `Pokazano ${range} z ${this.number(this.total())}${status}${query}${open}${near}.${unknown}`;
   });
 
   ngOnInit(): void {
@@ -62,13 +82,16 @@ export class AedRegistryComponent implements OnInit {
     this.load();
   }
 
-  protected load(page = 1): void {
+  protected load(page = 1, focusId = ''): void {
     this.page.set(page);
+    const origin = this.origin();
     this.api
       .devices({
         status: this.status() || undefined,
         q: this.query(),
         dostepny_teraz: this.openNowOnly() ? 1 : undefined,
+        lat: origin ? +origin.lat.toFixed(5) : undefined,
+        lon: origin ? +origin.lon.toFixed(5) : undefined,
         strona: page,
         na_stronie: this.perPage,
       })
@@ -78,13 +101,63 @@ export class AedRegistryComponent implements OnInit {
           this.total.set(result.razem);
           this.withoutHours.set(result.bez_godzin ?? null);
           this.error.set('');
+          if (focusId) {
+            afterNextRender(() => document.getElementById(`aed-row-${focusId}`)?.focus(), { injector: this.injector });
+          }
         },
         error: (error) => this.error.set(aedErrorMessage(error)),
       });
   }
 
+  protected locate(): void {
+    this.nearError.set('');
+    if (!navigator.geolocation) {
+      this.nearError.set('Ta przeglądarka nie udostępnia lokalizacji. Wskaż punkt na mapie.');
+      return;
+    }
+    this.locating.set(true);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        this.locating.set(false);
+        this.setOrigin({ lat: coords.latitude, lon: coords.longitude, accuracy: Math.round(coords.accuracy) });
+      },
+      (failure) => {
+        this.locating.set(false);
+        this.nearError.set(
+          failure.code === failure.PERMISSION_DENIED
+            ? 'Przeglądarka nie zezwoliła na użycie lokalizacji. Wskaż punkt na mapie albo zmień uprawnienie strony.'
+            : 'Nie udało się ustalić lokalizacji. Spróbuj ponownie albo wskaż punkt na mapie.',
+        );
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
+    );
+  }
+
+  protected setOrigin(origin: AedOrigin | null): void {
+    this.picking.set(false);
+    this.nearError.set('');
+    this.origin.set(origin);
+    this.load();
+  }
+
+  /** "Pokaż na liście" of the map panel: search the list for this id and move focus to its row. */
+  protected showOnList(id: string): void {
+    const search = this.search()?.nativeElement;
+    if (search) search.value = id;
+    this.query.set(id);
+    this.load(1, id);
+  }
+
+  protected showOnMap(record: AedRecord): void {
+    this.map()?.showDevice(record.id_aed, +record['szerokosc_geograficzna'], +record['dlugosc_geograficzna']);
+  }
+
+  protected hasPoint(record: AedRecord): boolean {
+    return !!record['szerokosc_geograficzna'] && !!record['dlugosc_geograficzna'];
+  }
+
   protected openNow(record: AedRecord): string {
-    return AED_OPEN_LABELS[aedOpenNow(record['godziny_dostepu'] as string)];
+    return AED_SCHEDULE_LABELS[aedOpenNow(record['godziny_dostepu'] as string)];
   }
 
   protected address(record: AedRecord): string {
