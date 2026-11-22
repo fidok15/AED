@@ -43,6 +43,11 @@
       </a>
     </li>
     <li role="presentation">
+      <a role="menuitem" [routerLink]="['/!' + routerEndpoints.AED_LIST] | localize">
+        {{ 'Menu.AedList' | translate }}
+      </a>
+    </li>
+    <li role="presentation">
       <a role="menuitem" [routerLink]="['/!' + '/!brokenlinks'] | localize">
         {{ 'BrokenLinks.Self' | translate }}
       </a>

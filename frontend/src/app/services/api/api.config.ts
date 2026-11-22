@@ -69,6 +69,7 @@ export enum ApiConfig {
   rdfDoc = '/doc?urls.primaryName=DANE.GOV.PL%20RDF%20API',
   licenses = '/licenses/',
   dga_aggregated = '/dga-aggregated',
+  aed_aggregated = '/aed-aggregated',
   logingovpl = '/logingovpl',
   brokenlinks = '/reports/brokenlinks',
   brokenlinksdata = '/reports/brokenlinks/data',
