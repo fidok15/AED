@@ -25,7 +25,9 @@ OSM_ROW_MESSAGE = ("Wiersz pochodzi z OpenStreetMap (licencja ODbL 1.0), a takic
 def from_osm(values):
     """A row that itself says it comes from OpenStreetMap / ODbL (CLAUDE.md, rule 3). A link to an OSM node in
     powiazane_zrodla is allowed; OSM values are not. One rule for provider lists and company submissions."""
-    return (values.get("zrodlo") or "").strip().casefold() == OSM or (values.get("licencja") or "").strip() == ODBL
+    source = (values.get("zrodlo") or "").strip().casefold()
+    licence = (values.get("licencja") or "").strip().casefold()
+    return source in (OSM, "osm") or source.startswith(OSM) or licence.startswith("odbl")
 # Sources are compared on the coordinates, so only these keys need "_" meta fields:
 # "_ref_warszawa" = Warsaw defibrillator_id that an OSM node points to (tag ref:api-um-warszawa-pl).
 
