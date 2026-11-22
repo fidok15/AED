@@ -155,6 +155,14 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual(again["przyjete"], 0)
         self.assertEqual(again["duplikaty"], out["podsumowanie"]["przyjete"])
 
+    def test_converter_malformed_files_are_422_not_500(self):
+        from tests.test_formaty import MALFORMED
+        for data in MALFORMED:
+            with self.subTest(data=data[:40]):
+                r = self.client.simulate_post("/api/aed/konwerter/analiza", **multipart(data, "plik.json"))
+                self.assertEqual(r.status_code, 422, r.text)
+                self.assertEqual(r.json["blad"]["kod"], "plik_nieczytelny")
+
     def test_converter_public_and_stateless(self):
         c = self.client
         krosno = read_bytes(os.path.join(ROOT, "datasets", "raw", "dane_gov_pl", "krosno", "resource_54632.csv"))

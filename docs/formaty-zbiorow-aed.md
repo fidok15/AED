@@ -55,13 +55,13 @@ Jedna ścieżka: `formaty.detect` rozpoznaje format **po treści** (sygnatury ZI
 |---|---|---|
 | CSV / TXT / TSV | bez zmian | UTF-8, UTF-16 z BOM, Windows-1250; `,` `;` tab |
 | XLSX | `xlsx.py` (bez zmian) | + pomijanie wierszy tytułowych nad nagłówkiem |
-| ODS | `formaty.read_ods` | `number-columns-repeated` puste nie są rozwijane; limit komórek |
+| ODS | `formaty.read_ods` | puste powtórzenia (kolumn i wierszy na końcu arkusza) nie są rozwijane; wiersz z danymi powtórzony więcej razy, niż pozwala limit wierszy lub komórek, jest odrzucany przed rozwinięciem |
 | JSON | `formaty.read_json` | tablica obiektów; obiekt z listą pod `features`/`data`/`result`/`records`/`items`… (do 3 poziomów, CKAN); spłaszczanie `a.b` |
 | GeoJSON | jw. | FeatureCollection albo tablica Feature (Warszawa), Point/MultiPoint/`[[x,y]]` |
-| ArcGIS JSON | jw. | `features[].attributes` + `geometry.x/y` + `spatialReference` → układ z EPSG |
-| KML / KMZ | `formaty.read_xml_format` | Placemark: name, description (HTML → tekst), ExtendedData, SimpleData, nazwa folderu jako „warstwa”; KMZ: limit po rozpakowaniu 50 MB |
-| GPX | jw. | `wpt`/`rtept`: lat/lon, name, desc, cmt, link |
-| GML / WFS | jw. | `featureMember`/`member`: liście jako kolumny, `gml:pos`/`gml:coordinates` + `srsName` |
+| ArcGIS JSON | jw. | `features[].attributes` + `geometry.x/y` + `spatialReference` → układ z EPSG; uszkodzony obiekt → komunikat z jego numerem |
+| KML / KMZ | `formaty.read_xml_format` | Placemark: name, description (HTML → tekst), ExtendedData, SimpleData, nazwa folderu jako „warstwa”; położenie tylko z `Point` – linia lub obszar zostaje bez położenia z komunikatem; KMZ: limit po rozpakowaniu 50 MB |
+| GPX | jw. | tylko `wpt`: lat/lon, name, desc, cmt, link; trasy i ślady (`rte`, `trk`) pomijane z komunikatem |
+| GML / WFS | jw. | `featureMember`/`member`: liście jako kolumny; położenie z `gml:pos`/`gml:coordinates` poza liniami i obszarami, z układem z `srsName` (kolejność osi jak w układzie: EPSG:4326 i EPSG:2180 – szerokość/północna pierwsza; pojedynczy odwrócony punkt jest obracany) |
 | Tabela HTML | `formaty.read_html` (`html.parser`) | największa tabela; komórka z kilkoma blokami (nazwa + adres) dzielona na kolumny |
 | Tabela DOCX | `formaty.read_docx` | największa tabela z `word/document.xml`; wiersz tytułowy pomijany |
 | PDF, obraz, XLS/DOC, Shapefile w ZIP | – | komunikat po polsku: format nieodczytywalny maszynowo / „zapisz jako XLSX/CSV” / „wyeksportuj jako GeoJSON” |
@@ -105,7 +105,7 @@ Ta sama opcja uzupełnia puste `kod_terc` i `kod_simc`: z wyniku geokodowania al
 
 Zbioru krajowego (`python -m aed_standard build`) tym nie przeliczaliśmy – zmieniłoby liczby w dokumentach i prezentacji. Jednorazowo dla jednego źródła: pobrać plik z `datasets/raw/…`, przepuścić przez konwerter z włączonym geokodowaniem (ekran albo `konwerter.convert(..., geocoder=geokod.Geocoder(limit=1000, budget=600))`), a wynik dołączyć do źródła po przeglądzie człowieka; dla całego rejestru to jedno zapytanie na rekord bez kodów – lepiej nocą i z dłuższą przerwą.
 
-Zabezpieczenia obejmują nowe formaty: limit 5 MB pliku; limit 50 MB po rozpakowaniu (XLSX, ODS, DOCX, KMZ; odczyt ograniczony, rozmiar z nagłówka ZIP nie jest ufany); XML z DOCTYPE/ENTITY odrzucany; 300 kolumn (także przy spłaszczaniu JSON i w ODS), 50 000 wierszy, 1 mln komórek, 20 mln znaków – sprawdzane przed analizą kolumn; reguła OSM/ODbL, ukrywanie kontaktu i numeru seryjnego, neutralizacja formuł – bez zmian, bo działają na wspólnej tabeli.
+Zabezpieczenia obejmują nowe formaty: limit 5 MB pliku; limit 50 MB po rozpakowaniu (XLSX, ODS, DOCX, KMZ; odczyt ograniczony, rozmiar z nagłówka ZIP nie jest ufany); XML z DOCTYPE/ENTITY odrzucany; zniekształcony plik (np. `null` wśród obiektów, zbyt głębokie zagnieżdżenie JSON, puste współrzędne) daje 422 z komunikatem, nigdy 500; 300 kolumn (także przy spłaszczaniu JSON i w ODS), 50 000 wierszy, 1 mln komórek, 20 mln znaków – sprawdzane przed analizą kolumn; reguła OSM/ODbL (wiersz po wierszu, a dla JSON, GeoJSON, KML, GPX i GML także na poziomie pliku: metadane Overpass `osm3s`, `generator: Overpass`, `@id: node/…`, `osm_id`/`osm_type`, atrybucja „© OpenStreetMap”, słowo ODbL – wtedy wszystkie wiersze dostają znacznik OSM i są odrzucane, a raport mówi, po czym rozpoznano plik; w każdym formacie także kolumna `osm_id`/`osm_type` albo kolumna `id` z samymi `node/…`), ukrywanie kontaktu i numeru seryjnego, neutralizacja formuł – bez zmian, bo działają na wspólnej tabeli.
 
 ## Od pliku do wykazu – wyniki
 

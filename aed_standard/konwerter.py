@@ -24,7 +24,7 @@ from . import formaty, uklady, xlsx
 from .build import HIDDEN_PUBLIC, publication_reasons, to_csv
 from .registry import REGISTRY_PATH, load_registry
 from .geokod import SOURCE_NOTE as GEOCODED_NOTE
-from .sources import ODBL, OSM, STREET_TYPES, _clean, map_rows, parse_csv
+from .sources import ODBL, OSM, OSM_ROW_MESSAGE, STREET_TYPES, _clean, map_rows, parse_csv
 from .validate import EMAIL_RE, EXPIRY_DATES, LAT, LON, WARNING, issue
 from .wykaz import read_wykaz
 
@@ -195,24 +195,36 @@ def read_table(data, filename=""):
     Every format becomes the same table here; the analysis and the mapping below do not know the format."""
     if not data.strip():
         raise ConverterError("Plik jest pusty.")
-    notes = []
+    notes, raw = [], {}
     try:
         fmt = formaty.detect(data, filename)
-        return _read(fmt, data, notes)
+        t = _read(fmt, data, notes, raw)
+    except ConverterError:
+        raise
     except (formaty.FormatError, xlsx.XlsxError) as ex:
         raise ConverterError(str(ex))
     except (zipfile.BadZipFile, StopIteration):
         raise ConverterError("Pliku nie da się rozpakować – archiwum jest uszkodzone.")
+    except (ValueError, TypeError, AttributeError, IndexError, KeyError, RecursionError):
+        # ponytail: last net for a malformed file the readers did not foresee; the provider gets a 422, not a 500
+        raise ConverterError("Pliku nie da się odczytać – ma uszkodzoną albo nietypową budowę. Zapisz go ponownie "
+                             "jako CSV albo XLSX.")
+    # A file exported from OpenStreetMap as a whole (CLAUDE.md, rule 3): every row gets the OSM mark in convert().
+    t["osm"] = formaty.osm_origin(t["format"], raw.get("text"), t["columns"], t["rows"])
+    if t["osm"]:
+        t["notes"].append("Plik rozpoznano jako eksport z OpenStreetMap (%s) – wszystkie wiersze mają licencję ODbL "
+                          "i nie trafią do wykazu." % t["osm"])
+    return t
 
 
-def _read(fmt, data, notes):
+def _read(fmt, data, notes, raw):
     sep, text = None, None
     if fmt in ("xlsx", "zip?"):
         sheet, lines = xlsx.read_rows(data, XLSX_MAX_UNPACKED, MAX_CHARS)
         notes.append("Odczytano pierwszy arkusz pliku XLSX%s." % (" („%s”)" % sheet if sheet else ""))
         fmt, encoding = "xlsx", "nie dotyczy (XLSX)"
     elif fmt == "ods":
-        sheet, lines = formaty.read_ods(data, xlsx.MAX_CELLS)
+        sheet, lines = formaty.read_ods(data, xlsx.MAX_CELLS, MAX_ROWS)
         notes.append("Odczytano pierwszy arkusz pliku ODS%s." % (" („%s”)" % sheet if sheet else ""))
         encoding = "nie dotyczy (ODS)"
     elif fmt == "docx":
@@ -220,11 +232,12 @@ def _read(fmt, data, notes):
         notes.extend(more)
         encoding = "nie dotyczy (DOCX)"
     elif fmt in ("kmz", "kml", "gpx", "gml"):
-        columns, rows, more = formaty.read_xml_format(fmt, data)
+        columns, rows, more, raw["text"] = formaty.read_xml_format(fmt, data)
         notes.extend(more)
         return _finish(fmt, "UTF-8 (XML)", None, columns, rows, notes)
     else:
         text, encoding = _decode(data)
+        raw["text"] = text
         if fmt == "json":
             fmt, columns, rows, more = formaty.read_json(text.lstrip())
             notes.extend(more)
@@ -474,7 +487,8 @@ def analyze(data, filename=""):
         "pola": [{"pole": t_, "tytul": TARGET_TITLES[t_]} for t_ in TARGETS],
         "pola_stale": [{"pole": t_, "tytul": TARGET_TITLES[t_], "wartosci": S.enum(t_) or None} for t_ in CONSTANT_TARGETS],
         "uwagi": t["notes"],
-        "ostrzezenia": privacy_warnings(columns, rows, {c: p[0] for c, p in proposal.items()}),
+        "ostrzezenia": ([OSM_ROW_MESSAGE + " Rozpoznano po: %s." % t["osm"]] if t["osm"] else [])
+        + privacy_warnings(columns, rows, {c: p[0] for c, p in proposal.items()}),
     }
 
 
@@ -694,7 +708,7 @@ def convert(data, filename, mapping, constants=None, today=None, geocoder=None):
     for col in (c for c, target in mapping.items() if target == ADDRESS):   # "ul. Jasna 12 38-400 Krosno": comma
         for _, row, _ in t["rows"]:                                         # before the postcode, as parse_address needs
             row[col] = re.sub(r"(\S)\s+(\d{2}-\d{3}\s)", r"\1, \2", _cell(row.get(col)))
-    osm = _osm_rows(t["columns"], t["rows"])
+    osm = {n for n, _, _ in t["rows"]} if t["osm"] else _osm_rows(t["columns"], t["rows"])
     records, notes = map_rows(t["rows"], t["columns"], {"resource_id": "plik"}, entry, "")
     # Mapped columns and constants both count: a constant must not put a hidden value back into the public file.
     hidden = [f for f in HIDDEN_PUBLIC if constants.get(f) or any(r[f] for r in records)]

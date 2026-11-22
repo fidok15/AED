@@ -257,8 +257,16 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
     effect(() => {
       this.filters();
       untracked(() => {
-        // Other filters, other points: forget the loaded area and ask the service again.
+        // Other filters, other points: forget the loaded area and the drawn markers (they may not match the new
+        // filters, e.g. closed devices under "Dostępny teraz"), close the panel and ask the service again.
         this.loaded = undefined;
+        this.features = [];
+        this.markers.clearLayers();
+        this.markerOf.clear();
+        this.groupOf.clear();
+        this.selected.set(null);
+        this.detail.set(null);
+        if (this.map) this.summary.set('Wczytuję urządzenia dla wybranych filtrów…');
         if (this.map) this.load();
       });
     });
@@ -411,7 +419,10 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
         this.error.set('');
         this.draw();
       },
-      error: (error) => this.error.set(aedErrorMessage(error)),
+      error: (error) => {
+        if (request !== this.request) return;
+        this.error.set(`Nie udało się wczytać urządzeń na mapę dla wybranych filtrów. ${aedErrorMessage(error)}`);
+      },
     });
   }
 

@@ -56,7 +56,7 @@ SYSTEMS = (
      and 5400000 <= n <= 6150000, puwg2000),
     ("Web Mercator (EPSG:3857)", lambda e, n: 1500000 <= e <= 2750000 and 6200000 <= n <= 7400000, mercator),
 )
-EPSG = {2180: 1, 2176: 2, 2177: 2, 2178: 2, 2179: 2, 3857: 3, 102100: 3, 900913: 3, 4326: 0}
+EPSG = {2180: 1, 2176: 2, 2177: 2, 2178: 2, 2179: 2, 3857: 3, 102100: 3, 900913: 3, 4326: 0, 4258: 0}
 
 
 def convert(system, e, n):
@@ -117,6 +117,7 @@ def point(text):
     m = WKT_RE.match(text)
     if m:
         return _num(m.group(2)), _num(m.group(3)), "xy"
+    text = re.sub(r"^SRID=\d+;\s*", "", text, flags=re.I)   # "SRID=2180;a b" from GML: the pair in the axis order
     m = DMS_SPLIT_RE.match(text)
     if m:
         p, q = (m.group(1), m.group(2)) if m.group(1) else (m.group(3), m.group(4))
