@@ -41,7 +41,7 @@ main() {
     sed '/"timeout": 1,/d' mcod/settings/local.py.sample | cat - aed-domain/settings.py > mcod/settings/local.py.new
     mv mcod/settings/local.py.new mcod/settings/local.py
 
-    docker compose up -d --build --remove-orphans
+    docker compose up -d --build  # no --remove-orphans: env.sample sets COMPOSE_IGNORE_ORPHANS
     # Portal code is bind-mounted, so unchanged images keep running the old code: restart the app servers.
     docker compose restart mcod-local-admin mcod-local-api mcod-local-cms mcod-local-celery
     docker compose exec -T mcod-local-admin python manage.py migrate --noinput
