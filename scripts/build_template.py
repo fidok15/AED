@@ -11,6 +11,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from aed_standard import schema as S  # noqa: E402
+from aed_standard.build import HIDDEN_PUBLIC  # noqa: E402
 from aed_standard.dedup import make_id  # noqa: E402
 
 OUT = os.path.join(ROOT, "wzorzec")
@@ -66,9 +67,33 @@ def publication_rows():
                    dlugosc_geograficzna=lon, opis_lokalizacji="Hol przy wejściu głównym", wewnatrz_budynku=inside,
                    dostep="publiczny", godziny_dostepu=hours, status="aktywny", data_weryfikacji="2026-11-15",
                    sposob_weryfikacji="qr", data_aktualizacji="2026-11-15", zrodlo="zgloszenie",
-                   zrodlo_id="DEMO-%05d" % i, licencja="CC0 1.0")
+                   zrodlo_id="%012x" % (0xdec0de000000 + i), licencja="CC0 1.0")  # opaque, as in aed_service
         rows.append(rec)
     return rows
+
+
+PUBLIC_SHEET = "Dane otwarte (publikacja)"
+PUBLIC_FIELDS = [n for n in S.FIELD_NAMES if n not in HIDDEN_PUBLIC]
+
+
+def public_rows():
+    """Publication rows restricted to the columns of the open dataset on dane.gov.pl."""
+    return [{k: r[k] for k in PUBLIC_FIELDS} for r in publication_rows()]
+
+
+def public_note():
+    hidden = ", ".join("%s (%s)" % (S.BY_NAME[n]["title"], n) for n in HIDDEN_PUBLIC)
+    status_req = "; ".join("dla statusu „%s”: %s" % (st, ", ".join(names))
+                           for st, names in sorted(S.SCHEMA["wymagane_dla_statusu"].items()))
+    return [
+        "Widok publikacyjny: tylko kolumny, które trafiają do zbioru krajowego na dane.gov.pl (jeden wiersz = jedno urządzenie).",
+        "Zbierane, ale niepublikowane: %s. Kontakt dysponenta służy wyłącznie do próśb o potwierdzenie danych "
+        "i przypomnień o terminach baterii i elektrod; numer seryjny zostaje w rejestrze ministerstwa do deduplikacji "
+        "i obsługi wezwań producenta. Te kolumny są w eksporcie puste, a w tym arkuszu ich nie ma." % hidden,
+        "Wiersz „wymagane” nad nagłówkiem: „tak” – pole wymagane w profilu „publikacja”; "
+        "„przy statusie” – wymagane dopiero dla statusu (%s)." % status_req,
+        "",
+    ]
 
 
 def write_csv(name, rows, columns):
@@ -114,6 +139,7 @@ INSTRUCTIONS = [
     "7. Kontakt podawaj wyłącznie instytucjonalny. Nie wpisuj danych osobowych ani kodów do szafek.",
     "8. Zapis do CSV: Plik → Zapisz jako → „CSV UTF-8 (rozdzielany przecinkami)”. Jeden wiersz nagłówka, separator przecinek, bez cudzysłowu wokół całych wierszy.",
     "9. Usuń wiersz przykładowy przed wysłaniem.",
+    "10. Arkusz „%s” pokazuje, które kolumny trafiają do zbioru otwartego na dane.gov.pl, a które zostają tylko w rejestrze ministerstwa." % PUBLIC_SHEET,
     "",
     "Co dzieje się po wysłaniu:",
     "– portal sprawdza plik i pokazuje raport: numer wiersza, pole i opis, co poprawić; wiersze z błędami nie są przyjmowane;",
@@ -148,6 +174,23 @@ def build_xlsx(path):
             dv.add("%s2:%s5000" % (col, col))
     ws.freeze_panes = "A2"
 
+    ws = wb.create_sheet(PUBLIC_SHEET)
+    for line in public_note():
+        ws.append([line])
+    req_pub = set(S.required("publikacja"))
+    req_status = {n for names in S.SCHEMA["wymagane_dla_statusu"].values() for n in names}
+    ws.append(["tak" if n in req_pub else "przy statusie" if n in req_status else "" for n in PUBLIC_FIELDS])
+    header_row = ws.max_row + 1
+    ws.append(PUBLIC_FIELDS)
+    example = public_rows()[0]
+    ws.append([example[n] for n in PUBLIC_FIELDS])
+    red = Font(bold=True, color="B00020")
+    for i, n in enumerate(PUBLIC_FIELDS, start=1):
+        ws.cell(row=header_row, column=i).font = red if n in req_pub else bold
+        ws.column_dimensions[get_column_letter(i)].width = max(14, len(n) + 2)
+    ws.cell(row=1, column=1).font = bold
+    ws.freeze_panes = ws.cell(row=header_row + 1, column=1)
+
     ws = wb.create_sheet("Słownik pól")
     ws.append(["pole", "nazwa", "typ", "wymagane – sprzedaz", "wymagane – publikacja", "ograniczenia",
                "waga w kompletności", "opis", "przykład"])
@@ -179,7 +222,7 @@ def build_xlsx(path):
         ws.append([line])
     ws.column_dimensions["A"].width = 140
 
-    for ws in wb.worksheets[1:4]:
+    for ws in wb.worksheets[2:5]:
         for cell in ws[1]:
             cell.font = bold
         ws.freeze_panes = "A2"
@@ -199,6 +242,7 @@ def main():
     error_cols = [n for n in S.FIELD_NAMES if n in error_cols]
     write_csv("przyklad-sprzedawca-bledy.csv", seller_error_rows(), error_cols)
     write_csv("przyklad-publikacja.csv", publication_rows(), S.FIELD_NAMES)
+    write_csv("przyklad-dane-otwarte.csv", public_rows(), PUBLIC_FIELDS)
     build_xlsx(os.path.join(OUT, "wzorzec-aed.xlsx"))
     for name in sorted(os.listdir(OUT)):
         print(os.path.join(OUT, name))
