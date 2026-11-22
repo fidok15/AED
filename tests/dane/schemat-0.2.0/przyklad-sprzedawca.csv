@@ -1,0 +1,11 @@
+producent,model,numer_seryjny,data_produkcji,data_waznosci_elektrod,data_waznosci_baterii,dysponent_nazwa,dysponent_email,dysponent_telefon,wprowadzajacy_typ,wprowadzajacy_nazwa
+FikcjaMed,DemoAED 200,DEMO-00001,2025-01-15,2028-01-28,2030-01-28,Szkoła Podstawowa nr 0 w Fikcyjnowie,sekretariat@sp0.fikcyjnowo.example,+48 00 000 00 02,sprzedawca,Fikcyjny Sprzedawca AED Sp. z o.o.
+FikcjaMed,DemoAED 300,DEMO-00002,2025-02-15,2028-02-28,2030-02-28,Hala Sportowa Demonstracyjna,biuro@hala-demo.example,+48 00 000 00 03,sprzedawca,Fikcyjny Sprzedawca AED Sp. z o.o.
+FikcjaMed,DemoAED 100,DEMO-00003,2025-03-15,2028-03-28,2030-03-28,Przychodnia Przykładowa w Przykładowie,aed@przychodnia.przyklad.example,+48 00 000 00 01,sprzedawca,Fikcyjny Sprzedawca AED Sp. z o.o.
+FikcjaMed,DemoAED 200,DEMO-00004,2025-04-15,2028-04-28,2030-04-28,Szkoła Podstawowa nr 0 w Fikcyjnowie,sekretariat@sp0.fikcyjnowo.example,+48 00 000 00 02,sprzedawca,Fikcyjny Sprzedawca AED Sp. z o.o.
+FikcjaMed,DemoAED 300,DEMO-00005,2025-05-15,2028-05-28,2030-05-28,Hala Sportowa Demonstracyjna,biuro@hala-demo.example,+48 00 000 00 03,sprzedawca,Fikcyjny Sprzedawca AED Sp. z o.o.
+FikcjaMed,DemoAED 100,DEMO-00006,2025-06-15,2028-06-28,2030-06-28,Przychodnia Przykładowa w Przykładowie,aed@przychodnia.przyklad.example,+48 00 000 00 01,sprzedawca,Fikcyjny Sprzedawca AED Sp. z o.o.
+FikcjaMed,DemoAED 200,DEMO-00007,2025-07-15,2028-07-28,2030-07-28,Szkoła Podstawowa nr 0 w Fikcyjnowie,sekretariat@sp0.fikcyjnowo.example,+48 00 000 00 02,sprzedawca,Fikcyjny Sprzedawca AED Sp. z o.o.
+FikcjaMed,DemoAED 300,DEMO-00008,2025-08-15,2028-08-28,2030-08-28,Hala Sportowa Demonstracyjna,biuro@hala-demo.example,+48 00 000 00 03,sprzedawca,Fikcyjny Sprzedawca AED Sp. z o.o.
+FikcjaMed,DemoAED 100,DEMO-00009,2025-09-15,2028-09-28,2030-09-28,Przychodnia Przykładowa w Przykładowie,aed@przychodnia.przyklad.example,+48 00 000 00 01,sprzedawca,Fikcyjny Sprzedawca AED Sp. z o.o.
+FikcjaMed,DemoAED 200,DEMO-00010,2025-10-15,2028-10-28,2030-10-28,Szkoła Podstawowa nr 0 w Fikcyjnowie,sekretariat@sp0.fikcyjnowo.example,+48 00 000 00 02,sprzedawca,Fikcyjny Sprzedawca AED Sp. z o.o.

@@ -188,11 +188,15 @@ class BuildTest(unittest.TestCase):
         records, report = A.validate_csv(read(os.path.join(DGP, "legionowo", "resource_2625221.csv")), "publikacja")
         self.assertEqual(len(records), 24)
         # Only system-assigned columns are missing; no unknown column, no row-level error.
-        self.assertEqual({p["kod"] for p in report["problemy"]}, {"brak_kolumny"})
-        self.assertEqual({p["pole"] for p in report["problemy"]}, {"id_aed", "status", "zrodlo", "licencja"})
+        errors = [p for p in report["problemy"] if p["poziom"] == "blad"]
+        self.assertEqual({p["kod"] for p in errors}, {"brak_kolumny"})
+        self.assertEqual({p["pole"] for p in errors}, {"id_aed", "status", "zrodlo", "licencja"})
+        # 0.3.0: Legionowo writes TERC with 6 digits (no gmina type digit) - a warning on every row, not an error
+        warnings = [p for p in report["problemy"] if p["poziom"] == "ostrzezenie"]
+        self.assertEqual(({p["kod"] for p in warnings}, len(warnings)), ({"terc_bez_rodzaju"}, 24))
         for r in (r for r in self.mapped if r["zrodlo"] == "dane.gov.pl/40593"):
             r = dict(r, id_aed=A.make_id(r["zrodlo"], r["zrodlo_id"]))
-            self.assertEqual(check_record(r, "publikacja"), [])
+            self.assertEqual([p["kod"] for p in check_record(r, "publikacja")], ["terc_bez_rodzaju"])
 
     def test_marki_repair(self):
         marki = [r for r in self.mapped if r["zrodlo"] == "dane.gov.pl/4955"]
@@ -368,12 +372,12 @@ class BuildTest(unittest.TestCase):
         self.assertEqual([(c["powod"], c["auto"]) for c in A.find_candidates(a, [near, far])], [("odleglosc", True)])
 
     def test_validate_records_does_not_mutate(self):
-        rows = [{"producent": "X", "numer_seryjny": "1"}, {"producent": "x", "numer_seryjny": "1", "status": "aktywny"}]
+        rows = [{"producent": "X", "numer_seryjny": "1"}, {"producent": "x", "numer_seryjny": "1", "status": "zweryfikowany"}]
         before = copy.deepcopy(rows)
         report = A.validate_records(rows, "sprzedaz")
         self.assertEqual(rows, before)
         self.assertIn("duplikat_numeru_seryjnego", codes(report))
-        self.assertIn("wymagane_dla_aktywnego", codes(report))
+        self.assertIn("wymagane_dla_zweryfikowanego", codes(report))
         self.assertEqual(report["poprawne_wiersze"], [])
         self.assertEqual(A.completeness(S.blank_record()), 0)
         self.assertEqual(A.field_names(), [f["name"] for f in A.load_schema()["fields"]])

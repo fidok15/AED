@@ -11,7 +11,6 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from aed_standard import schema as S  # noqa: E402
-from aed_standard.build import HIDDEN_PUBLIC  # noqa: E402
 from aed_standard.dedup import make_id  # noqa: E402
 
 OUT = os.path.join(ROOT, "wzorzec")
@@ -31,7 +30,9 @@ def seller_rows():
         name, email, phone = BUYERS[i % len(BUYERS)]
         rows.append(dict(SELLER, producent="FikcjaMed", model="DemoAED %d00" % (1 + i % 3),
                          numer_seryjny="DEMO-%05d" % i, data_produkcji="2025-%02d-15" % i,
-                         data_waznosci_elektrod="2028-%02d-28" % i, data_waznosci_baterii="2030-%02d-28" % i,
+                         data_waznosci_elektrod="2028-%02d-28" % i,
+                         # every other battery date as on the label: month only (valid to the end of the month)
+                         data_waznosci_baterii="2030-%02d" % i if i % 2 else "2030-%02d-28" % i,
                          dysponent_nazwa=name, dysponent_email=email, dysponent_telefon=phone))
     return rows
 
@@ -65,7 +66,9 @@ def publication_rows():
         rec.update(id_aed=make_id("zgloszenie", "DEMO-%05d" % i), nazwa=nazwa, miejscowosc=city, cecha_ulicy="ulica",
                    nazwa_ulicy=street, nr_budynku=nr, kod_pocztowy=kod, szerokosc_geograficzna=lat,
                    dlugosc_geograficzna=lon, opis_lokalizacji="Hol przy wejściu głównym", wewnatrz_budynku=inside,
-                   dostep="publiczny", godziny_dostepu=hours, status="aktywny", data_weryfikacji="2026-11-15",
+                   dostep="publiczny", godziny_dostepu=hours, status="zweryfikowany", data_weryfikacji="2026-11-15",
+                   pietro=str(i - 1), sposob_ustalenia_polozenia="pomiar_przy_urzadzeniu", stan_urzadzenia="gotowy",
+                   data_stanu="2026-11-15",
                    sposob_weryfikacji="qr", data_aktualizacji="2026-11-15", zrodlo="zgloszenie",
                    zrodlo_id="%012x" % (0xdec0de000000 + i), licencja="CC0 1.0")  # opaque, as in aed_service
         rows.append(rec)
@@ -73,16 +76,17 @@ def publication_rows():
 
 
 PUBLIC_SHEET = "Dane otwarte (publikacja)"
-PUBLIC_FIELDS = [n for n in S.FIELD_NAMES if n not in HIDDEN_PUBLIC]
+PUBLIC_FIELDS = S.public_fields()
 
 
 def public_rows():
-    """Publication rows restricted to the columns of the open dataset on dane.gov.pl."""
-    return [{k: r[k] for k in PUBLIC_FIELDS} for r in publication_rows()]
+    """Publication rows as the open export writes them (aed_standard.build.to_public), restricted to its columns."""
+    from aed_standard.build import to_public
+    return [{k: v for k, v in to_public(r).items() if k in PUBLIC_FIELDS} for r in publication_rows()]
 
 
 def public_note():
-    hidden = ", ".join("%s (%s)" % (S.BY_NAME[n]["title"], n) for n in HIDDEN_PUBLIC)
+    hidden = ", ".join("%s (%s)" % (S.BY_NAME[n]["title"], n) for n in S.hidden_fields())
     status_req = "; ".join("dla statusu „%s”: %s" % (st, ", ".join(names))
                            for st, names in sorted(S.SCHEMA["wymagane_dla_statusu"].items()))
     return [
@@ -106,7 +110,10 @@ def write_csv(name, rows, columns):
 def constraints_text(f):
     c = f.get("constraints", {})
     parts = []
-    if f.get("type") == "date":
+    if f["name"] in S.MONTH_DATE_FIELDS:
+        parts.append("data RRRR-MM-DD albo miesiąc RRRR-MM (ważne do końca miesiąca)")
+        c = {k: v for k, v in c.items() if k != "pattern"}   # the pattern only spells out the two forms
+    elif f.get("type") == "date":
         parts.append("data RRRR-MM-DD")
     if f.get("type") == "boolean":
         parts.append("tak / nie")
@@ -119,6 +126,11 @@ def constraints_text(f):
     if f.get("format") == "email":
         parts.append("adres e-mail")
     return "; ".join(parts)
+
+
+def weight_text(f):
+    by_status = "; ".join("%s dla statusu „%s”" % (w, st) for st, w in sorted(f.get("waga_dla_statusu", {}).items()))
+    return "%s (%s)" % (f.get("waga", 0), by_status) if by_status else f.get("waga", 0)
 
 
 def enum_meaning(f, value):
@@ -134,7 +146,7 @@ INSTRUCTIONS = [
     "2. Wypełnij kolumny wymagane w Twoim profilu (arkusz „Słownik pól”). Pozostałe kolumny możesz zostawić puste albo usunąć.",
     "3. Profil „sprzedaz”: producent lub sprzedawca zgłasza urządzenie przy sprzedaży – dane urządzenia i nabywcy (dysponenta). Miejsce montażu nie jest jeszcze potrzebne.",
     "4. Profil „publikacja”: rekord gotowy do zbioru krajowego na dane.gov.pl – z nazwą miejsca, współrzędnymi i miejscowością.",
-    "5. Daty wpisuj jako RRRR-MM-DD, np. 2026-03-01. Liczby z kropką dziesiętną, np. 52.395198. Współrzędne w układzie WGS84.",
+    "5. Daty wpisuj jako RRRR-MM-DD, np. 2026-03-01; datę produkcji i daty ważności baterii i elektrod możesz podać jako sam miesiąc RRRR-MM, np. 2030-01 (ważne do końca miesiąca). Liczby z kropką dziesiętną, np. 52.395198. Współrzędne w układzie WGS84.",
     "6. Wartości słownikowe wybieraj z listy rozwijanej (arkusz „Słowniki”). Pola logiczne: „tak” albo „nie”.",
     "7. Kontakt podawaj wyłącznie instytucjonalny. Nie wpisuj danych osobowych ani kodów do szafek.",
     "8. Zapis do CSV: Plik → Zapisz jako → „CSV UTF-8 (rozdzielany przecinkami)”. Jeden wiersz nagłówka, separator przecinek, bez cudzysłowu wokół całych wierszy.",
@@ -144,7 +156,7 @@ INSTRUCTIONS = [
     "Co dzieje się po wysłaniu:",
     "– portal sprawdza plik i pokazuje raport: numer wiersza, pole i opis, co poprawić; wiersze z błędami nie są przyjmowane;",
     "– każde przyjęte urządzenie dostaje stały identyfikator id_aed i naklejkę z kodem QR (status „zgloszony”);",
-    "– dysponent potwierdza miejsce i godziny dostępu po zeskanowaniu kodu QR – rekord staje się „aktywny” i trafia do zbioru na dane.gov.pl;",
+    "– dysponent potwierdza miejsce i godziny dostępu po zeskanowaniu kodu QR – rekord staje się „zweryfikowany” i trafia do zbioru na dane.gov.pl;",
     "– przed końcem ważności baterii i elektrod dysponent dostaje przypomnienie, a raz na jakiś czas prośbę o potwierdzenie danych.",
 ]
 
@@ -193,12 +205,12 @@ def build_xlsx(path):
 
     ws = wb.create_sheet("Słownik pól")
     ws.append(["pole", "nazwa", "typ", "wymagane – sprzedaz", "wymagane – publikacja", "ograniczenia",
-               "waga w kompletności", "opis", "przykład"])
+               "waga w kompletności", "publiczne", "opis", "przykład"])
     req = {p: set(S.required(p)) for p in S.PROFILES}
     for f in S.FIELDS:
         ws.append([f["name"], f["title"], f.get("type", "string"), "tak" if f["name"] in req["sprzedaz"] else "",
-                   "tak" if f["name"] in req["publikacja"] else "", constraints_text(f), f.get("waga", 0),
-                   f["description"], f.get("przyklad", "")])
+                   "tak" if f["name"] in req["publikacja"] else "", constraints_text(f), weight_text(f),
+                   "tak" if f["name"] in PUBLIC_FIELDS else "nie (tylko rejestr)", f["description"], f.get("przyklad", "")])
 
     ws = wb.create_sheet("Słowniki")
     ws.append(["pole", "wartość", "znaczenie"])

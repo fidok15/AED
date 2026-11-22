@@ -8,7 +8,6 @@ Two steps, both in memory (nothing is stored):
 The mapping is turned into a registry entry like those in sources.json and run through the same generic
 mapper (sources.map_rows) and the same check as the portal (wykaz.read_wykaz). Pure Python 3.8.
 """
-import calendar
 import codecs
 import csv
 import datetime
@@ -21,11 +20,10 @@ from collections import Counter
 
 from . import schema as S
 from . import formaty, uklady, xlsx
-from .build import HIDDEN_PUBLIC, publication_reasons, to_csv
+from .build import publication_reasons, to_csv
 from .registry import REGISTRY_PATH, load_registry
-from .geokod import SOURCE_NOTE as GEOCODED_NOTE
-from .sources import ODBL, OSM, OSM_ROW_MESSAGE, STREET_TYPES, _clean, map_rows, parse_csv
-from .validate import EMAIL_RE, EXPIRY_DATES, LAT, LON, WARNING, issue
+from .sources import ODBL, OSM, OSM_ROW_MESSAGE, POSITION_METHOD, STREET_TYPES, _clean, map_rows, parse_csv
+from .validate import EMAIL_RE, LAT, LON, WARNING, issue
 from .wykaz import read_wykaz
 
 ADDRESS = "_adres"        # target: whole address in one column, split by sources.parse_address
@@ -53,6 +51,7 @@ SYNONYMS = {
     "object name": "nazwa", "manufacturer": "producent", "building no": "nr_budynku", "location desc": "opis_lokalizacji",
     "access desc": "godziny_dostepu_opis", "description": "opis_lokalizacji", "desc": "opis_lokalizacji", "polozenie": "opis_lokalizacji",
     "miejscowosc": "miejscowosc", "home number": "nr_budynku", "nr budynku": "nr_budynku", "adres aed": ADDRESS,
+    "kondygnacja": "pietro", "poziom": "pietro", "level": "pietro", "floor": "pietro",
 }
 PL = str.maketrans("ąćęłńóśźżĄĆĘŁŃÓŚŹŻ", "acelnoszzACELNOSZZ")
 POSTCODE_RE = re.compile(r"^\d{2}-\d{3}$")
@@ -526,13 +525,16 @@ def _enum_value(field, value):
         for alias in (k, label, label.split("–")[0]):
             if _key(alias):
                 lookup.setdefault(_key(alias), k)
+    for old, k in S.ALIASES.get(field, {}).items():   # an old spelling (status "aktywny") -> today's value
+        lookup.setdefault(_key(old), k)
     words = _norm(value).split()
     return lookup.get(_key(value)) or (lookup.get(words[0]) if words and words[0] in S.enum(field) else None) or value
 
 
 def _date_value(field, value):
-    """D.M.RRRR, D-M-RRRR, D/M/RRRR, RRRR/M/D -> RRRR-MM-DD; RRRR-MM -> last day of the month for expiry dates.
-    Ambiguous (3/4/2027: DD/MM or MM/DD) and impossible dates stay as they are, so the validator names them."""
+    """D.M.RRRR, D-M-RRRR, D/M/RRRR, RRRR/M/D -> RRRR-MM-DD; RRRR/M, RRRR.M -> RRRR-MM where the schema allows a month
+    (no day is made up: RRRR-MM means "to the end of the month"). Ambiguous (3/4/2027: DD/MM or MM/DD) and
+    impossible dates stay as they are, so the validator names them."""
     m = YMD_RE.match(value)
     if m:
         y, mo, d = int(m.group(1)), int(m.group(3)), int(m.group(4))
@@ -544,10 +546,9 @@ def _date_value(field, value):
                 return value
         else:
             m = YM_RE.match(value)
-            if not (m and field in EXPIRY_DATES and 1 <= int(m.group(2)) <= 12):
+            if not (m and field in S.MONTH_DATE_FIELDS and 1 <= int(m.group(2)) <= 12):
                 return value
-            y, mo = int(m.group(1)), int(m.group(2))
-            d = calendar.monthrange(y, mo)[1]
+            return "%s-%02d" % (m.group(1), int(m.group(2)))
     try:
         return datetime.date(y, mo, d).isoformat()
     except ValueError:
@@ -569,8 +570,10 @@ def normalize_value(field, value):
         word = _key(value)
         return (f.get("trueValues") or [S.TRUE_VALUE])[0] if word in YES_WORDS else \
             (f.get("falseValues") or [S.FALSE_VALUE])[0] if word in NO_WORDS else value
-    if t == "date":
+    if field in S.DATE_FIELDS:
         return _date_value(field, value)
+    if t == "integer" and _key(value) == "parter":
+        return "0"
     if t == "number":
         number = re.sub(r"\s+", "", value).replace(",", ".")
         try:
@@ -670,7 +673,7 @@ def _geocode(records, geocoder):
             failed.append({"wiersz": n, "nazwa": r["nazwa"], "powod": why})
             continue
         r[LAT], r[LON] = repr(res["lat"]), repr(res["lon"])
-        r["opis_lokalizacji"] = r["opis_lokalizacji"] or GEOCODED_NOTE
+        r[POSITION_METHOD] = "geokodowanie_adresu"   # the building's address point, not where the device hangs
         coded += _codes(r, res)
         filled.append({"wiersz": n, "nazwa": r["nazwa"], "adres": res["adres"], "szerokosc": res["lat"],
                        "dlugosc": res["lon"], "uwaga": res.get("uwaga", "")})
@@ -687,7 +690,7 @@ def _geocode(records, geocoder):
         "wiersze_uzupelnione": filled[:LISTED], "wiersze_nieuzupelnione": failed[:LISTED],
         "komunikat": ("Adresy z pliku wysłano do usługi GUGiK. Położenie uzupełniono w %d wierszach, w %d nie. "
                       "Uzupełnione położenie to punkt adresowy budynku, nie miejsce montażu urządzenia – zapisaliśmy to "
-                      "w kolumnie opis_lokalizacji tam, gdzie była pusta. Sprawdź je na miejscu (naklejka QR). "
+                      "w kolumnie sposob_ustalenia_polozenia (geokodowanie_adresu). Sprawdź je na miejscu (naklejka QR). "
                       "Kody TERC/SIMC uzupełniono w %d wierszach." % (len(filled), len(failed), coded)),
     }
 
@@ -729,7 +732,7 @@ def convert(data, filename, mapping, constants=None, today=None, geocoder=None):
     osm = {n for n, _, _ in t["rows"]} if t["osm"] else _osm_rows(t["columns"], t["rows"]) | set(t["osm_rows"])
     records, notes = map_rows(t["rows"], t["columns"], {"resource_id": "plik"}, entry, "")
     # Mapped columns and constants both count: a constant must not put a hidden value back into the public file.
-    hidden = [f for f in HIDDEN_PUBLIC if constants.get(f) or any(r[f] for r in records)]
+    hidden = [f for f in S.hidden_fields() if constants.get(f) or any(r[f] for r in records)]
     for (n, _, _), rec in zip(t["rows"], records):
         # System columns stay empty: the portal fills them from the dataset when it reads the list. A row the file
         # itself marks as OpenStreetMap / ODbL keeps the mark, so the list check rejects it (CLAUDE.md, rule 3).
@@ -740,7 +743,7 @@ def convert(data, filename, mapping, constants=None, today=None, geocoder=None):
         for k, v in constants.items():
             rec[k] = rec[k] or v
         # The file is meant for dane.gov.pl: the same columns stay empty as in every public export.
-        rec.update({f: "" for f in HIDDEN_PUBLIC})
+        rec.update({f: "" for f in S.hidden_fields()})
     if "address_text" in entry:
         _street_only(t["rows"], records, entry["address_text"], notes)
     geo = _geocode(records, geocoder) if geocoder else None

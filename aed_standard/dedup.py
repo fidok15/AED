@@ -9,7 +9,7 @@ from collections import defaultdict
 
 from . import schema as S
 from .registry import SUBMISSION, load_registry
-from .sources import WARSAW, haversine_m
+from .sources import POSITION_METHOD, WARSAW, haversine_m
 from .validate import LAT, LON, serial_key
 
 CANDIDATE_M = 50.0
@@ -21,7 +21,8 @@ AUTO_SIMILARITY = 0.7
 CELL_LAT, CELL_LON = 0.0005, 0.0008
 
 LICENCE_ORDER = S.enum("licencja")  # schema.json lists them from least to most restrictive
-NOT_FILLED = {"id_aed", "status", "data_aktualizacji", "wprowadzajacy_typ", "wprowadzajacy_nazwa"} | {
+# sposob_ustalenia_polozenia travels with the coordinates (merge_cluster), never on its own.
+NOT_FILLED = {"id_aed", "status", "data_aktualizacji", "wprowadzajacy_typ", "wprowadzajacy_nazwa", POSITION_METHOD} | {
     f["name"] for f in S.FIELDS if f.get("grupa") == "pochodzenie"}
 STOPWORDS = {"defibrylator", "defibrylatory", "aed", "ul", "al", "pl", "im", "w", "nr", "i", "the", "ulica", "aleja"}
 
@@ -160,6 +161,8 @@ def merge_cluster(members):
         if not copies_values(other):  # ODbL: never copy OSM values into another source's record
             continue
         filled = False
+        if not rec[LAT] and other[LAT]:
+            rec[POSITION_METHOD] = other[POSITION_METHOD]
         for name in S.FIELD_NAMES:
             if name not in NOT_FILLED and not rec[name] and other[name]:
                 rec[name] = other[name]

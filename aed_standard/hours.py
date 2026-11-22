@@ -71,6 +71,25 @@ def _minute(text, end):
     return h * 60 + m
 
 
+def readable(hours):
+    """True when open_now() can answer for this value at any moment: 24/7 or only the plain rules, every time valid
+    and no span past midnight. Python only (the validator's warning); open_now itself is mirrored in the frontend."""
+    value = (hours or "").strip()
+    if value == "24/7":
+        return True
+    rules = [RULE.fullmatch(rule.strip()) for rule in value.split(";") if rule.strip()]
+    if not rules or not all(rules):
+        return False
+    for match in rules:
+        if match.group(2) in ("off", "closed"):
+            continue
+        for span in match.group(2).split(","):
+            start, to = (_minute(t, end) for end, t in enumerate(span.strip().split("-")))
+            if start is None or to is None or to <= start:
+                return False
+    return True
+
+
 def open_now(hours, now=None):
     """'dostepny', 'zamkniety' or 'nieznane' for a `godziny_dostepu` value at `now` (Warsaw wall clock)."""
     value = (hours or "").strip()

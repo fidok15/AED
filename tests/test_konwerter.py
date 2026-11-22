@@ -120,7 +120,7 @@ class NormalizationTest(unittest.TestCase):
         self.assertEqual([r["wewnatrz_budynku"] for r in rows], ["tak", "tak", "nie"])
         # 03/04/2030 is DD/MM or MM/DD: left as is; 31.02 does not exist: left as is. Both named by the validator.
         self.assertEqual([r["data_waznosci_baterii"] for r in rows], ["2030-01-31", "2030-02-05", "03/04/2030"])
-        self.assertEqual([r["data_waznosci_elektrod"] for r in rows], ["2029-05-31", "2029-02-28", "31.02.2030"])
+        self.assertEqual([r["data_waznosci_elektrod"] for r in rows], ["2029-05", "2029-02", "31.02.2030"])   # 0.3.0: a month stays a month
         self.assertEqual([r["data_produkcji"] for r in rows], ["2020-03-04", "2020-03-04", "01/13/2020"])
         self.assertEqual([r["kod_pocztowy"] for r in rows], ["00-950", "00-951", "12-345"])
         # Contact columns are empty in the public file, but the clean-up is still reported.

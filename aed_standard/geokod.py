@@ -18,7 +18,6 @@ import urllib.parse
 import urllib.request
 
 URL = "https://services.gugik.gov.pl/uug/"
-SOURCE_NOTE = "Położenie z geokodowania adresu (GUGiK, punkt adresowy budynku) – nie miejsce montażu urządzenia."
 MIN_ACCURACY = 0.7   # live: "Kraków, os. Szkolne 27" -> 0.74 for the right point; the service's own floor is 0.4
 LIMIT = 200          # addresses per conversion
 PAUSE = 0.1          # seconds between calls

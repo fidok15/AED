@@ -27,6 +27,7 @@ aed_service, the portal backend and the Angular frontend; also printed by `valid
 
 Row n is the n-th non-empty data row; validate_csv() returns records where records[n-1] is row n.
 """
+import calendar
 import codecs
 import csv
 import datetime
@@ -35,10 +36,13 @@ import io
 import re
 
 from . import schema as S
+from .hours import readable as hours_readable
 
 LAT, LON = "szerokosc_geograficzna", "dlugosc_geograficzna"
 EXPIRY_DATES = ("data_waznosci_elektrod", "data_waznosci_baterii")
-ACTIVE_REQUIRED = tuple(S.SCHEMA["wymagane_dla_statusu"]["aktywny"])
+VERIFIED = "zweryfikowany"
+ACTIVE_REQUIRED = tuple(S.SCHEMA["wymagane_dla_statusu"][VERIFIED])
+HOURS, TERC = "godziny_dostepu", "kod_terc"
 ERROR, WARNING = "blad", "ostrzezenie"
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -49,6 +53,44 @@ EMAIL_RE = re.compile(r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$")
 LOCK_CODE_RE = re.compile(r"\b(?:kod(?:u|em|y)?|pin(?:u|em)?|szyfr(?:u|em)?)\b(?!\s*pocztow)\D{0,20}?(?<!\d)\d{3,8}(?!\d)",
                           re.IGNORECASE)
 LOCK_CODE_FIELDS = ("nazwa", "opis_lokalizacji", "godziny_dostepu_opis")
+OWNER = "dysponent_nazwa"
+# dysponent_nazwa is published: a value shaped like "Jan Kowalski" gets a warning. Stems of words that mark an
+# institution (matched at the start of a word, case ignored). ponytail: shape heuristic, no list of first names.
+INSTITUTION_STEMS = (
+    "urząd", "urzad", "gmin", "miast", "miejsk", "szkoł", "szkol", "sp.", "s.a", "s.c", "z o.o", "zoo", "o.o", "sp.j",
+    "fundacj", "stowarzysz", "parafi", "osp", "szpital", "przychodni", "zesp", "centrum", "ośrod", "osrod",
+    "bibliotek", "dom", "klub", "hotel", "sklep", "aptek", "firm", "kości", "kosci", "starost", "powiat", "policj",
+    "straż", "straz", "uczeln", "uniwersyt", "politechnik", "akademi", "instytut", "przedszkol", "liceum", "techni",
+    "hala", "stadion", "basen", "pływal", "plywal", "kino", "teatr", "muzeum", "galeri", "dworz", "lotnisk", "park",
+    "zakład", "zaklad", "spółdziel", "spoldziel", "wspólnot", "wspolnot", "kancelari", "salon", "restaurac", "bank",
+    "poczt", "minister", "komend", "wojew", "rada", "sąd", "sad", "prokurat", "klinik", "gabinet", "market", "kopalni",
+    "elektrowni", "spółk", "spolk", "grupa", "holding", "polska", "polski", "kompleks", "obiekt", "pensjonat",
+    "schronisk", "nadleśnict", "nadlesnict", "sanatori", "uzdrowisk", "żłob", "zlob", "kurii", "diecez", "zgromadz",
+    "klasztor", "cech", "izba", "związ", "zwiaz", "pogotow", "ratownict", "wopr", "gopr", "topr", "pck", "caritas",
+    "archiw", "areszt", "biur", "burmistrz", "wójt", "wojt", "prezydent", "marszał", "marszal", "cementowni",
+    "cukrowni", "huta", "chorągiew", "choragiew", "hufiec", "aqua", "airport", "port", "autostrad", "dyżur", "dyzur",
+    "zarząd", "zarzad", "dyrekc", "wydział", "wydzial", "oddział", "oddzial", "filia", "jednostk", "komisariat",
+    "więzien", "wiezien", "zamek", "pałac", "palac", "ogród", "ogrod", "cmentarz", "rynek", "plac", "stacj",
+    "hurtowni", "piekarni", "kawiarni", "pizzeri", "fitness", "siłowni", "silowni", "arena", "terma", "termy",
+    "med", "dent", "pharm", "clinic", "center", "centre", "service", "team", "group", "glass", "logist", "cargo",
+    "trans", "invest", "auchan", "castorama", "decathlon", "lidl", "biedronka", "kaufland", "tesco", "carrefour",
+    "ikea", "leroy", "inpost", "orlen", "kghm", "pkp", "pkn", "mosir", "gosir", "osir", "cafe", "caffe",
+    "sołect", "solect", "sołtys", "soltys", "fabryk", "pasaż", "pasaz", "osiedl", "kolej", "tramwaj", "wodociąg",
+    "wodociag", "inspektor", "kuratori", "fundusz", "rzecznik", "referat", "recepcj", "informacj", "świetlic",
+    "swietlic", "przedsiębior", "przedsiebior", "służb", "sluzb", "stomatolog", "punkt", "ltd", "limited", "poland",
+    "europe", "system", "energ", "operator", "security", "tauron", "enea", "zagrod", "folwark", "palmiarni", "plaza",
+    "camp", "marina", "giełd", "gield", "radio", "depot", "patrol", "gaz", "recycling", "packing", "technolog")
+PERSON_WORD_RE = re.compile(r"^[^\W\d_][^\W\d_A-ZĄĆĘŁŃÓŚŹŻ]*(?:-[^\W\d_][^\W\d_A-ZĄĆĘŁŃÓŚŹŻ]*)?$")
+
+
+def looks_like_person(name):
+    """Two or three capitalised words, no digits, no quotes, no institution word: probably "Jan Kowalski"."""
+    words = name.split()
+    if not 2 <= len(words) <= 3 or any(q in name for q in "\"'„”“«»"):
+        return False
+    if not all(PERSON_WORD_RE.match(w) and w[0].isupper() for w in words):
+        return False
+    return not any(w.casefold().startswith(INSTITUTION_STEMS) for w in words)
 
 
 # Profile names are technical; messages say what the profile is for.
@@ -74,6 +116,28 @@ def parse_date(value):
         return None
 
 
+MONTH_RE = re.compile(r"^(\d{4})-(0[1-9]|1[0-2])$")
+
+
+def date_range(value):
+    """'RRRR-MM-DD' -> (day, day); 'RRRR-MM' -> (first day, last day of the month); None when neither."""
+    d = parse_date(value or "")
+    if d:
+        return d, d
+    m = MONTH_RE.match(value or "")
+    if not m:
+        return None
+    y, mo = int(m.group(1)), int(m.group(2))
+    return datetime.date(y, mo, 1), datetime.date(y, mo, calendar.monthrange(y, mo)[1])
+
+
+def valid_until(value):
+    """Last day an expiry date covers: 'RRRR-MM' is valid to the end of the month. None when not a date.
+    The one rule for every place that counts a deadline (validator, reminders, QR screen via the API)."""
+    r = date_range(value)
+    return r[1] if r else None
+
+
 MONTHS_GEN = ("stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca", "lipca", "sierpnia", "września",
               "października", "listopada", "grudnia")
 
@@ -97,6 +161,12 @@ def _date_message(label, example, value):
     return "Pole %s: wpisz istniejącą datę w formacie RRRR-MM-DD, np. %s. Otrzymano: „%s”." % (label, example, value)
 
 
+def _month_date_message(label, example, value):
+    return ("Pole %s: wpisz istniejącą datę w formacie RRRR-MM-DD albo sam miesiąc RRRR-MM, np. %s albo %s. "
+            "Otrzymano: „%s”." % (label, example, example[:7], value)) if not PL_DATE_RE.match(value) \
+        else _date_message(label, example, value)
+
+
 def to_float(value):
     try:
         return float(value)
@@ -104,10 +174,22 @@ def to_float(value):
         return None
 
 
-def completeness(record):
-    total = sum(S.WEIGHTS.values())
-    got = sum(w for name, w in S.WEIGHTS.items() if (record.get(name) or "").strip())
+UNKNOWN = "nieznany"  # a dictionary answer that says nothing: counts as empty in completeness
+
+
+def completeness(record, fields=None):
+    """0-100 from the field weights of schema.json (status-dependent weights included). fields: the fields that
+    count (default: all - the registry, company ranking and badge); public_completeness() for open data."""
+    status = (record.get("status") or "").strip()
+    weights = {n: S.weight(n, status) for n in (fields or S.FIELD_NAMES)}
+    total = sum(weights.values())
+    got = sum(w for name, w in weights.items() if (record.get(name) or "").strip() not in ("", UNKNOWN))
     return int(round(100.0 * got / total)) if total else 0
+
+
+def public_completeness(record):
+    """Completeness of what an open export shows: public fields only (schema.json "publiczne")."""
+    return completeness(record, S.PUBLIC_FIELDS)
 
 
 def _label(name):
@@ -131,6 +213,9 @@ def check_value(name, value):
         if not INT_RE.match(value):
             return [("format_liczby_calkowitej", "Pole %s musi być liczbą całkowitą, np. %s. Otrzymano: „%s”."
                      % (_label(name), example, value))]
+    elif name in S.MONTH_DATE_FIELDS:
+        if date_range(value) is None:
+            return [("format_daty", _month_date_message(_label(name), example, value))]
     elif t == "date":
         if parse_date(value) is None:
             return [("format_daty", _date_message(_label(name), example, value))]
@@ -161,7 +246,7 @@ def check_record(record, profile, row=None, today=None, columns=None):
     """Issues for one record (dict keyed by schema field names). Uniqueness is checked in validate_rows."""
     today = today or datetime.date.today()
     out = []
-    val = {n: (record.get(n) or "").strip() for n in S.FIELD_NAMES}
+    val = {n: S.canonical(n, (record.get(n) or "").strip()) for n in S.FIELD_NAMES}
     bad_type = set()
     for name in S.required(profile):
         if not val[name] and (columns is None or name in columns):
@@ -173,12 +258,26 @@ def check_record(record, profile, row=None, today=None, columns=None):
                 bad_type.add(name)
                 out.append(issue(row, name, ERROR, code, msg))
 
-    if val["status"] == "aktywny":
+    if val["status"] == VERIFIED:
         for name in ACTIVE_REQUIRED:
             if not val[name]:
-                out.append(issue(row, name, ERROR, "wymagane_dla_aktywnego",
-                                 "Rekord zweryfikowany (status „aktywny”) musi mieć wypełnione pole %s. Uzupełnij je albo zmień status."
+                out.append(issue(row, name, ERROR, "wymagane_dla_zweryfikowanego",
+                                 "Rekord zweryfikowany (status „zweryfikowany”) musi mieć wypełnione pole %s. Uzupełnij je albo zmień status."
                                  % _label(name)))
+        if val[HOURS] and not hours_readable(val[HOURS]):
+            out.append(issue(row, HOURS, WARNING, "godziny_nieczytelne",
+                             "Pole %s: nie da się wyliczyć, czy urządzenie jest teraz dostępne. Zapisz godziny np. jako 24/7 "
+                             "albo Mo-Fr 08:00-16:00; opis słowny przenieś do pola %s." % (_label(HOURS), _label(HOURS + "_opis"))))
+
+    if val[OWNER] and looks_like_person(val[OWNER]):
+        out.append(issue(row, OWNER, WARNING, "dysponent_osoba",
+                         "Wpisz nazwę instytucji albo firmy odpowiedzialnej za urządzenie – pole jest publikowane w danych "
+                         "otwartych, więc nie podawaj imienia i nazwiska osoby."))
+
+    if len(val[TERC]) == 6 and TERC not in bad_type:
+        out.append(issue(row, TERC, WARNING, "terc_bez_rodzaju",
+                         "Pole %s ma 6 cyfr, bez cyfry rodzaju gminy. Kanoniczny kod TERC ma 7 cyfr, np. %s – dopisz cyfrę "
+                         "rodzaju gminy z rejestru TERYT." % (_label(TERC), S.BY_NAME[TERC].get("przyklad", ""))))
 
     if profile == "publikacja":
         for name in LOCK_CODE_FIELDS:
@@ -210,16 +309,16 @@ def check_record(record, profile, row=None, today=None, columns=None):
                                  "Punkt (%s, %s) leży poza Polską. Szerokość musi być od %s do %s, długość od %s do %s (WGS84, stopnie dziesiętne)."
                                  % (val[LAT], val[LON], lat_min, lat_max, lon_min, lon_max)))
 
-    for name in S.FIELD_NAMES:
-        if S.BY_NAME[name].get("type") != "date" or name in bad_type or not val[name]:
+    for name in S.DATE_FIELDS:
+        if name in bad_type or not val[name]:
             continue
-        d = parse_date(val[name])
+        first, last = date_range(val[name])
         if name in EXPIRY_DATES:
-            if d < today:
+            if last < today:
                 out.append(issue(row, name, WARNING, "termin_minal",
                                  "Termin w polu %s minął (%s). Wymień element i wpisz nową datę ważności."
                                  % (_label(name), val[name])))
-        elif d > today:
+        elif first > today:
             out.append(issue(row, name, ERROR, "data_z_przyszlosci",
                              "Pole %s zawiera datę z przyszłości (%s). Sprawdź datę." % (_label(name), val[name])))
     return out
@@ -342,7 +441,7 @@ def validate_csv(data, profile, today=None):
     records, checked, checked_rows = [], [], []
     for n, values in enumerate(data_rows, start=1):
         # Best-effort record even for broken rows, so records[n-1] is always row n.
-        records.append({h: v for h, v in zip(header, values) if h in known})
+        records.append({h: S.canonical(h, v) for h, v in zip(header, values) if h in known})
         filled = [v.strip() for v in values if v.strip()]
         if len(values) == 1 and len(header) > 1 and "," in values[0]:
             issues.append(issue(n, None, ERROR, "wiersz_w_cudzyslowie",
