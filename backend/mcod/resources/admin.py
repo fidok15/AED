@@ -567,7 +567,9 @@ class ResourceAdmin(HistoryMixin, ModelAdmin):  # MRO matters here for unescape
         defaults = dict(kwargs)
         if obj is None:
             defaults["form"] = self.add_form
-        return super().get_form(request, obj=obj, **defaults)
+        form = super().get_form(request, obj=obj, **defaults)
+        form.aed_user = request.user  # AED list only in the user's own institution (mcod/aed)
+        return form
 
     def get_history(self, obj: models.Model, request: HttpRequest | None = None):
         history = super().get_history(obj)

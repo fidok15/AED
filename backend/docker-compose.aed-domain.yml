@@ -91,6 +91,8 @@ services:
       AED_BASE_URL: https://${AED_DOMAIN}  # QR stickers, activation links, harvester XML feed
       AED_CORS_ORIGINS: https://${AED_DOMAIN}
       AED_DEMO_PASSWORD: ${AED_DEMO_PASSWORD:-}
+      AED_MINISTRY_PASSWORD: ${AED_MINISTRY_PASSWORD:-}
+      AED_RESET_PASSWORDS: ${AED_RESET_PASSWORDS:-0}
     volumes:
       - aed-data:/data
     healthcheck:

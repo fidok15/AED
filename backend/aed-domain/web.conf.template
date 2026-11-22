@@ -38,8 +38,15 @@ server {
         proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
     }
 
+    # Public media folders only, as in Caddyfile (public_media); the rest of MEDIA_ROOT is 403.
+    location ~ ^/media/resources/waiting/ {
+        return 403;
+    }
+    location ~ ^/media/(resources|images|showcases|academy|newsletter|lab_reports|datasets|dcat)/ {
+        root /srv;
+    }
     location /media/ {
-        alias /srv/media/;
+        return 403;
     }
 
     location /flags/ {

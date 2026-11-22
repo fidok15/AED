@@ -356,16 +356,34 @@ class ResourceForm(forms.ModelForm, HighValueDataFormValidatorMixin):
         return self.cleaned_data.get("contains_aed_list") in (True, "True")
 
     def _validate_aed_list_file(self, data: dict, dataset: Optional[Dataset]) -> None:
-        """AED list check with aed_standard (mcod/aed). XLSX and links are checked when lists are merged."""
-        from mcod.aed.aed_utils import validate_aed_list_file
+        """AED list check with aed_standard (mcod/aed). XLSX is checked when lists are merged."""
+        from mcod.aed import constants as aed_constants
+        from mcod.aed.aed_utils import REMOTE_DISABLED, list_size_error, validate_aed_list_file
 
         if not (data.get("contains_aed_list") and dataset):
             return
+        user = getattr(self, "aed_user", None)  # set by ResourceAdmin.get_form
+        if user is not None and not user.is_superuser and not user.organizations.filter(pk=dataset.organization_id).exists():
+            # The portal lets an editor pick any dataset; an AED list would take over that institution's authorship.
+            self.add_error("contains_aed_list", "Wykaz AED można oznaczyć tylko w zbiorze swojej instytucji.")
+            return
         file = data.get("file")
+        link = data.get("link") or (self.instance.link if self.instance.pk and not self.instance.is_link_internal else "")
+        if not file and link and not aed_constants.ALLOW_REMOTE_LISTS:
+            self.add_error("contains_aed_list", REMOTE_DISABLED)
+            return
         if file and file.name.lower().endswith(".csv"):
+            too_big = list_size_error(file.size)
+            if too_big:
+                self.add_error("contains_aed_list", too_big)
+                return
             content = file.read()
             file.seek(0)
         elif not file and self.instance.pk and self.instance.format == "csv" and self.instance.main_file:
+            too_big = list_size_error(self.instance.main_file.size)
+            if too_big:
+                self.add_error("contains_aed_list", too_big)
+                return
             with self.instance.main_file.open("rb") as f:
                 content = f.read()
         else:

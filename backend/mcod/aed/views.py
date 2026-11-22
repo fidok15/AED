@@ -1,6 +1,7 @@
 import falcon
 from django.apps import apps
 
+from mcod.aed.aed_utils import public_report
 from mcod.core.api import fields
 from mcod.core.api.handlers import BaseHdlr
 from mcod.core.api.hooks import login_optional
@@ -15,7 +16,10 @@ class AggregatedAEDInfoApiResponse(ExtSchema):
     resource_id = fields.Int(attribute="resource.id", data_key="resource_id")
     resource_slug = fields.Str(attribute="resource.slug", data_key="resource_slug")
     updated_at = fields.DateTime(data_key="updated_at")
-    report = fields.Raw(data_key="report")
+    report = fields.Method("get_public_report", data_key="report")
+
+    def get_public_report(self, obj):
+        return public_report(obj.report)
 
 
 class AggregatedAEDInfoView(JsonAPIView):
@@ -32,7 +36,7 @@ class AggregatedAEDInfoView(JsonAPIView):
 
         def _get_data(self, cleaned, *args, **kwargs):
             data = self.database_model.objects.select_related("resource", "resource__dataset").first()
-            if not data or data.resource is None or data.resource.is_removed or not data.resource.is_published:
+            if not data or data.main_aed_resource is None or data.main_aed_dataset is None:
                 raise falcon.HTTPNotFound
             return data
 

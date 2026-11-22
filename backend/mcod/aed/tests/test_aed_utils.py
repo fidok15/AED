@@ -35,7 +35,9 @@ BAD_LIST = "Nazwa;Adres\nUrząd;ul. Jasna\n".encode("utf-8")
 
 @pytest.fixture
 def aed_owner():
-    return OrganizationFactory.create(pk=C.OWNER_ORGANIZATION_PK)
+    owner = OrganizationFactory.create()
+    with patch("mcod.aed.constants.OWNER_ORGANIZATION_PK", owner.pk):
+        yield owner
 
 
 def test_build_main_aed_list_skips_bad_and_unreadable_lists():
@@ -129,6 +131,7 @@ def test_admin_form_rejects_bad_aed_list_with_polish_messages():
     resource = ResourceFactory.create()
     dataset = resource.dataset
     form = ChangeResourceForm(instance=resource)
+    form.aed_user = None
     krosno = SimpleUploadedFile("krosno.csv", (DATA_DIR / "krosno_resource_54632.csv").read_bytes())
     form.cleaned_data = {"contains_aed_list": True, "file": krosno}
     form._errors = {}

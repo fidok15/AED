@@ -38,7 +38,8 @@ def test_rejected_list_mailed_once_then_accepted_message():
     message = mail.outbox[0]
     assert message.to == ["aed@krosno.example.gov.pl"]
     assert message.subject.startswith("Wykaz AED odrzucony")
-    assert "nie występuje w standardzie" in message.body
+    assert "Kolumna spoza standardu AED." in message.body  # fixed description, not the file's raw text
+    assert "„Adres”" not in message.body
     assert "/resources/resource/%s/change/" % resource.pk in message.body
     assert message.alternatives[0][1] == "text/html"
 
@@ -73,3 +74,19 @@ def test_switch_off():
     with patch("mcod.aed.constants.NOTIFY_PROVIDERS", False):
         _merge(resource, KROSNO)
     assert mail.outbox == []
+
+
+def test_zero_sent_is_retried_next_merge():
+    resource = _provider_list()
+    with patch("django.core.mail.EmailMultiAlternatives.send", return_value=0):
+        report = _merge(resource, KROSNO)
+    assert report["wykazy"][0].get("powiadomienie_oczekuje") is True
+    _merge(resource, KROSNO)  # same result, but the message is still owed
+    assert len(mail.outbox) == 1
+
+
+def test_mail_backend_error_marks_all_entries():
+    resource = _provider_list()
+    with patch("mcod.aed.notifications.get_connection", side_effect=RuntimeError("no backend")):
+        report = _merge(resource, KROSNO)
+    assert all(w.get("powiadomienie_oczekuje") for w in report["wykazy"])

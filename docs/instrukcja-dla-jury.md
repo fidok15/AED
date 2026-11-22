@@ -17,7 +17,7 @@ Dziś pełny fork portalu z usługą AED działa tylko lokalnie (także próbnie
 
 Bez logowania można odczytać wynik wykazu (zbiór zbiorczy, tabela, mapa, API, `/aed-aggregated`) i przejrzeć rejestr urządzeń. Dodanie wykazu wymaga konta w panelu portalu (ścieżka W), a zgłoszenie sprzedaży, przypomnienia i panel ministerstwa – kont demo usługi AED (ścieżki A–D).
 
-**Konto dla jury w panelu portalu** – [do uzupełnienia po wdrożeniu]
+**Konto dla jury w panelu portalu (ścieżka dostawcy wykazu).** Panel: `http://localhost:8001` (na serwerze `https://admin.<domena>`), login `jury@aed.example`, hasło `jury-demo-2026` – redaktor instytucji „Gmina Demo (konto jury)”; konto zakłada komenda `manage.py seed_aed_demo`. 1) Zasoby → Dodaj zasób, zbiór „Defibrylatory AED – Gmina Demo”. 2) Plik `datasets/raw/dane_gov_pl/krosno/resource_54632.csv`, „Wykaz AED: TAK”, Zapisz – formularz odrzuca plik i pokazuje błędy po polsku przy polu „Wykaz AED”. 3) Plik `datasets/raw/dane_gov_pl/legionowo/resource_2625221.csv`, „Wykaz AED: TAK” – zasób zapisuje się i trafi do najbliższego scalania krajowego wykazu (`GET /aed-aggregated`). Sprawdzone lokalnie 22.11 (logowanie, zakres uprawnień, oba pliki); pod domeną publiczną – [do sprawdzenia]. Hasła kont demonstracyjnych są jawne celowo, na czas pokazu.
 
 ## 1. Uruchomienie lokalne (jedna komenda)
 

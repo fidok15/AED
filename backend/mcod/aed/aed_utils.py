@@ -8,15 +8,15 @@ Structure, validation and deduplication come from aed_standard (aed_standard/sch
 import datetime
 import logging
 import os
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import requests
 import sentry_sdk
-from cache_memoize import cache_memoize
 from django.apps import apps
 from django.core.cache import caches
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ImproperlyConfigured
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import transaction
 from django.db.models import QuerySet
@@ -26,7 +26,7 @@ from aed_standard.build import to_csv
 from aed_standard.validate import ERROR, LAT, LON
 from aed_standard.wykaz import merge_wykazy, read_wykaz
 from mcod.aed import constants as C
-from mcod.aed.notifications import PENDING_KEY, notify_aed_list_providers
+from mcod.aed.notifications import PENDING_KEY, notify_aed_list_providers, public_problem
 
 if TYPE_CHECKING:
     from mcod.datasets.models import Dataset
@@ -67,26 +67,83 @@ def source_for_resource(resource: "Resource", dataset: Optional["Dataset"] = Non
     }
 
 
+def list_size_error(size: Optional[int]) -> Optional[str]:
+    if size is not None and size > C.MAX_LIST_BYTES:
+        return "Wykaz AED ma %.1f MB; największy dopuszczalny rozmiar to %d MB." % (
+            size / 1048576.0, C.MAX_LIST_BYTES // 1048576)
+    return None
+
+
+def list_rows_error(data: bytes) -> Optional[str]:
+    if data.count(b"\n") > C.MAX_LIST_ROWS:
+        return "Wykaz AED ma więcej niż %d wierszy; podziel go na kilka zasobów." % C.MAX_LIST_ROWS
+    return None
+
+
+class TransientError(str):
+    """A read failure that may pass by itself (I/O, network, server error) - unlike a rejection by rule
+    (link switched off, over a limit, not a CSV). Only these keep the last national list (keep_last_list...)."""
+
+
+REMOTE_DISABLED = (
+    "Wykaz AED musi być plikiem zapisanym w portalu. Portal nie pobiera wykazów z linków - "
+    "dodaj plik CSV jako zasób."
+)
+
+
+def is_remote_link(resource: "Resource") -> bool:
+    return bool(resource.link) and not resource.is_link_internal
+
+
+def _fetch_remote_list(url: str) -> Tuple[Optional[bytes], Optional[str]]:
+    """Only with MAIN_AED_ALLOW_REMOTE_LISTS: no redirects, size limit, limit of the whole download time."""
+    deadline = time.monotonic() + C.REMOTE_TOTAL_TIMEOUT
+    try:
+        # Unlike DGA (verify=False): the content is republished as official data, so the certificate must be valid.
+        with requests.get(url, timeout=(3.0, 5.0), allow_redirects=False, stream=True) as response:
+            if response.status_code != 200:
+                error = "Adres zasobu zwrócił kod %s zamiast 200." % response.status_code
+                return None, TransientError(error) if response.status_code >= 500 else error
+            chunks, size = [], 0
+            for chunk in response.iter_content(64 * 1024):
+                size += len(chunk)
+                if size > C.MAX_LIST_BYTES:
+                    return None, list_size_error(size)
+                if time.monotonic() > deadline:
+                    return None, "Pobieranie wykazu z adresu zasobu trwało dłużej niż %d s." % C.REMOTE_TOTAL_TIMEOUT
+                chunks.append(chunk)
+            return b"".join(chunks), None
+    except requests.exceptions.SSLError:
+        return None, "Adres zasobu ma nieprawidłowy certyfikat HTTPS."
+    except requests.exceptions.RequestException:
+        return None, TransientError("Adres zasobu nie odpowiada.")
+
+
 def read_resource_bytes(resource: "Resource") -> Tuple[Optional[bytes], Optional[str]]:
-    """-> (CSV bytes, None) or (None, Polish error). File first (CSV or the portal's CSV copy of XLSX), then link."""
+    """-> (CSV bytes, None) or (None, Polish error). File kept by the portal (CSV or its CSV copy of XLSX);
+    a link resource only with MAIN_AED_ALLOW_REMOTE_LISTS. Size and row limits before parsing."""
+    if is_remote_link(resource) and not C.ALLOW_REMOTE_LISTS:
+        return None, REMOTE_DISABLED
+    io_failed = False
     for field_file in (resource.main_file if resource.format == "csv" else None, resource.csv_converted_file):
         if field_file:
             try:
+                error = list_size_error(field_file.size)
+                if error:
+                    return None, error
                 with field_file.open("rb") as f:
-                    return f.read(), None
+                    data = f.read()
+                return (None, list_rows_error(data)) if list_rows_error(data) else (data, None)
             except Exception as exc:
+                io_failed = True
                 logger.error("Cannot read AED list file of resource %s: %s", resource.pk, exc)
-    if resource.link and not resource.is_link_internal:
-        try:
-            # Unlike DGA (verify=False): the content is republished as official data, so the certificate must be valid.
-            response = requests.get(resource.link, timeout=(3.0, 5.0))
-        except requests.exceptions.SSLError:
-            return None, "Adres zasobu %s ma nieprawidłowy certyfikat HTTPS." % resource.link
-        except requests.exceptions.RequestException:
-            return None, "Adres zasobu %s nie odpowiada." % resource.link
-        if response.status_code != 200:
-            return None, "Adres zasobu %s zwrócił kod %s zamiast 200." % (resource.link, response.status_code)
-        return response.content, None
+    if io_failed:
+        return None, TransientError("Nie udało się odczytać pliku zasobu z magazynu portalu.")
+    if is_remote_link(resource):
+        data, error = _fetch_remote_list(resource.link)
+        if data is not None and list_rows_error(data):
+            return None, list_rows_error(data)
+        return data, error
     return None, (
         "Wykaz AED musi być plikiem CSV (UTF-8, przecinek) w strukturze standardu AED "
         "albo plikiem XLSX, z którego portal zrobił kopię CSV."
@@ -95,6 +152,9 @@ def read_resource_bytes(resource: "Resource") -> Tuple[Optional[bytes], Optional
 
 def validate_aed_list_file(data: bytes, resource: "Resource", dataset: "Dataset") -> List[str]:
     """Polish error messages for the admin form ([] = the list can be saved)."""
+    too_big = list_size_error(len(data)) or list_rows_error(data)
+    if too_big:
+        return [too_big]
     _, report = read_wykaz(data, source_for_resource(resource, dataset))
     errors = [p for p in report["problemy"] if p["poziom"] == ERROR]
     messages = []
@@ -119,24 +179,70 @@ def get_all_aed_list_resources() -> QuerySet:
     )
 
 
-def key_generator_for_create_main_aed_file(*args, **kwargs) -> str:
-    return "main_aed_file_path_to_clean"
+def key_generator_for_create_main_aed_file(run_id: str = "", *args, **kwargs) -> str:
+    return "main_aed_file_path_to_clean:%s" % run_id
 
 
-def get_or_create_main_aed_path() -> Path:
+def acquire_run_lock(run_id: str) -> bool:
+    """One merge at a time (schedule and manual command share the queue). cache.add is atomic in Redis (SET NX);
+    a retry of the same Celery task keeps its id and so its lock."""
+    cache = caches["default"]
+    return cache.add(C.LOCK_KEY, run_id, C.RUN_TIMEOUT) or cache.get(C.LOCK_KEY) == run_id
+
+
+def release_run_lock(run_id: str) -> None:
+    cache = caches["default"]
+    if cache.get(C.LOCK_KEY) == run_id:
+        cache.delete(C.LOCK_KEY)
+
+
+def get_owner_organization():
+    """The configured owner of the national AED dataset; checked before any list is read."""
+    Organization = apps.get_model("organizations", "Organization")
+    if C.OWNER_ORGANIZATION_PK is None:
+        raise ImproperlyConfigured("MAIN_AED_DATASET_OWNER_ORGANIZATION_PK is not set (owner of the national AED list).")
+    try:
+        return Organization.objects.get(pk=C.OWNER_ORGANIZATION_PK)
+    except Organization.DoesNotExist:
+        raise ImproperlyConfigured("Main AED owner institution %s not found." % C.OWNER_ORGANIZATION_PK)
+
+
+def get_or_create_main_aed_path(run_id: str = "") -> Path:
     directory = Path(C.FILE_CREATION_ROOT)
     os.makedirs(directory, exist_ok=True)
-    return directory / ("%s %s.csv" % (C.FILE_NAME_PREFIX, datetime.datetime.now().strftime("%Y%m%d")))
+    stamp = datetime.datetime.now().strftime("%Y%m%d")
+    return directory / ("%s %s%s.csv" % (C.FILE_NAME_PREFIX, stamp, " " + run_id[:8] if run_id else ""))
+
+
+def attribution(resource: "Resource") -> Dict[str, Any]:
+    """CC BY 4.0 attribution of one list used in the national list (public report)."""
+    dataset = resource.dataset
+    return {
+        "instytucja": dataset.organization.title,
+        "zbior": dataset.title,
+        "zasob": resource.title,
+        "zasob_id": resource.pk,
+        "link": resource.frontend_absolute_url,
+        "licencja": dataset.license_name,
+    }
 
 
 def build_main_aed_list(resources) -> Tuple[str, Dict[str, Any]]:
-    """-> (CSV text of the national list, public report). No database writes."""
-    items = []
+    """-> (CSV text of the national list, report). No database writes. The full report (with aed_standard's
+    messages) stays in the database for the provider e-mail; the API shows public_report()."""
+    items, used = [], {}
+    unreadable = 0
     for resource in resources:
         data, error = read_resource_bytes(resource)
+        unreadable += isinstance(error, TransientError)  # rejections by rule do not count
         items.append((source_for_resource(resource), data, error))
+        used[resource.pk] = resource
     national, pairs, report = merge_wykazy(items)
     report["data_utworzenia"] = datetime.datetime.now().isoformat(timespec="seconds")
+    report["wykazy_nieodczytane"] = unreadable
+    report["wykorzystane_zasoby"] = [
+        attribution(used[w["zasob"]]) for w in report["wykazy"] if w["status"] != "odrzucony" and w["zasob"] in used
+    ]
     logger.info(
         "AED lists accepted: %s/%s, national list rows: %s",
         report["wykazy_przyjete"],
@@ -146,30 +252,49 @@ def build_main_aed_list(resources) -> Tuple[str, Dict[str, Any]]:
     return to_csv(national), report
 
 
-@cache_memoize(
-    timeout=C.FILE_CREATION_CACHE_TIMEOUT,
-    hit_callable=lambda *args, **kwargs: logger.info("Using cache for main AED file path."),
-    key_generator_callable=key_generator_for_create_main_aed_file,
+PUBLIC_LIST_KEYS = ("zasob", "tytul", "instytucja", "zrodlo", "status", "wiersze", "przyjete", "problemy_razem")
+PUBLIC_REPORT_KEYS = (
+    "wykazy_razem", "wykazy_przyjete", "wykazy_nieodczytane", "rekordy_z_wykazow", "rekordy_po_deduplikacji",
+    "polaczenia", "do_przegladu", "rekordy_w_wykazie_krajowym", "pominiete_przy_publikacji", "kompletnosc_srednia",
+    "data_utworzenia", "wykorzystane_zasoby", "ostatnie_nieudane_scalanie",
 )
-def create_main_aed_file() -> Tuple[str, Dict[str, Any]]:
-    """Writes the national AED list CSV. -> (path, report). Cached so that task retries reuse it (as DGA)."""
+
+
+def public_report(report: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Explicit public report: counters, per list status and coded problems; no raw values, URLs or internal keys."""
+    report = report or {}
+    result = {k: report[k] for k in PUBLIC_REPORT_KEYS if k in report}
+    result["wykazy"] = [
+        dict({k: w.get(k) for k in PUBLIC_LIST_KEYS}, problemy=[public_problem(p) for p in w.get("problemy", [])])
+        for w in report.get("wykazy", [])
+    ]
+    return result
+
+
+def create_main_aed_file(run_id: str = "") -> Tuple[str, Dict[str, Any]]:
+    """Writes the national AED list CSV of this run. -> (path, report). Cached per run so that task retries
+    reuse it (as DGA)."""
+    cache = caches["default"]
+    key = key_generator_for_create_main_aed_file(run_id)
+    cached = cache.get(key) if run_id else None  # cache only serves retries of one task run
+    if cached and os.path.exists(cached[0]):
+        logger.info("Using cache for main AED file path.")
+        return cached
     content, report = build_main_aed_list(get_all_aed_list_resources())
-    file_path = get_or_create_main_aed_path()
+    file_path = get_or_create_main_aed_path(run_id)
     with open(file_path, "w", encoding="utf-8", newline="") as f:
         f.write(content)
-    return str(file_path), report
+    result = (str(file_path), report)
+    if run_id:
+        cache.set(key, result, C.RUN_TIMEOUT)
+    return result
 
 
 def create_main_aed_dataset() -> int:
-    Organization = apps.get_model("organizations", "Organization")
     Dataset = apps.get_model("datasets", "Dataset")
     Category = apps.get_model("categories", "Category")
     Tag = apps.get_model("tags", "Tag")
-    try:
-        institution = Organization.objects.get(pk=C.OWNER_ORGANIZATION_PK)
-    except Organization.DoesNotExist:
-        logger.error("Can't create main AED dataset. Institution with pk %s not found.", C.OWNER_ORGANIZATION_PK)
-        raise ObjectDoesNotExist("Main AED Owner Institution not found.")
+    institution = get_owner_organization()
 
     with transaction.atomic():
         dataset = Dataset.objects.create(
@@ -196,17 +321,19 @@ def create_main_aed_dataset() -> int:
     return dataset.pk
 
 
-def key_generator_for_create_main_aed_resource(*args, **kwargs) -> str:
-    return "main_aed_to_clean"
+def key_generator_for_create_main_aed_resource(run_id: str = "", *args, **kwargs) -> str:
+    return "main_aed_to_clean:%s" % run_id
 
 
-@cache_memoize(
-    timeout=C.RESOURCE_CREATION_CACHE_TIMEOUT,
-    hit_callable=lambda *args, **kwargs: logger.info("AED objects get from cache."),
-    key_generator_callable=key_generator_for_create_main_aed_resource,
-)
-def create_main_aed_resource_with_dataset(file_path: str) -> Tuple[int, Optional[int]]:
-    """Creates the national AED list resource (and the dataset when missing). -> (resource pk, new dataset pk)."""
+def create_main_aed_resource_with_dataset(file_path: str, run_id: str = "") -> Tuple[int, Optional[int]]:
+    """Creates the national AED list resource (and the dataset when missing). -> (resource pk, new dataset pk).
+    Cached per run, so a retry of the task reuses the candidate instead of creating another."""
+    cache = caches["default"]
+    key = key_generator_for_create_main_aed_resource(run_id)
+    cached = cache.get(key) if run_id else None
+    if cached:
+        logger.info("AED objects get from cache.")
+        return cached
     Resource = apps.get_model("resources", "Resource")
     ResourceFile = apps.get_model("resources", "ResourceFile")
     Dataset = apps.get_model("datasets", "Dataset")
@@ -236,7 +363,10 @@ def create_main_aed_resource_with_dataset(file_path: str) -> Tuple[int, Optional
         )
         # post_save runs the portal's file and tabular data validation tasks
         ResourceFile.objects.create(resource=resource, is_main=True, file=django_file)
-    return resource.pk, dataset.pk if new_dataset_created else None
+    result = (resource.pk, dataset.pk if new_dataset_created else None)
+    if run_id:
+        cache.set(key, result, C.RUN_TIMEOUT)
+    return result
 
 
 def main_aed_tabular_schema() -> Dict[str, Any]:
@@ -271,23 +401,47 @@ def update_or_create_aggr_aed_info_and_delete_old_main_aed(new_resource: "Resour
         if old:
             old.delete()
             logger.info("Previous main AED resource %s deleted.", old.pk)
-    notify_aed_list_providers(old_report, report)  # never raises
+    notify_aed_list_providers(old_report, report)  # never raises; marks undelivered entries
     if any(w.get(PENDING_KEY) for w in report.get("wykazy", [])):  # undelivered messages are retried next time
         AggregatedAEDInfo.objects.filter(resource=new_resource).update(report=report)
 
 
-def clean_up_after_main_aed_resource_creation(exception_occurred: bool) -> None:
-    """As clean_up_after_main_dga_resource_creation: on failure delete what the task created; always drop caches
-    and the temporary file."""
+def keep_last_list_after_failed_sources(report: Dict[str, Any]) -> bool:
+    """Empty result while some lists could not be read for a transient reason (TransientError: I/O, network,
+    server error): the last good national list stays; only a note goes to the report. A list rejected by rule
+    (link off, over a limit, not the standard) does not count, so a withdrawn or excluded source does empty the
+    national list. -> True when the run must stop here."""
+    if report.get("rekordy_w_wykazie_krajowym") or not report.get("wykazy_nieodczytane"):
+        return False
+    note = {
+        "data_utworzenia": report.get("data_utworzenia"),
+        "wykazy_nieodczytane": report["wykazy_nieodczytane"],
+        "komunikat": "Scalanie dało pusty wykaz, a części wykazów nie udało się odczytać; "
+                     "pozostawiono poprzedni wykaz krajowy.",
+    }
+    logger.error("Main AED: empty result with %s unreadable lists; previous list kept.", report["wykazy_nieodczytane"])
+    AggregatedAEDInfo = apps.get_model("aed", "AggregatedAEDInfo")
+    info = AggregatedAEDInfo.objects.last()
+    if info:
+        info.report = dict(info.report or {}, ostatnie_nieudane_scalanie=note)
+        info.save()
+    return True
+
+
+def clean_up_after_main_aed_resource_creation(exception_occurred: bool, run_id: str = "") -> None:
+    """As clean_up_after_main_dga_resource_creation: on failure delete what this run created - never the resource
+    the national list currently points at; always drop this run's cache entries and working file."""
     cache = caches["default"]
-    objects_key = key_generator_for_create_main_aed_resource()
-    file_key = key_generator_for_create_main_aed_file()
+    objects_key = key_generator_for_create_main_aed_resource(run_id)
+    file_key = key_generator_for_create_main_aed_file(run_id)
     resource_created, dataset_created = cache.get(objects_key, (None, None))
     cached_file = cache.get(file_key, None)
     try:
-        if exception_occurred and resource_created:
+        info = get_aggregated_aed_info()
+        published = info.resource_id if info else None
+        if exception_occurred and resource_created and resource_created != published:
             apps.get_model("resources", "Resource").raw.filter(pk=resource_created).delete()
-        if exception_occurred and dataset_created:
+        if exception_occurred and dataset_created and resource_created != published:
             apps.get_model("datasets", "Dataset").raw.filter(pk=dataset_created).delete()
     except Exception as exc:
         logger.error("AED clean up failed. Reason: %s", exc)
