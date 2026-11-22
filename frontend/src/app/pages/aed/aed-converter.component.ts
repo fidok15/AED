@@ -146,6 +146,18 @@ export class AedConverterComponent implements OnInit {
     return `${passed} Plik zawiera ${this.number(bad)} ${rejected} – ${bad === 1 ? 'nie trafi' : 'nie trafią'} do wykazu.`;
   });
 
+  /** Rows with an address but no position, said with Polish plural forms (the service's sentence has none). */
+  protected readonly noPosition = computed(() => {
+    const count = this.result()?.raport.bez_wspolrzednych ?? 0;
+    if (!count) return '';
+    const rows = aedPlural(count, 'wiersz ma', 'wiersze mają', 'wierszy ma');
+    return (
+      `${this.number(count)} ${rows} adres bez współrzędnych – ${count === 1 ? 'nie trafi' : 'nie trafią'} ` +
+      'do wykazu. W pobranym pliku kolumny szerokosc_geograficzna i dlugosc_geograficzna są przy nich puste: wpisz ' +
+      'je (np. odczytane z mapy albo telefonem przy urządzeniu) i przekształć plik ponownie.'
+    );
+  });
+
   ngOnInit(): void {
     this.seo.setPageTitle(['Konwerter do standardu AED', 'Rejestr AED']);
   }

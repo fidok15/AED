@@ -865,8 +865,11 @@ ALL_DAY = "24/7"
 
 
 def device_filters(req):
-    """-> (where, args) for GET /urzadzenia and /urzadzenia.geojson. Private devices are never listed."""
+    """-> (where, args) for GET /urzadzenia and /urzadzenia.geojson. Private devices are never listed,
+    withdrawn ones only when that status is asked for."""
     where, args = ["dostep != 'prywatny'"], []
+    if not req.get_param("status"):
+        where.append("status != 'wycofany'")
     for param in EXACT_FILTERS:
         if req.get_param(param):
             where.append("%s=?" % param)  # column names come from code, values are bound
@@ -895,8 +898,6 @@ def list_devices(req, resp):
     near = origin_param(req)
     if near:
         where.append("lat IS NOT NULL AND lon IS NOT NULL")  # a device without a position has no distance
-    if (near or req.get_param_as_bool("dostepny_teraz")) and not req.get_param("status"):
-        where.append("status != 'wycofany'")  # never send anyone to a withdrawn device unless asked for that status
     cond = " AND ".join(where)
     db = req.context.db
     extra, distance = {}, {}
@@ -943,8 +944,6 @@ def open_states():
 def geojson(req, resp):
     where, args = device_filters(req)
     where.append("lat IS NOT NULL AND lon IS NOT NULL")
-    if not req.get_param("status"):
-        where.append("status != 'wycofany'")  # as the list: never show a withdrawn device unless asked for it
     bbox = req.get_param("bbox")
     if bbox:
         try:

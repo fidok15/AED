@@ -405,6 +405,11 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual([r["id_aed"][-1] for r in self.client.simulate_get(base).json["dane"]], ["3", "1"])
         asked = self.client.simulate_get(base + "&status=wycofany").json
         self.assertEqual([r["id_aed"][-1] for r in asked["dane"]], ["2"])
+        # the plain list (no position, no status) skips it too, like the map (which also drops device 4: no position)
+        plain = self.client.simulate_get("/api/aed/urzadzenia?zrodlo=blisko").json
+        self.assertEqual(([r["id_aed"][-1] for r in plain["dane"]], plain["razem"]), (["1", "3", "4"], 3))
+        shown = self.client.simulate_get("/api/aed/urzadzenia.geojson?zrodlo=blisko").json["features"]
+        self.assertEqual(sorted(f["properties"]["id_aed"][-1] for f in shown), ["1", "3"])
         by_id = self.client.simulate_get("/api/aed/urzadzenia?q=aed-neartest0003").json
         self.assertEqual([r["id_aed"] for r in by_id["dane"]], ["AED-NEARTEST0003"])
 
