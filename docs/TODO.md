@@ -15,6 +15,11 @@ Do zrobienia przez człowieka:
 - [ ] Serwer: architektura (amd64/ARM), RAM, dysk, wolne porty 80/443; domena i rekordy `api.`, `admin.`, `cms.`; potem kroki z `docs/wdrozenie-serwer.md` (konfiguracja sprawdzona tylko składniowo).
 - [ ] Konto dla jury w panelu portalu: redaktor jednej instytucji demo czy sam odczyt?
 
+Interfejs – do poprawy (uwaga fidok15, 22.11 ok. 02:10):
+
+- [ ] Mapa rejestru jest nieczytelna, a pinezki brzydkie i nie pomagają w orientacji. Do przeprojektowania: znacznik czytelny z daleka i odróżniający stan (aktywny / niepotwierdzony / nieaktualny) kształtem i kolorem, grupowanie punktów przy oddaleniu, spokojniejszy podkład, legenda tekstem, wyraźne „jesteś tutaj". Pliki: `frontend/src/app/pages/aed/aed-map.component.ts`, `aed.scss`. Mapa ma zostać dodatkiem do dostępnej listy (zasada 7).
+- [ ] Przegląd UI/UX Codexem – oszczędnie: jedno uruchomienie, tylko na zrzutach `docs/zrzuty/01–09` i `frontend/aed-zrzuty/` (bez przeklikiwania aplikacji i bez czytania całego kodu), z poleceniem „najwyżej 10 znalezisk, od najważniejszego, każde z konkretną poprawką i plikiem", osobno mapa. Poprawki wdrażamy dopiero po wyborze przez człowieka.
+
 Decyzje do podjęcia:
 
 - [ ] Kto wystawia linki przejęcia punktu: dziś tylko ministerstwo; czy także firmy dla własnych urządzeń?
