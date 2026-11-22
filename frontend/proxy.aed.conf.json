@@ -1,5 +1,5 @@
 {
-  "/api/aed": {
+  "/api/aed/": {
     "target": "http://localhost:8085",
     "secure": false,
     "logLevel": "warn",
