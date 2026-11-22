@@ -157,7 +157,7 @@ Zrzuty:
   - `containsAedList` w XSD harvestera 1.14 i w imporcie CKAN – wykazy oznaczają się same;
   - decyzje: jeden czy wiele wykazów na instytucję, wymagany identyfikator w wykazie, publikacja numeru seryjnego;
   - rekomendacja regulacyjna: obowiązek zgłaszania AED przy sprzedaży albo zachęty finansowe;
-  - opinia prawna o danych OSM; ścieżka „przejmij punkt” (zarządca potwierdza punkt znany tylko z OSM i dane stają się jego – w usłudze od commitu `838968e`, we frontendzie w toku);
+  - opinia prawna o danych OSM; ścieżka „przejmij punkt” (zarządca potwierdza punkt znany tylko z OSM i dane stają się jego – działa w prototypie od commitów `838968e` i `64bdb24`; wymaga opinii prawnej);
   - uzupełnianie `kod_terc` i `kod_simc` ze współrzędnych; kreator źródła w panelu ministerstwa.
 - **Zrzut:** brak.
 - **Notatki mówcy:** Każdy punkt to osobna, mała zmiana. Żaden nie wymaga przebudowy portalu.
