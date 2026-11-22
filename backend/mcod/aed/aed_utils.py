@@ -26,6 +26,7 @@ from aed_standard.build import to_csv
 from aed_standard.validate import ERROR, LAT, LON
 from aed_standard.wykaz import merge_wykazy, read_wykaz
 from mcod.aed import constants as C
+from mcod.aed.notifications import notify_aed_list_providers
 
 if TYPE_CHECKING:
     from mcod.datasets.models import Dataset
@@ -259,6 +260,7 @@ def update_or_create_aggr_aed_info_and_delete_old_main_aed(new_resource: "Resour
     AggregatedAEDInfo = apps.get_model("aed", "AggregatedAEDInfo")
     info = AggregatedAEDInfo.objects.last()
     old = info.main_aed_resource if info else None
+    old_report = info.report if info else None
     with transaction.atomic():
         if info:
             info.resource = new_resource
@@ -269,6 +271,7 @@ def update_or_create_aggr_aed_info_and_delete_old_main_aed(new_resource: "Resour
         if old:
             old.delete()
             logger.info("Previous main AED resource %s deleted.", old.pk)
+    notify_aed_list_providers(old_report, report)  # never raises
 
 
 def clean_up_after_main_aed_resource_creation(exception_occurred: bool) -> None:

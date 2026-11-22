@@ -33,3 +33,8 @@ DATASET_CATEGORIES_TITLES = ["Zdrowie"]
 DATASET_TAGS_NAMES = ["AED", "defibrylator", "wykaz zbiorczy"]
 
 FORM_MAX_MESSAGES = 10  # as goodtables' error_limit in the portal's tabular validation
+
+# E-mail to the provider when the merge rejects its list or accepts it in part (mcod/aed/notifications.py).
+NOTIFY_PROVIDERS = os.environ.get("MAIN_AED_NOTIFY_PROVIDERS", "true").lower() not in ("0", "false", "no")
+# Page with the AED template and converter, linked in that e-mail; empty = no link.
+LIST_HELP_URL = os.environ.get("MAIN_AED_LIST_HELP_URL", "")
