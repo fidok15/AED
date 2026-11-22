@@ -33,4 +33,14 @@ MAIN_AED_DATASET_OWNER_ORGANIZATION_PK=2838
 EOF
 chmod 600 .env
 echo "Utworzono backend/.env dla https://$domain"
+
+# Django settings: the portal's local.py.sample without "timeout" (Elasticsearch 6 rejects index.timeout in
+# search_index --rebuild) plus the domain block (cookies, CSRF, no debug). Kept if it already has the block.
+if grep -q AED_DOMAIN mcod/settings/local.py 2>/dev/null; then
+    echo "mcod/settings/local.py ma już ustawienia domeny - bez zmian."
+else
+    [ -e mcod/settings/local.py ] && cp mcod/settings/local.py mcod/settings/local.py.bak && echo "Kopia: mcod/settings/local.py.bak"
+    sed '/"timeout": 1,/d' mcod/settings/local.py.sample | cat - aed-domain/settings.py > mcod/settings/local.py
+    echo "Utworzono mcod/settings/local.py (local.py.sample + aed-domain/settings.py)"
+fi
 grep '^AED_DEMO_PASSWORD=' .env

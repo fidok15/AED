@@ -4,3 +4,5 @@ __pycache__/
 datasets/out/aed_rejestr.csv
 datasets/out/aed_rejestr.geojson
 .playwright-mcp/
+.DS_Store
+.claude/

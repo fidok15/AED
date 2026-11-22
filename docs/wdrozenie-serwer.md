@@ -2,7 +2,7 @@
 
 Cel: na serwerze kolegi, pod kupioną domeną, działa fork dane.gov.pl (frontend, API, panel administracyjny, CMS, Celery) razem z usługą AED. Jury otwiera adresy w przeglądarce bez żadnej konfiguracji.
 
-**Stan: przygotowana i sprawdzona składniowo konfiguracja, nieuruchomiona.** `docker compose ... config` przechodzi, skrypt `.env` sprawdzono na kopii `env.sample`. Żadnego kontenera z tego wariantu nie uruchomiono. Miejsca, które wynikają z kodu, ale nie były sprawdzone w działaniu, mają oznaczenie **[nie uruchomiono]**.
+**Stan: uruchomione lokalnie na Macu (22.11, ok. 02:10–02:30) pod domeną testową `aed.localhost`, na serwerze jeszcze nie.** Wszystkie 14 kontenerów wystartowało z tej nakładki (plus obejścia z `docker-compose.aed-mac.yml`), Caddy z lokalnym urzędem certyfikacji zamiast Let's Encrypt, baza z danymi demo z wcześniejszego uruchomienia lokalnego. Co sprawdzono w działaniu: rozdział 11. Miejsca, które wynikają z kodu, ale nie były sprawdzone w działaniu, mają oznaczenie **[nie uruchomiono]**.
 
 Pliki:
 
@@ -10,7 +10,7 @@ Pliki:
 |---|---|
 | `backend/docker-compose.aed-domain.yml` | nakładka na `docker-compose.local.yml`: Caddy (HTTPS), usługa AED, build frontendu, serwery produkcyjne, bez portów infrastruktury na zewnątrz |
 | `backend/aed-domain/init-env.sh` | tworzy `backend/.env` z `env.sample` i generuje nowe sekrety |
-| `backend/aed-domain/settings.py` | ustawienia Django dla domeny (ciasteczka, CSRF, bez trybu debug); dziedziczy po `mcod/settings/local.py` |
+| `backend/aed-domain/settings.py` | ustawienia Django dla domeny (ciasteczka, CSRF, bez trybu debug); `init-env.sh` dokleja je na koniec `mcod/settings/local.py` |
 | `backend/aed-domain/Caddyfile` | cztery nazwy hostów, certyfikaty Let's Encrypt, pliki statyczne i media |
 | `backend/aed-domain/web.conf.template` | nginx frontendu: `/api/aed` → usługa AED, `/api` i `/cms` → portal z forka (zamiast publicznego dane.gov.pl) |
 
@@ -75,11 +75,11 @@ Ustalone z kodu:
 
 Uproszczenie: Caddy podaje `/media` prosto z dysku. Lokalny nginx portalu sprawdza wcześniej w Django, czy plik należy do opublikowanego zasobu (`X-Accel-Redirect`, `docker/nginx/config-templates/03-admin.conf.template`). Na demonstracji to sprawdzenie pomijamy. Pliki zasobów i tak są publiczne pod `api.<domena>/media`.
 
-Panel, API i CMS działają pod gunicornem zamiast `runserver` i `werkzeug --debug`. Debugger werkzeuga wystawiony do internetu pozwalałby wykonać kod na serwerze. Polecenia są takie jak w `docker/app/start-api.sh` i `start-django.sh`. **[nie uruchomiono]**
+Panel, API i CMS działają pod gunicornem zamiast `runserver` i `werkzeug --debug`. Debugger werkzeuga wystawiony do internetu pozwalałby wykonać kod na serwerze. Polecenia są takie jak w `docker/app/start-api.sh` i `start-django.sh`; gunicorn bierze też `GUNICORN_CMD_ARGS` z `.env` (workery gevent). Sprawdzone lokalnie 22.11 (rozdział 11).
 
 ## 4. Zmienne środowiskowe
 
-Wszystko ustawia skrypt `sh aed-domain/init-env.sh <domena>`. Bierze `backend/env.sample` (szablon portalu), podmienia w nim znane sekrety i dopisuje kilka zmiennych. Ręcznie nie trzeba ustawiać nic. Adresy (`BASE_URL`, `API_URL`, `ADMIN_URL`, `CMS_URL`, `FRONTEND_BASE_URL`, `API_URL_INTERNAL`) nakładka wylicza z `AED_DOMAIN`.
+Wszystko ustawia skrypt `sh aed-domain/init-env.sh <domena>`. Bierze `backend/env.sample` (szablon portalu), podmienia w nim znane sekrety i dopisuje kilka zmiennych. Tworzy też `mcod/settings/local.py`: `local.py.sample` bez dwóch wierszy `"timeout": 1,` (Elasticsearch 6 je odrzuca) plus `aed-domain/settings.py` na końcu. Istniejący `local.py` bez ustawień domeny zapisuje jako `local.py.bak`. Ręcznie nie trzeba ustawiać nic. Adresy (`BASE_URL`, `API_URL`, `ADMIN_URL`, `CMS_URL`, `FRONTEND_BASE_URL`, `API_URL_INTERNAL`) nakładka wylicza z `AED_DOMAIN`.
 
 | Zmienna | Wartość | Po co |
 |---|---|---|
@@ -105,7 +105,7 @@ Wszystko ustawia skrypt `sh aed-domain/init-env.sh <domena>`. Bierze `backend/en
 | RabbitMQ `guest`, Redis i Elasticsearch bez hasła, Flower bez logowania | obrazy | nie zmieniamy: porty nie są wystawione, Flower jest wyłączony |
 | klucze Discourse w `env.sample` | `env.sample` | bez znaczenia, forum wyłączone |
 
-**Znany problem:** karty „Konta demonstracyjne” na ekranie logowania AED pokazują stałe hasła `…-demo` z `frontend/src/environments/environment.aed.ts`. Po ustawieniu `AED_DEMO_PASSWORD` karty podają złe hasło. Przycisk „Wypełnij” nadal uzupełnia e-mail, ale hasło trzeba wpisać ręcznie. Jest to decyzja do podjęcia i poprawka we frontendzie (pytanie w sekcji 10).
+Karty „Konta demonstracyjne” na ekranie logowania AED rozpoznają to same: usługa zwraca w `GET /api/aed/statystyki` flagę `hasla_demo_domyslne`, a gdy hasło jest zmienione, karty pokazują „hasło: przekazane osobno” i przycisk „Wypełnij” wpisuje tylko e-mail (sprawdzone w przeglądarce 22.11).
 
 ## 5. Od czystego serwera do działającej strony
 
@@ -113,8 +113,7 @@ W katalogu `backend/` repozytorium:
 
 ```sh
 git clone <repozytorium> aed && cd aed/backend
-sh aed-domain/init-env.sh aed.example.pl                 # 1. .env z sekretami; wypisze hasło kont demo AED
-cp mcod/settings/local.py.sample mcod/settings/local.py  # 2. lokalne ustawienia portalu (plik jest w .gitignore); usuń w nim dwa wiersze "timeout": 1, (inaczej krok 5 kończy się błędem unknown setting [index.timeout])
+sh aed-domain/init-env.sh aed.example.pl                 # 1-2. .env z sekretami i mcod/settings/local.py; wypisze hasło kont demo AED
 docker compose up -d --build --scale caddy=0             # 3. budowa i start BEZ wejścia z internetu (pierwszy raz długo)
 docker compose exec mcod-local-admin python manage.py init_mcod_db            # 4. migracje + dane startowe
 docker compose exec mcod-local-admin python manage.py search_index --rebuild -f  # 5. indeksy wyszukiwarki
@@ -152,7 +151,7 @@ Szczegóły kroków i oczekiwane komunikaty: `docs/wykaz-aed-w-portalu.md` i `do
 7. **Zasilanie XML (opcjonalnie, drugi mechanizm portalu).** Panel → Źródła danych → XML, adres `https://<domena>/api/aed/eksport/dane-gov-pl.xml`, instytucja ministerstwo. Na serwerze nie trzeba obchodzić HTTPS: certyfikat jest prawdziwy, a `AED_BASE_URL` to `https://<domena>`. Powstaje osobny zbiór bez flagi wykazu, więc rekordy nie liczą się w scalaniu podwójnie.
 8. **Ścieżka sprzedawca → QR → zarządca** w `https://<domena>/pl/aed` (instrukcja dla jury, ścieżki A–C). Po potwierdzeniu urządzenia przez zarządcę ponowne scalanie (krok 6) dołącza je do wykazu krajowego przez link z kroku 5.
 
-Skrót (w toku u innego agenta, jeszcze nie w repozytorium): polecenie `python manage.py seed_aed_demo` w `backend/mcod/aed/management/commands/` zakłada instytucje, zbiory i trzy wykazy z prawdziwych plików (ministerstwo, Legionowo, Krosno). Nakładka montuje do jego użytku `../datasets` jako `/usr/src/mcod_backend/aed_datasets`. Polecenie jest opisane jako „tylko lokalne demo”, więc przed użyciem na serwerze trzeba sprawdzić, czy nie nadpisuje danych. **[nie uruchomiono]**
+Skrót zamiast kroków 2–5: `docker compose exec mcod-local-admin python manage.py seed_aed_demo` (`backend/mcod/aed/management/commands/seed_aed_demo.py`) zakłada instytucje, zbiory i trzy wykazy z prawdziwych plików (ministerstwo, Legionowo, Krosno). Nakładka montuje do jego użytku `../datasets` jako `/usr/src/mcod_backend/aed_datasets`. Z kodu: używa `get_or_create`, niczego nie nadpisuje i jest idempotentne; wykazy ministerstwa trafiają do instytucji `MAIN_AED_DATASET_OWNER_ORGANIZATION_PK` (2838 – jej nazwy polecenie nie zmienia, krok 1 nadal ręcznie). Na tej nakładce **[nie uruchomiono]** (lokalnie było uruchomione na zwykłym stosie).
 
 Kontener Celery łączy się z adresem publicznym domeny (kroki 5 i 7). Na typowym serwerze VPS to działa. Jeśli serwer nie widzi sam siebie pod adresem publicznym (NAT bez hairpinu), trzeba dodać `extra_hosts` z adresem wewnętrznym. **[nie uruchomiono]**
 
@@ -189,7 +188,34 @@ Po `down -v` trzeba powtórzyć kroki 4–6 z sekcji 5 i dane z sekcji 6. Pliki 
 
 1. Serwer: amd64 czy ARM, ile RAM i dysku, jaki system, czy działa na nim coś na portach 80 i 443?
 2. Domena: jaka nazwa? Czy można dodać rekordy `api.`, `admin.` i `cms.` albo rekord wieloznaczny?
-3. Hasła kont demo AED: losowe hasło z `AED_DEMO_PASSWORD` (jury dostaje je w instrukcji; karty logowania wymagają wtedy poprawki we frontendzie) czy znane hasła `…-demo` (każdy z internetu może wejść do panelu ministerstwa prototypu)?
+3. Hasła kont demo AED: losowe hasło z `AED_DEMO_PASSWORD` (jury dostaje je w instrukcji; karty logowania pokazują wtedy „hasło: przekazane osobno”) czy znane hasła `…-demo` (każdy z internetu może wejść do panelu ministerstwa prototypu)?
 4. Konto jury w panelu portalu: redaktor jednej instytucji demonstracyjnej (propozycja) czy tylko odczyt bez logowania?
 5. Harmonogram Celery: włączyć (`AED_CELERY_OPTS`), żeby scalanie szło samo o 03:45, czy pokazywać ręczne uruchomienie?
 6. Do kiedy serwer ma działać po hackathonie i kto go wyłączy?
+
+## 11. Próba lokalna pod domeną testową (22.11, Mac)
+
+Domena `aed.localhost` (`*.localhost` wskazuje na 127.0.0.1 w przeglądarce i w curl). Obejścia tylko lokalne, poza repozytorium: plik `.env` podany przez `--env-file` (kopia istniejącego `backend/.env` plus `AED_DOMAIN=aed.localhost`), Caddyfile z opcją globalną `local_certs`, który robi `import` produkcyjnego `aed-domain/Caddyfile`, i `local.py` wygenerowany przez `init-env.sh` na kopii, zamontowany w kontenerach w miejsce lokalnego pliku dewelopera. Na Macu dochodzi `-f docker-compose.aed-mac.yml` (podsieć, sterta Elasticsearch, obraz testowy także dla CMS). Start wszystkich kontenerów z gotowych obrazów: ok. 1 min. Pamięć po starcie: ok. 4,6 GB (Elasticsearch 1,4 GB, panel i API po ok. 0,85 GB, CMS 0,55 GB).
+
+| Punkt | Wynik |
+|---|---|
+| (a) `init-env.sh` | na kopii katalogu: `.env` z nowymi sekretami (format jak w `env.sample`), drugi przebieg odmawia nadpisania; `local.py` bez `timeout`, z blokiem domeny |
+| (b) Caddy i cztery hosty | `https://aed.localhost/` 200, `https://admin.aed.localhost/` 302 na logowanie, `https://cms.aed.localhost/` 302 na `/admin/`, `https://api.aed.localhost/aed-aggregated` 200 |
+| (c) gunicorn i logowanie do panelu | panel po polsku, logowanie `admin@mcod.local` w przeglądarce i curl (CSRF przechodzi), ciasteczka `local_sessionid` i `local_apiauthtoken` na `.aed.localhost` z `Secure`; `manage.py check`, `create_main_aed_resource --dry-run` działają w kontenerze; Celery odpowiada na `inspect ping` |
+| (d) frontend czyta lokalne API | `/pl/dataset/4214` (zbiór zbiorczy), tabela zasobu 781 wierszy i mapa ze znacznikami, `/pl/aed` z logowaniem ministerstwa i mapą rejestru |
+| (e) usługa AED za Caddy | `/api/aed/statystyki` 200, zasilanie XML z adresami `https://aed.localhost/...`, MD5 |
+| (f) media | `/media/reports/…` i `/media/meetings/…` 403 na wszystkich czterech hostach; plik zasobu z `https://api.aed.localhost/media/resources/…` 200 (258 775 B), `…/resources/40211,…/file` przekierowuje na plik |
+
+Błędy znalezione i poprawione:
+
+1. `manage.py` nie działał w ogóle z `DJANGO_SETTINGS_MODULE=aed_domain_settings` („SECRET_KEY must not be empty”, „Models aren't loaded yet”): `mcod/__init__.py` czyta ustawienia Django już przy imporcie pakietu, więc moduł spoza pakietu `mcod`, który importuje `mcod.settings.local`, jest wtedy w połowie załadowany. Gunicorn działał (najpierw importuje `mcod`), ale kroki 4–6 z rozdziału 5 i `create_main_aed_resource` by padły. Poprawka: `aed-domain/settings.py` jest teraz dopisywany na koniec `mcod/settings/local.py` przez `init-env.sh`; nakładka nie ustawia już `DJANGO_SETTINGS_MODULE`, `PYTHONPATH` ani montowania pliku.
+2. `/media/reports/` i `/media/meetings/` na hostach `api.`, `admin.`, `cms.` zwracały 404 zamiast 403, bo Caddy wykonuje `handle_path /media/*` przed `respond`. Poprawka: blokada jako bloki `handle` w `aed-domain/Caddyfile`.
+3. Na Macu CMS budował osobny obraz `mcod-app:local` w emulacji; `docker-compose.aed-mac.yml` bierze teraz obraz testowy także dla `mcod-local-cms`.
+
+Rzeczy do wiedzy, nie błędy konfiguracji:
+
+- Treści CMS (Wagtail) są puste: `/cms/api/pages/…` zwraca 404, bo `init_mcod_db` nie zakłada stron CMS. Strona główna działa bez bloków z CMS, a okno „Polityka prywatności i RODO” nie ma treści. Strony AED i zbiory tego nie potrzebują.
+- Portal zapisuje w zasobie adres pliku z `API_URL` z chwili utworzenia. Zasób utworzony pod inną domeną (np. `api.mcod.local`) wygląda jak link zewnętrzny i traci tabelę i mapę. Na serwerze zakładaj dane od zera pod docelową domeną; nie przenoś bazy z laptopa.
+- Kontenery portalu łączą się z adresami publicznymi domeny (sprawdzenie zdrowia w API, Celery przy wykazie typu link). Lokalnie `*.aed.localhost` wskazywał wewnątrz kontenera na sam kontener, więc te połączenia nie działały; na serwerze z prawdziwym DNS powinny (zastrzeżenie o NAT w rozdziale 6).
+- `AED_CELERY_OPTS` na Macu nie działa (nakładka Maca uruchamia Celery bez skryptu startowego); na serwerze bez nakładki Maca działa zgodnie z rozdziałem 4.
+
