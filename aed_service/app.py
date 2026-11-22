@@ -25,7 +25,7 @@ import segno
 from xml.sax.saxutils import escape as xml_escape  # noqa: E402
 
 import aed_standard
-from aed_standard import konwerter, registry
+from aed_standard import geokod, konwerter, registry
 from aed_standard.sources import OSM_ROW_MESSAGE, WARSAW, from_osm, haversine_m
 from aed_standard.validate import ERROR, issue
 
@@ -453,16 +453,22 @@ CONVERTER_FILES = (".csv", ".txt", ".tsv", ".xlsx", ".ods", ".geojson", ".json",
                    ".html", ".htm", ".docx", ".zip", ".pdf", ".xls", ".doc", ".png", ".jpg", ".jpeg")
 
 
+def geocoding_enabled():
+    """Address -> position with the state service (GUGiK), on the user's request. AED_GEOKODOWANIE=0 turns it off,
+    e.g. for a deployment without internet access."""
+    return os.environ.get("AED_GEOKODOWANIE", "1").lower() not in ("0", "false", "no", "nie")
+
+
 def converter_analyze(req, resp):
     name, data = read_upload(req, CONVERTER_FILES)
     try:
-        resp.media = konwerter.analyze(data, name)
+        resp.media = dict(konwerter.analyze(data, name), geokodowanie_dostepne=geocoding_enabled())
     except konwerter.ConverterError as ex:
         raise ApiError(422, "plik_nieczytelny", str(ex))
 
 
 def converter_convert(req, resp):
-    form = {"mapowanie": None, "stale": None}
+    form = {"mapowanie": None, "stale": None, "geokodowanie": None}
     name, data = read_upload(req, CONVERTER_FILES, form)
     try:
         mapping = json.loads(form["mapowanie"] or "null")
@@ -472,10 +478,15 @@ def converter_convert(req, resp):
     if not isinstance(mapping, dict) or not isinstance(constants, dict) or not all(
             isinstance(v, str) for v in list(mapping.values()) + list(constants.values())):
         raise ApiError(400, "zly_format", "Pole „mapowanie” musi być obiektem {kolumna: pole}, a „stale” obiektem {pole: wartość}.")
+    asked = (form["geokodowanie"] or "").strip().lower() in ("1", "true", "tak")
     try:
-        text, report = konwerter.convert(data, name, mapping, constants)
+        text, report = konwerter.convert(data, name, mapping, constants,
+                                         geocoder=geokod.Geocoder() if asked and geocoding_enabled() else None)
     except konwerter.ConverterError as ex:
         raise ApiError(422, "zle_mapowanie", str(ex))
+    if asked and not geocoding_enabled():
+        report["geokodowanie"] = {"wylaczone": True, "komunikat": "Uzupełnianie położenia z adresu jest wyłączone na "
+                                                                  "tym serwerze. Adresy nie zostały nigdzie wysłane."}
     base = re.sub(r"[^A-Za-z0-9_-]+", "-", os.path.splitext(os.path.basename(name))[0]).strip("-") or "plik"
     resp.media = {"nazwa_pliku": "%s-wykaz-aed.csv" % base, "plik_csv": text, "raport": report}
 

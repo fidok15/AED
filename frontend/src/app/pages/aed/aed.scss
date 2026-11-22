@@ -1952,3 +1952,18 @@ html:has(.aed--app) {
     display: block;
   }
 }
+
+// Converter: geocoding opt-in (GUGiK).
+.aed .aed-conv-geo {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  font-weight: 600;
+}
+
+.aed .aed-conv-geo input {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: 0.1rem;
+}

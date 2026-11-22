@@ -74,9 +74,36 @@ Położenie (wspólny krok `konwerter._positions`, moduł `uklady.py`):
 - dwie kolumny płaskie: PUWG 1992 (EPSG:2180), PUWG 2000 strefy 5–8 (EPSG:2176–2179, strefa z cyfry milionów), Web Mercator (EPSG:3857) – rozpoznawane po zakresie, przeliczane odwrotnym odwzorowaniem Gaussa-Krügera (szereg Krügera do n³, GRS80; źródło w komentarzu `uklady.py`). **Dokładność**: na 5 punktach przeliczonych przez serwer ArcGIS (EPSG:2180, 2177, 2178, 3857) błąd < 1 mm (test `test_planar_systems_within_a_millimetre`). Różnicę WGS84–ETRF2000 (poniżej 1 m) pomijamy.
 - Ograniczenie: w PUWG 1992 para (X, Y) i (Y, X) często obie wypadają w Polsce. Rozstrzyga nazwa kolumny (szer/lat/north → północna), w braku – kolejność GIS (pierwsza kolumna = wschodnia). Raport każe sprawdzić kilka punktów na mapie.
 
-Adres bez współrzędnych: konwersja się udaje, raport mówi „N wierszy ma adres bez współrzędnych – nie trafią do wykazu, dopóki nie uzupełnisz położenia”, plik w standardzie zawiera te wiersze z pustymi współrzędnymi. Nie geokodujemy usługą zewnętrzną (prywatność, zależność).
+Adres bez współrzędnych: konwersja się udaje, raport mówi „N wierszy ma adres bez współrzędnych – nie trafią do wykazu, dopóki nie uzupełnisz położenia”, plik w standardzie zawiera te wiersze z pustymi współrzędnymi. Adres bez kodu pocztowego („ul. Bosacka 18”, „Mikołów, Gliwicka 3”) jest teraz dzielony na ulicę i numer (wcześniej zostawał pusty).
 
-Proponowana bezpieczna ścieżka geokodowania (do wdrożenia po hackathonie, nie zaimplementowana): adresy z PRG (Państwowy Rejestr Granic – punkty adresowe, GUGiK, otwarte dane, aktualizowane), pobrane jako plik i trzymane lokalnie w portalu; dopasowanie po `kod_terc`/`kod_simc` z TERYT, nazwie ulicy (ULIC) i numerze; zapis `sposob_weryfikacji = geokodowanie PRG` i status `niepotwierdzony` do czasu potwierdzenia przez zarządcę przy naklejce QR. Żaden adres nie opuszcza serwera ministerstwa.
+### Geokodowanie adresu usługą GUGiK (zaimplementowane 22.11.2026, na żądanie)
+
+Pole wyboru „Uzupełnij położenie z adresu (usługa GUGiK)” na ekranie konwertera, **domyślnie wyłączone**; ekran i raport mówią wprost, że adresy z pliku wychodzą do usługi państwowej. Serwer może je wyłączyć zmienną `AED_GEOKODOWANIE=0`. Kod: `aed_standard/geokod.py`, reguły dopasowania: `docs/api-aed.md` (sekcja konwertera).
+
+Co ustaliliśmy o usłudze (dokumentacja https://services.gugik.gov.pl/uug/opis.html i próbne wywołania 22.11.2026):
+
+- **Adres i parametry:** `GET https://services.gugik.gov.pl/uug/?request=GetAddress&address=Kraków, Bosacka 18&srid=4326`; opcjonalnie `accuracy` (0,5–1,0, domyślnie 0,6 według opisu; odpowiedź podaje `min accuracy limit` 0,4) i `exact_number` (domyślnie 1 – tylko dokładny numer). Odwrotnie: `request=GetAddressReverse&location=POINT(dł. szer.)&srid=4326` – najbliższy punkt adresowy w promieniu 100 m.
+- **Odpowiedź:** JSON; `type` = `address` (punkt adresowy), `street` (oś ulicy jako MULTILINESTRING) albo `city` (punkt miejscowości) – bierzemy tylko `address`. W wyniku: `city`, `street`, `number`, `code` (kod pocztowy), `teryt` (6 cyfr: gmina bez cyfry rodzaju, np. `126101`), `simc`, `ulic`, `x`, `y`, `accuracy`, `city_accuracy`, `street_accuracy`.
+- **Układ:** bez `srid` – PUWG 1992 (EPSG:2180, `x` = wschodnia); z `srid=4326` – WGS84 (`x` = długość). Używamy `srid=4326`, więc `uklady.py` nie jest potrzebny.
+- **Limity:** dokumentacja nie podaje limitów; strona usługi pokazuje ok. 269 mln wywołań od 2019 r. Sami ograniczamy się do 200 zapytań i 40 s na plik, przerwa 0,1 s.
+- **Warunki:** dane to punkty adresowe z państwowego zasobu (PRG / ewidencja miejscowości, ulic i adresów). Prawo geodezyjne i kartograficzne (Dz.U. 2023 poz. 1752), art. 40a ust. 2 pkt 1 lit. a: bez opłaty za zbiory danych PRG; art. 40c ust. 5: dla nich nie wydaje się licencji; art. 40c ust. 3: w publikacji trzeba podać źródło – dlatego raport i `opis_lokalizacji` wymieniają GUGiK. Usługa nie korzysta z OSM (zasada 3). Strona usługi nie ma osobnego regulaminu; czy punkty adresowe w całości mieszczą się w lit. a – do potwierdzenia przez prawnika.
+
+Wyniki na próbkach Krakowa (mapowanie zaproponowane bez zmian, 22.11.2026, na żywo):
+
+| Próbka | Wierszy | Z adresem do geokodowania | Rozpoznane dokładnie | Nierozpoznane | Przyjęte przez `read_wykaz` (przed → po) |
+|---|---|---|---|---|---|
+| krakow.pl, tabela HTML | 5 | 4 | 4 (2 z uwagą: inny kod pocztowy w pliku niż w PRG – Floriańska 41 ma w pliku 30-001) | 0 | 0 → 4 |
+| BIP, DOCX (stała „Miejscowość” = Kraków) | 31 | 29 | 29 (w 25 zapytaniach – powtórzone adresy z pamięci podręcznej) | 0 | 0 → 29 |
+
+Pozostałe 1 + 2 wiersze nie mają adresu (wiersz „Dwór Czeczów” bez adresu, radiowozy Straży Miejskiej, wiersz sumy „RAZEM”). Na wcześniejszej, ostrzejszej wersji reguł (sam próg `accuracy ≥ 0,7`, kod pocztowy zawsze zgodny) rozpoznane były 26 z 33 – odrzucone wtedy adresy „Działowskiego 1”, „Piłsudskiego 12”, „Kpt. M. Medweckiego 1” i dwa z innym kodem pocztowym usługa wskazała poprawnie.
+
+Ograniczenie (na slajd): punkt adresowy to budynek, nie miejsce urządzenia w budynku; wiersz z geokodowania potrzebuje potwierdzenia zarządcy przy naklejce QR. Adresy wychodzą do usługi GUGiK (państwowej, nie zewnętrznej firmy) – tylko po świadomym włączeniu.
+
+### Kody TERC i SIMC
+
+Ta sama opcja uzupełnia puste `kod_terc` i `kod_simc`: z wyniku geokodowania albo – dla wierszy ze współrzędnymi – z najbliższego punktu adresowego w promieniu 100 m, tylko gdy jego miejscowość zgadza się z miejscowością wiersza (punkt przy granicy gminy mógłby dać kod sąsiedniej gminy). `kod_terc` ma 6 cyfr (bez rodzaju gminy) – schemat to dopuszcza. Próba na 10 pierwszych rekordach Krosna (`resource_54632.csv`): 10 zapytań, kody uzupełnione w 10 wierszach (`186101`, `0952410`), wszystkie 10 przyjęte.
+
+Zbioru krajowego (`python -m aed_standard build`) tym nie przeliczaliśmy – zmieniłoby liczby w dokumentach i prezentacji. Jednorazowo dla jednego źródła: pobrać plik z `datasets/raw/…`, przepuścić przez konwerter z włączonym geokodowaniem (ekran albo `konwerter.convert(..., geocoder=geokod.Geocoder(limit=1000, budget=600))`), a wynik dołączyć do źródła po przeglądzie człowieka; dla całego rejestru to jedno zapytanie na rekord bez kodów – lepiej nocą i z dłuższą przerwą.
 
 Zabezpieczenia obejmują nowe formaty: limit 5 MB pliku; limit 50 MB po rozpakowaniu (XLSX, ODS, DOCX, KMZ; odczyt ograniczony, rozmiar z nagłówka ZIP nie jest ufany); XML z DOCTYPE/ENTITY odrzucany; 300 kolumn (także przy spłaszczaniu JSON i w ODS), 50 000 wierszy, 1 mln komórek, 20 mln znaków – sprawdzane przed analizą kolumn; reguła OSM/ODbL, ukrywanie kontaktu i numeru seryjnego, neutralizacja formuł – bez zmian, bo działają na wspólnej tabeli.
 
@@ -96,5 +123,5 @@ Każda próbka: analiza → zaproponowane mapowanie przyjęte bez zmian (+ warto
 | Esri Polska / Warszawa | ArcGIS JSON, EPSG:3857 | 3 | 3 | nic |
 | Esri Polska / Warszawa | GeoJSON | 3 | 3 | nic |
 | Mikołów (odtworzona struktura) | ArcGIS JSON, EPSG:2177 | 3 | 3 | stała „Miejscowość” (adres „Mikołów, Gliwicka 3” nie ma kodu pocztowego) |
-| Kraków, krakow.pl | tabela HTML | 5 | 0 | brak współrzędnych: 4 wiersze z adresem do uzupełnienia, 1 adres bez kodu |
-| Kraków, BIP | DOCX | 31 | 0 | brak współrzędnych i miejscowości: stała „Miejscowość”, 31 wierszy do uzupełnienia położenia |
+| Kraków, krakow.pl | tabela HTML | 5 | 0 (z geokodowaniem GUGiK: 4) | brak współrzędnych: 4 wiersze z adresem do uzupełnienia, 1 bez adresu |
+| Kraków, BIP | DOCX | 31 | 0 (z geokodowaniem GUGiK: 29) | brak współrzędnych i miejscowości: stała „Miejscowość”, 31 wierszy do uzupełnienia położenia |

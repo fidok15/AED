@@ -16,10 +16,10 @@
   <div class="aed-field">
     <label class="aed-field__label" for="aed-conv-plik">Plik z defibrylatorami – dowolny format z danymi</label>
     <p class="aed-field__hint" id="aed-conv-plik-hint">
-      Przyjmowane formaty: CSV, XLSX, ODS, JSON i GeoJSON (także z usług ArcGIS), KML i KMZ (np. Google Moje Mapy),
-      GPX, GML, tabela na stronie HTML albo w dokumencie DOCX. Format rozpoznajemy po treści. Położenie może być w
-      dwóch kolumnach, w jednej („52.2297, 21.0122”), w stopniach i minutach albo w układzie PUWG 1992 / 2000. Dowolny
-      układ kolumn, najwyżej 5 MB.
+      Przyjmowane formaty: CSV, XLSX, ODS, JSON i GeoJSON (także z usług ArcGIS), KML i KMZ (np. Google Moje Mapy), GPX,
+      GML, tabela na stronie HTML albo w dokumencie DOCX. Format rozpoznajemy po treści. Położenie może być w dwóch
+      kolumnach, w jednej („52.2297, 21.0122”), w stopniach i minutach albo w układzie PUWG 1992 / 2000. Dowolny układ
+      kolumn, najwyżej 5 MB.
     </p>
     <input
       class="form-control"
@@ -165,6 +165,26 @@
       }
     </fieldset>
 
+    @if (analysis.geokodowanie_dostepne) {
+      <fieldset class="aed-group">
+        <legend class="aed-h3">Położenie z adresu (nieobowiązkowe)</legend>
+        <label class="aed-conv-geo">
+          <input
+            type="checkbox"
+            [checked]="geocode()"
+            (change)="setGeocode($any($event.target).checked)"
+            aria-describedby="aed-conv-geo-note" />
+          <span>Uzupełnij położenie z adresu (usługa GUGiK)</span>
+        </label>
+        <p class="aed-field__hint" id="aed-conv-geo-note">
+          Adresy z wierszy bez współrzędnych (miejscowość, ulica, numer) zostaną wysłane do państwowej Usługi
+          Uniwersalnego Geokodowania GUGiK. Przyjmujemy tylko dokładny punkt adresowy budynku – to nie jest miejsce
+          montażu urządzenia, więc sprawdź położenie na miejscu. Uzupełnimy też puste kody TERC i SIMC. Najwyżej 200
+          zapytań na plik.
+        </p>
+      </fieldset>
+    }
+
     <p>
       <button class="btn btn-primary" type="button" [attr.aria-disabled]="busy() || null" (click)="convert()">
         Przekształć plik do standardu
@@ -217,7 +237,36 @@
       </p>
     }
     @if (result.raport.bez_wspolrzednych_komunikat) {
-      <p class="aed-message aed-message--warn"><strong>Brak położenia:</strong> {{ result.raport.bez_wspolrzednych_komunikat }}</p>
+      <p class="aed-message aed-message--warn">
+        <strong>Brak położenia:</strong> {{ result.raport.bez_wspolrzednych_komunikat }}
+      </p>
+    }
+    @if (result.raport.geokodowanie; as geo) {
+      <h3 class="aed-h3">Położenie z adresu (GUGiK)</h3>
+      <p class="aed-message aed-message--warn"><strong>Geokodowanie:</strong> {{ geo.komunikat }}</p>
+      @if (geo.wiersze_uzupelnione?.length) {
+        <details class="aed-details">
+          <summary>Uzupełnione wiersze ({{ geo.uzupelnione }})</summary>
+          <ul>
+            @for (row of geo.wiersze_uzupelnione; track row.wiersz) {
+              <li>
+                Wiersz {{ row.wiersz }} ({{ row.nazwa }}): punkt adresowy {{ row.adres }} – {{ row.szerokosc }},
+                {{ row.dlugosc }}{{ row.uwaga ? '; ' + row.uwaga : '' }}
+              </li>
+            }
+          </ul>
+        </details>
+      }
+      @if (geo.wiersze_nieuzupelnione?.length) {
+        <details class="aed-details">
+          <summary>Wiersze bez położenia ({{ geo.nieuzupelnione }})</summary>
+          <ul>
+            @for (row of geo.wiersze_nieuzupelnione; track row.wiersz) {
+              <li>Wiersz {{ row.wiersz }} ({{ row.nazwa }}): {{ row.powod }}</li>
+            }
+          </ul>
+        </details>
+      }
     }
     @if (result.raport.ukryte_komunikat) {
       <p class="aed-message aed-message--warn"><strong>Uwaga:</strong> {{ result.raport.ukryte_komunikat }}</p>

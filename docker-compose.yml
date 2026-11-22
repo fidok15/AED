@@ -9,6 +9,8 @@ services:
       # Public address of the frontend; it is encoded in the QR stickers.
       AED_BASE_URL: ${AED_BASE_URL:-http://localhost:8080}
       AED_CORS_ORIGINS: ${AED_BASE_URL:-http://localhost:8080}
+      # 1 = the converter may send addresses to the GUGiK geocoding service when the user ticks the box; 0 = never.
+      AED_GEOKODOWANIE: ${AED_GEOKODOWANIE:-1}
     volumes:
       - aed-data:/data
     healthcheck:

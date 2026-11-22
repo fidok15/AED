@@ -35,6 +35,26 @@ export interface AedConverterAnalysis {
   pola_stale: { pole: string; tytul: string; wartosci: string[] | null }[];
   uwagi: string[];
   ostrzezenia: string[];
+  /** The server may send addresses to the GUGiK geocoding service (AED_GEOKODOWANIE). */
+  geokodowanie_dostepne?: boolean;
+}
+
+/** Part of the conversion report when the user asked to fill positions from addresses (GUGiK). */
+export interface AedConverterGeocoding {
+  komunikat: string;
+  wylaczone?: boolean;
+  uzupelnione?: number;
+  nieuzupelnione?: number;
+  kody_uzupelnione?: number;
+  wiersze_uzupelnione?: {
+    wiersz: number;
+    nazwa: string;
+    adres: string;
+    szerokosc: number;
+    dlugosc: number;
+    uwaga: string;
+  }[];
+  wiersze_nieuzupelnione?: { wiersz: number; nazwa: string; powod: string }[];
 }
 
 /** One column whose values were rewritten to the standard's spelling (e.g. „Publiczny” → „publiczny”). */
@@ -67,6 +87,8 @@ export interface AedConverterResult {
     /** Rows with an address but no position: kept in the file to complete, rejected from the list. */
     bez_wspolrzednych: number;
     bez_wspolrzednych_komunikat: string;
+    /** null unless the user ticked "Uzupełnij położenie z adresu". */
+    geokodowanie: AedConverterGeocoding | null;
   };
 }
 
@@ -89,6 +111,8 @@ export class AedConverterComponent implements OnInit {
   /** column -> target field ('' = column skipped); starts as the service's proposal. */
   protected readonly mapping = signal<Record<string, string>>({});
   protected readonly constants = signal<Record<string, string>>({});
+  /** Off by default: addresses leave the server only when the user ticks the box. */
+  protected readonly geocode = signal(false);
   protected readonly result = signal<AedConverterResult | null>(null);
   protected readonly busy = signal(false);
   protected readonly error = signal('');
@@ -142,6 +166,7 @@ export class AedConverterComponent implements OnInit {
         this.analysis.set(analysis);
         this.mapping.set(Object.fromEntries(analysis.kolumny.map((column) => [column.kolumna, column.pole])));
         this.constants.set({});
+        this.geocode.set(false);
         this.busy.set(false);
         this.focus('#aed-conv-mapping');
       },
@@ -162,6 +187,11 @@ export class AedConverterComponent implements OnInit {
     this.result.set(null);
   }
 
+  protected setGeocode(on: boolean): void {
+    this.geocode.set(on);
+    this.result.set(null);
+  }
+
   protected convert(): void {
     const file = this.file();
     if (!file || this.busy()) return;
@@ -178,6 +208,7 @@ export class AedConverterComponent implements OnInit {
     const body = this.form(file);
     body.append('mapowanie', JSON.stringify(this.mapping()));
     body.append('stale', JSON.stringify(this.constants()));
+    if (this.geocode()) body.append('geokodowanie', '1');
     this.pending = this.http.post<AedConverterResult>(`${API}/konwersja`, body).subscribe({
       next: (result) => {
         this.result.set(result);
