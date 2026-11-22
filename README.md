@@ -1,11 +1,13 @@
-# Misja AED – Dane na ratunek
+# Wykaz AED w dane.gov.pl (tytuł roboczy)
 
-Prototyp na HackNation 2026 (zadanie Ministerstwa Cyfryzacji): proces i narzędzia, dzięki którym ministerstwo zbiera w dane.gov.pl jeden, ujednolicony zbiór danych o defibrylatorach AED.
+Rozwiązanie zadania konkursowego „Misja AED – Dane na ratunek” (HackNation 2026, Ministerstwo Cyfryzacji). „Misja AED – Dane na ratunek” to nazwa zadania, nie nazwa naszej akcji – tę wybiera zespół (`kampania/nazwa-i-haslo.md`).
+
+Prototyp: proces i narzędzia, dzięki którym ministerstwo zbiera w dane.gov.pl jeden, ujednolicony zbiór danych o defibrylatorach AED.
 
 Jak to działa – dwa kanały, jeden standard (`aed_standard/schema.json`):
 
-1. **Wykaz AED w portalu** (wzorem wykazu DGA): samorząd, instytucja lub firma publikuje w swoim zbiorze na dane.gov.pl zasób „Wykaz AED”. Portal sprawdza plik przy zapisie i codziennie scala wszystkie wykazy w jeden zasób zbiorczy ministerstwa, publicznie do odczytu (`GET /aed-aggregated`, tabela, mapa, API). Kod: `backend/mcod/aed/`, opis: `docs/wykaz-aed-w-portalu.md`.
-2. **Usługa AED**: producent lub sprzedawca zgłasza urządzenie z konta firmy (CSV albo formularz) → identyfikator i naklejka z kodem QR → zarządca skanuje kod i potwierdza miejsce oraz godziny dostępu → rekord trafia do rejestru ministerstwa, który wraca do portalu jako wykaz ministerstwa albo zasilanie XML dla harvestera.
+1. **Wykaz AED w portalu** (wzorem wykazu DGA): samorząd, instytucja lub firma publikuje w swoim zbiorze na dane.gov.pl zasób „Wykaz AED”. Portal sprawdza plik CSV przy zapisie (XLSX i link – przy scalaniu) i scala wszystkie wykazy w jeden zasób zbiorczy ministerstwa, publicznie do odczytu (`GET /aed-aggregated`, tabela, mapa, API). Scalanie to zadanie Celery z harmonogramem 03:45; sprawdzone ręcznym uruchomieniem zadania, harmonogram w działaniu – nie. Kod: `backend/mcod/aed/`, opis: `docs/wykaz-aed-w-portalu.md`.
+2. **Usługa AED**: producent lub sprzedawca zgłasza urządzenie z konta firmy (CSV albo formularz) → identyfikator i naklejka z kodem QR → zarządca skanuje kod i potwierdza miejsce oraz godziny dostępu → rekord trafia do rejestru ministerstwa i jego eksportu (CSV oraz zasilanie XML 1.13 dla harvestera). Plik eksportu wgrany jako wykaz ministerstwa przechodzi scalanie w portalu (sprawdzone z eksportem z mappera); przejścia jednego rekordu od naklejki do zasobu zbiorczego jeszcze nie pokazaliśmy.
 
 Stan początkowy daje mapper istniejących otwartych źródeł z deduplikacją.
 
@@ -21,7 +23,7 @@ Potem otwórz `http://localhost:8080/pl/aed`. Pierwsza budowa trwa kilka minut. 
 
 Strony portalu poza obszarem AED pobierają dane tylko do odczytu z publicznego API dane.gov.pl. Nie loguj się w nich kontem portalu.
 
-Pełny fork portalu (frontend, API, panel administracyjny, wykaz AED) z usługą AED pod domeną z HTTPS: `docs/wdrozenie-serwer.md`.
+Pełny fork portalu (frontend, API, panel administracyjny, wykaz AED) z usługą AED pod domeną z HTTPS: `docs/wdrozenie-serwer.md`. Stan 22.11: uruchomiony lokalnie, także próbnie pod `aed.localhost`; serwera publicznego jeszcze nie ma.
 
 ## Co jest w repozytorium
 
@@ -34,7 +36,7 @@ Pełny fork portalu (frontend, API, panel administracyjny, wykaz AED) z usługą
 | `wzorzec/` | `wzorzec-aed.xlsx` – wzorcowy zakres danych – oraz przykładowe pliki CSV |
 | `datasets/` | surowe źródła (`raw/`) i wynik mappera (`out/`) |
 | `kampania/` | materiały akcji promocyjnej |
-| `docs/` | treść zadania, kontrakt API, instrukcja dla jury, konspekt prezentacji |
+| `docs/` | treść zadania, kontrakt API, instrukcja dla jury, prezentacja (`docs/prezentacja/misja-aed.pptx`) |
 
 ## Praca bez Dockera
 

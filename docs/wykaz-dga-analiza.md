@@ -76,6 +76,6 @@ Wykaz, którego nie da się odczytać, któremu brakuje kolumn albo który ma pu
 | brak uruchomienia ręcznego | `python manage.py create_main_aed_resource [--dry-run]` | – | nowe |
 | `GET /dga-aggregated` | `GET /aed-aggregated` (`aed/views.py`, `routes.py:152`) – dodatkowo publiczny raport: które wykazy przyjęto, które odrzucono i dlaczego | `JsonAPIView`, `BaseHdlr`, `login_optional` | skopiowane |
 | odczyt linku CKAN (`request_remote_dga`) | odczyt zasobu-linku | **importowane bez zmian** | – |
-| `containsProtectedData` w XSD harvestera i walidacja CKAN | nie zrobione; flagę na zasobie z harvestera może ustawić redaktor w panelu | – | do zrobienia: `containsAedList` w XSD 1.14 |
+| `containsProtectedData` w XSD harvestera i walidacja CKAN | nie zrobione; flagę na zasobie z harvestera może ustawić redaktor w panelu | – | XML: `containsAedList` w XSD 1.14 jest w forku (test parsera i serializera, `mcod/aed/tests/test_harvester.py`); usługa wystawia 1.13; CKAN – do zrobienia |
 | `dga_migrate` (oznaczenie istniejących zasobów po nazwie) | nie zrobione; odpowiednikiem jest rejestr źródeł `aed_standard/sources.json` | – | możliwy następny krok |
 | strona CMS „Wykaz chronionych danych” + `dga.service.ts` | nie zrobione; wynik widać w zwykłym widoku zbioru i zasobu | – | możliwy następny krok we froncie |
