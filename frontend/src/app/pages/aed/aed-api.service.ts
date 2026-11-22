@@ -26,6 +26,8 @@ export interface AedPage<T> {
   razem: number;
   strona: number;
   na_stronie: number;
+  /** Only with `dostepny_teraz=1`: matching devices whose hours are missing or cannot be read. */
+  bez_godzin?: number;
 }
 
 export interface AedStats {
@@ -263,6 +265,7 @@ export class AedApiService {
   devices(params: {
     status?: AedStatus;
     q?: string;
+    dostepny_teraz?: 1;
     strona?: number;
     na_stronie?: number;
   }): Observable<AedPage<AedRecord>> {

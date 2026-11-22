@@ -1,33 +1,14 @@
-import { aedHoursFromRows, aedHoursRows, aedIsHoliday, aedOpenNow, aedRowsFromHours } from './aed-hours';
+import cases from './aed-hours.cases.json';
+import { aedHoursFromRows, aedHoursRows, aedIsHoliday, aedOpenNow, AedOpenState, aedRowsFromHours } from './aed-hours';
 
+// The table is shared with aed_standard/hours.py (tests/test_hours.py), so both implementations answer alike.
 describe('aedOpenNow', () => {
-  const tuesdayMorning = new Date(2026, 10, 24, 10, 0); // 24 Nov 2026, Tuesday
-  const saturday = new Date(2026, 10, 28, 10, 0);
-  const independenceDay = new Date(2026, 10, 11, 10, 0); // Wednesday, public holiday
-
-  it('reads the plain forms', () => {
-    expect(aedOpenNow('24/7', saturday)).toBe('dostepny');
-    expect(aedOpenNow('Mo-Fr 08:00-16:00', tuesdayMorning)).toBe('dostepny');
-    expect(aedOpenNow('Mo-Fr 08:00-16:00', saturday)).toBe('zamkniety');
-    expect(aedOpenNow('Mo 08:00-17:00; Tu-Fr 12:00-15:00; Sa-Su, PH off', tuesdayMorning)).toBe('zamkniety');
-    expect(aedOpenNow('06:00-22:00', saturday)).toBe('dostepny');
+  it.each(cases.open_now as [string | null, string, AedOpenState][])('%p at %s is %s', (hours, at, expected) => {
+    expect(aedOpenNow(hours, new Date(at))).toBe(expected);
   });
 
-  it('closes on public holidays when the value says so', () => {
-    expect(aedOpenNow('Mo-Fr 07:30-15:30; Sa-Su, PH off', independenceDay)).toBe('zamkniety');
-    expect(aedOpenNow('Mo-Fr 07:30-15:30', independenceDay)).toBe('dostepny');
-    expect(aedIsHoliday(new Date(2026, 3, 6))).toBe(true); // Easter Monday 2026
-    expect(aedIsHoliday(new Date(2026, 5, 4))).toBe(true); // Corpus Christi 2026
-    expect(aedIsHoliday(tuesdayMorning)).toBe(false);
-  });
-
-  it('never guesses', () => {
-    expect(aedOpenNow('', tuesdayMorning)).toBe('nieznane');
-    expect(aedOpenNow(null, tuesdayMorning)).toBe('nieznane');
-    expect(aedOpenNow('sunrise-sunset', tuesdayMorning)).toBe('nieznane');
-    expect(aedOpenNow('Mo-Fr 08:00-16:00; Dec 24 off', tuesdayMorning)).toBe('nieznane');
-    expect(aedOpenNow('Mo-Su 22:00-06:00', tuesdayMorning)).toBe('nieznane');
-    expect(aedOpenNow('W godzinach pracy urzędu', tuesdayMorning)).toBe('nieznane');
+  it.each(cases.holiday as [string, boolean][])('public holiday %s: %p', (day, expected) => {
+    expect(aedIsHoliday(new Date(`${day}T12:00`))).toBe(expected);
   });
 });
 

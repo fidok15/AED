@@ -52,6 +52,22 @@
   </fieldset>
 }
 
+<fieldset class="aed-filter">
+  <legend class="aed-filter__legend">Dostępność teraz</legend>
+  <label class="aed-filter__option">
+    <input
+      type="checkbox"
+      [checked]="openNowOnly()"
+      (change)="filter({ openNow: $any($event.target).checked })"
+      aria-describedby="aed-open-note" />
+    <span>{{ openLabel }}</span>
+  </label>
+</fieldset>
+<p class="aed-note" id="aed-open-note">
+  Dostępność wynika z godzin podanych w rejestrze i z bieżącej godziny w Polsce. Urządzenia bez godzin albo z godzinami,
+  których nie da się jednoznacznie odczytać, nie przechodzą tego filtra; lista podaje, ile ich jest.
+</p>
+
 <form class="aed-search" role="search" (submit)="$event.preventDefault(); filter({ query: search.value })">
   <label class="aed-field__label" for="aed-search">Szukaj po nazwie miejsca lub miejscowości</label>
   <div class="aed-search__row">
@@ -66,10 +82,6 @@
 
 <h2 class="aed-h2" id="aed-list-heading">Lista urządzeń</h2>
 <p class="aed-count" role="status">{{ shown() }}</p>
-<p class="aed-note">
-  Każdy wiersz podaje, czy urządzenie jest teraz dostępne. Filtrować według tej dostępności można na razie tylko na
-  mapie pod listą.
-</p>
 
 <ul class="aed-list" aria-labelledby="aed-list-heading">
   @for (record of records(); track record.id_aed) {
@@ -106,7 +118,7 @@
       </p>
     </li>
   } @empty {
-    <li class="aed-row aed-row--empty">Nic nie pasuje do wybranego statusu i szukanej frazy. Zmień jedno z nich.</li>
+    <li class="aed-row aed-row--empty">Nic nie pasuje do wybranych filtrów i szukanej frazy. Zmień jeden z nich.</li>
   }
 </ul>
 
@@ -117,8 +129,8 @@
 <section class="aed-map" aria-labelledby="aed-map-heading">
   <h2 class="aed-h2" id="aed-map-heading">Mapa</h2>
   <p>
-    Mapa pokazuje urządzenia z tego samego rejestru i uwzględnia status wybrany nad listą. Wszystkie informacje z mapy
-    są też na liście; wyszukiwanie działa tylko na liście.
+    Mapa pokazuje urządzenia z tego samego rejestru i uwzględnia status oraz dostępność teraz wybrane nad listą.
+    Wszystkie informacje z mapy są też na liście; wyszukiwanie działa tylko na liście.
   </p>
-  <app-aed-map [status]="status()" />
+  <app-aed-map [status]="status()" [openNow]="openNowOnly()" />
 </section>
