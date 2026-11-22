@@ -90,3 +90,25 @@ def test_mail_backend_error_marks_all_entries():
     with patch("mcod.aed.notifications.get_connection", side_effect=RuntimeError("no backend")):
         report = _merge(resource, KROSNO)
     assert all(w.get("powiadomienie_oczekuje") for w in report["wykazy"])
+
+
+def test_warnings_alone_never_send_mail():
+    """Warnings (e.g. a 6-digit TERC, standard 0.3.0) do not lower the list's status and do not send or repeat the
+    mail: a list accepted with warnings gets none, and a partly accepted list is not mailed again when only its
+    warnings change."""
+    header = "nazwa,miejscowosc,kod_terc,szerokosc_geograficzna,dlugosc_geograficzna,dostep\n"
+    good, warned = "Urząd,Legionowo,1408011,52.395198,20.931382,publiczny\n", "Urząd,Legionowo,140801,52.395198,20.931382,publiczny\n"
+    outside = "Szkoła,Legionowo,,10.0,10.0,publiczny\n"  # coordinates outside Poland: the row is rejected
+
+    first = _provider_list()
+    accepted = _merge(first, (header + warned).encode("utf-8"))
+    assert accepted["wykazy"][0]["status"] == "przyjety" and accepted["wykazy"][0]["problemy"][0]["kod"] == "terc_bez_rodzaju"
+    assert len(mail.outbox) == 0
+
+    first.contains_aed_list = False  # out of the next merges
+    first.save()
+    resource = _provider_list()
+    _merge(resource, (header + good + outside).encode("utf-8"))
+    assert len(mail.outbox) == 1 and mail.outbox[0].subject.startswith("Wykaz AED przyjęty częściowo")
+    _merge(resource, (header + warned + outside).encode("utf-8"))  # same errors, one warning more
+    assert len(mail.outbox) == 1

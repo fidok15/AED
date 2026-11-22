@@ -60,8 +60,11 @@ Licencja: portal nie ma pola „licencja” do wyboru wprost. Zaznaczenie warunk
    | `kod_terc` | Liczba całkowita | Dane tekstowe |
    | `kod_simc` | Liczba całkowita | Dane tekstowe (inaczej zginie zero wiodące, np. `0920806`) |
    | `zrodlo_id` | Liczba całkowita | Dane tekstowe |
-   | `kompletnosc` | Liczba całkowita | Dane tekstowe (tak zrobiono 22.11; liczba całkowita też powinna przejść – wniosek, niesprawdzone) |
+   | `kompletnosc` | Liczba całkowita | bez zmian albo Dane tekstowe (liczba całkowita przechodzi – sprawdzone 22.11 na pliku 0.3.0) |
    | `szerokosc_geograficzna`, `dlugosc_geograficzna` | Liczba zmiennoprzecinkowa | bez zmian – wymagane dla mapy |
+   | `data_aktualizacji` | Data | bez zmian (wypełniona w każdym wierszu) |
+
+   Standard 0.3.0 (42 kolumny) nie zmienia tej listy dla obecnego pliku: typ wykrywany przez portal (`mcod/resources/type_guess.py`, ten sam kod co w Celery) uruchomiony 22.11 w kontenerze `mcod-admin` na wykazie krajowym 0.3.0 dał liczby całkowite w `nr_budynku`, `kod_terc`, `kod_simc`, `zrodlo_id`, `kompletnosc` i datę w `data_aktualizacji`; walidacja goodtables tym schematem zgłosiła błędy tylko w `nr_budynku`, `kod_terc`, `kod_simc` i `zrodlo_id`. Nowe kolumny są dziś puste albo tekstowe (`sposob_ustalenia_polozenia` = `import`), więc portal daje im typ dowolny lub tekst. **Gdy zaczną być wypełniane rzadko**, zmień na „Dane tekstowe” także: `pietro` (w standardzie liczba całkowita), `data_stanu`, `data_weryfikacji` oraz `data_produkcji`, `data_waznosci_elektrod`, `data_waznosci_baterii` (w 0.3.0 przyjmują też `RRRR-MM`, więc i tak nie są typem „Data”) – pusta komórka w kolumnie liczbowej albo datowej to błąd walidacji. Pozycje kolumn zmieniły się w 0.3.0 (np. `nr_budynku` to kolumna 9, `kod_terc` 12, `kod_simc` 13, `zrodlo_id` 39), więc komunikaty „kolumna N” z wcześniejszych zrzutów nie pasują do nowych plików. Zasobu zbiorczego to nie dotyczy: scalanie ustawia mu schemat (wszystko tekstem poza współrzędnymi).
 
    Sprawdzone 22.11 na lokalnym stosie: po zmianie tych pięciu kolumn na tekst i kliknięciu „Zmień typ” walidacja danych po ok. 20 s ma status SUCCESS (zrzut `docs/zrzuty/portal-11-typy-kolumn.png`). Dlaczego tak jest – patrz sekcja „CSV a walidacja portalu”. Zapis zmienionego schematu uruchamia ponowną walidację (`resources/admin.py:888-912`).
 4. Zakładka **„Mapy i wykresy”** – zestaw „współrzędne geograficzne” (`resources/forms.py:131-158`, opisy ról w `settings/base.py:1840-1861`):
