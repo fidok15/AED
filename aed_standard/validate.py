@@ -45,7 +45,14 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 PL_DATE_RE = re.compile(r"^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$")
 INT_RE = re.compile(r"^-?\d+$")
 EMAIL_RE = re.compile(r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$")
+# Hard rule 6: a cabinet code ("kod do szafki 1234", "PIN: 4590") in a free-text field; "kod pocztowy" is not one.
+LOCK_CODE_RE = re.compile(r"\b(?:kod(?:u|em|y)?|pin(?:u|em)?|szyfr(?:u|em)?)\b(?!\s*pocztow)\D{0,20}?(?<!\d)\d{3,8}(?!\d)",
+                          re.IGNORECASE)
+LOCK_CODE_FIELDS = ("nazwa", "opis_lokalizacji", "godziny_dostepu_opis")
 
+
+# Profile names are technical; messages say what the profile is for.
+PROFILE_PHRASE = {"sprzedaz": "przy zgłoszeniu sprzedaży urządzenia", "publikacja": "do publikacji w zbiorze otwartym"}
 
 def issue(row, field, level, code, message):
     return {"wiersz": row, "pole": field, "poziom": level, "kod": code, "komunikat": message}
@@ -65,6 +72,29 @@ def parse_date(value):
         return datetime.date(int(value[:4]), int(value[5:7]), int(value[8:10]))
     except ValueError:
         return None
+
+
+MONTHS_GEN = ("stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca", "lipca", "sierpnia", "września",
+              "października", "listopada", "grudnia")
+
+
+def _date_message(label, example, value):
+    """Message for a date not in RRRR-MM-DD; a D.M.Y / M/D/Y value gets a hint only when it has one reading."""
+    m = PL_DATE_RE.match(value)
+    if m:
+        a, b, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if 1 <= a <= 12 and 1 <= b <= 12 and a != b:
+            return ("Pole %s: data „%s” jest niejednoznaczna. Sprawdź w danych źródłowych, czy chodzi o %d %s czy %d %s "
+                    "%d r., i wpisz datę w formacie RRRR-MM-DD." % (label, value, a, MONTHS_GEN[b - 1], b,
+                                                                     MONTHS_GEN[a - 1], year))
+        for day, month in ((a, b), (b, a)):
+            try:
+                hint = datetime.date(year, month, day).isoformat()
+            except ValueError:
+                continue
+            return ("Pole %s: wpisz datę w formacie RRRR-MM-DD. Otrzymano: „%s”. Zamień na %s."
+                    % (label, value, hint))
+    return "Pole %s: wpisz istniejącą datę w formacie RRRR-MM-DD, np. %s. Otrzymano: „%s”." % (label, example, value)
 
 
 def to_float(value):
@@ -103,10 +133,7 @@ def check_value(name, value):
                      % (_label(name), example, value))]
     elif t == "date":
         if parse_date(value) is None:
-            m = PL_DATE_RE.match(value)
-            hint = " Zamień na %s-%02d-%02d." % (m.group(3), int(m.group(2)), int(m.group(1))) if m else ""
-            return [("format_daty", "Pole %s: wpisz istniejącą datę w formacie RRRR-MM-DD, np. %s. Otrzymano: „%s”.%s"
-                     % (_label(name), example, value, hint))]
+            return [("format_daty", _date_message(_label(name), example, value))]
     elif t == "boolean":
         allowed = f.get("trueValues", [S.TRUE_VALUE]) + f.get("falseValues", [S.FALSE_VALUE])
         if value not in allowed:
@@ -139,7 +166,7 @@ def check_record(record, profile, row=None, today=None, columns=None):
     for name in S.required(profile):
         if not val[name] and (columns is None or name in columns):
             out.append(issue(row, name, ERROR, "brak_wymaganego",
-                             "Pole %s jest wymagane w profilu %s. Uzupełnij je." % (_label(name), profile)))
+                             "Pole %s jest wymagane %s. Uzupełnij je." % (_label(name), PROFILE_PHRASE.get(profile, "w profilu " + profile))))
     for name in S.FIELD_NAMES:
         if val[name]:
             for code, msg in check_value(name, val[name]):
@@ -150,8 +177,15 @@ def check_record(record, profile, row=None, today=None, columns=None):
         for name in ACTIVE_REQUIRED:
             if not val[name]:
                 out.append(issue(row, name, ERROR, "wymagane_dla_aktywnego",
-                                 "Rekord o statusie „aktywny” musi mieć wypełnione pole %s. Uzupełnij je albo zmień status."
+                                 "Rekord zweryfikowany (status „aktywny”) musi mieć wypełnione pole %s. Uzupełnij je albo zmień status."
                                  % _label(name)))
+
+    if profile == "publikacja":
+        for name in LOCK_CODE_FIELDS:
+            if LOCK_CODE_RE.search(val[name]):
+                out.append(issue(row, name, ERROR, "kod_do_szafki",
+                                 "Pole %s wygląda na kod do szafki. Kod do szafki nie może trafić do danych otwartych – "
+                                 "przekaż go kanałem dyspozytorskim." % _label(name)))
 
     if (val[LAT] or val[LON]) and not (val[LAT] and val[LON]):
         missing = LON if val[LAT] else LAT
@@ -300,7 +334,7 @@ def validate_csv(data, profile, today=None):
     for name in S.required(profile):
         if name not in seen_cols:
             issues.append(issue(None, name, ERROR, "brak_kolumny",
-                                "Brakuje kolumny „%s” wymaganej w profilu %s. Dodaj ją do nagłówka." % (name, profile)))
+                                "Brakuje kolumny „%s”, wymaganej %s. Dodaj ją w pierwszym wierszu pliku." % (name, PROFILE_PHRASE.get(profile, "w profilu " + profile))))
     if not data_rows:
         issues.append(issue(None, None, ERROR, "brak_wierszy", "Plik nie zawiera wierszy danych pod nagłówkiem."))
 

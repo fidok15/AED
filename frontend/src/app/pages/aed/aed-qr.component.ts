@@ -1,9 +1,10 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, inject, input, OnInit, signal } from '@angular/core';
+import { afterNextRender, Component, computed, inject, Injector, input, OnInit, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { SeoService } from '@app/services/seo.service';
 import { ScrollToFirstErrorDirective } from '@app/shared/forms/directives/scroll-to-first-error.directive';
+import { scrollToFirstError } from '@app/shared/forms/utils/scroll-to-first-error';
 import {
   AedApiService,
   AedCondition,
@@ -14,11 +15,15 @@ import {
 } from './aed-api.service';
 import { AedFieldComponent } from './aed-field.component';
 import { AedHoursPickerComponent } from './aed-hours-picker.component';
+import { aedPlural } from './aed-map.component';
 import { aedControl, aedField, aedRequired, aedRequiredForStatus } from './aed-schema';
 import { AED_STATUS_LABELS, AedStatusComponent } from './aed-status.component';
 
 /** As in the service: a reminder goes out this many days before the battery or the electrodes expire. */
 const EXPIRY_NOTICE_DAYS = 60;
+/** Validator codes of missing values; as in the service, they do not block a problem report. */
+const ODBL = 'ODbL 1.0';
+const REQUIRED_CODES = ['brak_wymaganego', 'wymagane_dla_aktywnego'];
 
 /**
  * Phone screen opened from the QR sticker: /aed/qr/{id_aed}.
@@ -42,6 +47,8 @@ export class AedQrComponent implements OnInit {
   private readonly api = inject(AedApiService);
   private readonly seo = inject(SeoService);
   private readonly focus = aedFocusFactory();
+  private readonly injector = inject(Injector);
+  protected readonly plural = aedPlural;
 
   /** Route parameter and query parameter, bound by the router. */
   readonly id = input<string>();
@@ -49,6 +56,10 @@ export class AedQrComponent implements OnInit {
 
   protected readonly record = signal<AedRecord | null>(null);
   protected readonly loadError = signal('');
+  /** The manager link is unknown or expired (403): the device exists, only the link does not work. */
+  protected readonly badLink = signal(false);
+  /** Same page without the token: the public view with the bystander's signal (full reload, so it loads anew). */
+  protected readonly publicPage = () => location.pathname;
   protected readonly sendError = signal('');
   /** Result screen: readiness confirmed, a problem reported by the manager, or a bystander's signal sent. */
   protected readonly done = signal<'potwierdzenie' | 'problem' | 'sygnal' | null>(null);
@@ -77,6 +88,20 @@ export class AedQrComponent implements OnInit {
       return date !== '' && date <= limit;
     });
   });
+  /** "Elektrody: ważne do 20 grudnia 2026 r. (zostało 28 dni)" or "…: termin minął …", against today on this phone. */
+  protected readonly expiryNotes = computed(() => {
+    const today = Date.parse(new Date().toLocaleDateString('sv-SE'));
+    return this.expiring().map((field) => {
+      const value = String(this.record()?.[field.name]);
+      const date = new Date(value).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' });
+      const days = Math.round((Date.parse(value) - today) / 86_400_000);
+      const [part, valid] = field.name === 'data_waznosci_baterii' ? ['Bateria', 'ważna'] : ['Elektrody', 'ważne'];
+      if (days < 0) return `${part}: termin minął ${date} r.`;
+      if (days === 0) return `${part}: ${valid} do dziś, ${date} r.`;
+      const left = aedPlural(days, 'został', 'zostały', 'zostało');
+      return `${part}: ${valid} do ${date} r. (${left} ${days} ${aedPlural(days, 'dzień', 'dni', 'dni')})`;
+    });
+  });
   protected readonly values = new FormGroup(
     Object.fromEntries(
       [...this.coordinates, ...this.place, ...this.spot, this.access, this.hours, this.hoursNote, ...this.expiry].map(
@@ -84,9 +109,26 @@ export class AedQrComponent implements OnInit {
       ),
     ),
   );
+  /**
+   * A point known only from OpenStreetMap (ODbL): the form starts empty and the manager gives every value,
+   * so the published record is the owner's own data (CLAUDE.md, hard rule 3). The service starts from an empty
+   * record too and then also takes the owner's contact.
+   */
+  protected readonly takeover = computed(() => this.record()?.['licencja'] === ODBL);
+  /** The manager may add the contact on a takeover and whenever the record has none yet (e.g. a city dataset). */
+  protected readonly needsContact = computed(() => this.takeover() || !this.record()?.['dysponent_email']);
+  protected readonly ownerFields = ['dysponent_nazwa', 'dysponent_email', 'dysponent_telefon'].map(aedField);
+  protected readonly owner = new FormGroup(
+    Object.fromEntries(this.ownerFields.map((field) => [field.name, aedControl(field)])),
+  );
   protected readonly stan = new FormControl<AedCondition | null>(null, Validators.required);
   protected readonly uwagi = new FormControl('');
-  protected readonly form = new FormGroup({ values: this.values, stan: this.stan, uwagi: this.uwagi });
+  protected readonly form = new FormGroup({
+    values: this.values,
+    owner: this.owner,
+    stan: this.stan,
+    uwagi: this.uwagi,
+  });
 
   // Anyone: the public signal.
   protected readonly signalTypes: { typ: AedSignalType; label: string }[] = [
@@ -112,9 +154,12 @@ export class AedQrComponent implements OnInit {
     this.api.device(this.id(), this.t()).subscribe({
       next: (record) => {
         this.record.set(record);
-        this.values.patchValue(record);
+        if (!this.takeover()) this.values.patchValue(record);
       },
-      error: (error) => this.loadError.set(aedErrorMessage(error)),
+      error: (error) => {
+        this.badLink.set(error.status === 403);
+        this.loadError.set(aedErrorMessage(error));
+      },
     });
   }
 
@@ -157,11 +202,23 @@ export class AedQrComponent implements OnInit {
     );
   }
 
+  /** Required answers still missing in the confirmation form (re-read on every change detection). */
+  protected missing(): number {
+    return [...Object.values(this.values.controls), this.stan, this.uwagi].filter((control) => control.invalid).length;
+  }
+
+  /** "Do uzupełnienia: …": show the errors and move focus to the first missing field, as a submit would. */
+  protected showMissing(form: HTMLFormElement): void {
+    this.form.markAllAsTouched();
+    afterNextRender(() => scrollToFirstError(form), { injector: this.injector });
+  }
+
   protected confirm(): void {
     if (this.form.invalid) return; // appScrollToFirstError marks the fields and moves focus to the first one
     // The service changes only the fields it receives. A field the manager emptied is therefore sent as '',
     // otherwise the old text would stay in the record; untouched empty fields are left out.
-    const sent = Object.entries(this.values.controls)
+    const controls = { ...this.values.controls, ...(this.needsContact() ? this.owner.controls : {}) };
+    const sent = Object.entries(controls)
       .filter(([, control]) => control.dirty || (control.value !== null && control.value !== ''))
       .map(([name, control]) => [name, control.value ?? '']);
     const body = {
@@ -176,7 +233,11 @@ export class AedQrComponent implements OnInit {
         // The service decides: only a device reported as ready becomes `aktywny`.
         this.finish(record.status === 'aktywny' ? 'potwierdzenie' : 'problem');
       },
-      error: (error) => this.sendError.set(aedErrorMessage(error)),
+      // A problem report may be incomplete: the service lists missing fields too, but only wrong values block it.
+      error: (error) =>
+        this.sendError.set(
+          aedErrorMessage(error, (problem) => body.stan !== 'problem' || !REQUIRED_CODES.includes(problem.kod)),
+        ),
     });
   }
 

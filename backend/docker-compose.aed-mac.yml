@@ -1,0 +1,46 @@
+# Local override for a Mac (Apple Silicon) that already runs other Docker projects:
+# - python images stay linux/amd64 (native arm64 build fails: no py3.8 arm64 wheel for gevent, source build breaks),
+# - subnet 172.30.18.0/24 instead of 172.18.18.0/24 (collides with other local networks), same host numbers.
+# - admin, API and Celery run from the test image (mcod-app:local-tests: same Pipfile.lock plus dev packages),
+#   so only one image is built; ../datasets is mounted for `manage.py seed_aed_demo`.
+#   Elasticsearch heap 512 MB.
+# Usage: docker compose -f docker-compose.local.yml -f docker-compose.aed-mac.yml [-f docker-compose.aed-ports.yml] ...
+services:
+  mcod-db: {networks: {backend: {ipv4_address: 172.30.18.18}}}
+  mcod-rabbitmq: {networks: {backend: {ipv4_address: 172.30.18.19}}}
+  mcod-redis: {networks: {backend: {ipv4_address: 172.30.18.20}}}
+  mcod-elasticsearch:  # 1 GB heap under amd64 emulation took ~2.9 GB and was OOM-killed on an 8 GB Docker VM
+    networks: {backend: {ipv4_address: 172.30.18.21}}
+    environment: [discovery.type=single-node, node.name=mcod-elasticsearch, bootstrap.memory_lock=true,
+                  xpack.security.enabled=false, "ES_JAVA_OPTS=-Xms512m -Xmx512m"]
+  mcod-smtp: {networks: {backend: {ipv4_address: 172.30.18.22}}}
+  mcod-rdfdb: {networks: {backend: {ipv4_address: 172.30.18.23}}}
+  mcod-nginx: {networks: {backend: {ipv4_address: 172.30.18.100}}}
+  mcod-discourse: {networks: {backend: {ipv4_address: 172.30.18.140}}}
+  mcod-discourse-sidekiq: {networks: {backend: {ipv4_address: 172.30.18.141}}}
+  mcod-local-admin: &from-test-image
+    image: mcod-app:local-tests
+    build: !reset null
+    pull_policy: never
+    networks: {backend: {ipv4_address: 172.30.18.101}}
+    volumes:
+      - ../datasets:/usr/src/mcod_backend/aed_datasets:ro
+  mcod-local-api:
+    <<: *from-test-image
+    networks: {backend: {ipv4_address: 172.30.18.102}}
+  mcod-local-cms:  # needed by docker-compose.aed-domain.yml; same image, no second amd64 build
+    <<: *from-test-image
+    networks: {backend: {ipv4_address: 172.30.18.103}}
+  mcod-local-ws: {networks: {backend: {ipv4_address: 172.30.18.104}}}
+  mcod-local-celery:
+    <<: *from-test-image
+    networks: {backend: {ipv4_address: 172.30.18.110}}
+    # start-celery-local is not in the test image; same worker command without the nginx certificate step
+    entrypoint: [celery, --app=mcod.celeryapp:app, worker, -l, INFO, --concurrency=1, -Q,
+                 "default,resources,indexing,indexing_data,periodic,notifications,watchers,harvester,history,graphs,datasets,archiving"]
+    command: !reset []
+networks:
+  backend:
+    ipam:
+      config:
+        - subnet: 172.30.18.0/24

@@ -1,0 +1,26 @@
+{% autoescape off %}{% if entry.status == "odrzucony" %}Wykaz AED odrzucony przy scalaniu{% elif entry.status == "czesciowo" %}Wykaz AED przyjęty częściowo{% else %}Wykaz AED przyjęty w całości{% endif %}
+
+Zasób: {{ resource_title }}
+Zbiór: {{ dataset_title }}
+{% if entry.status == "przyjety" %}
+Przy ostatnim scalaniu krajowego wykazu AED portal przyjął wszystkie wiersze Twojego wykazu ({{ entry.przyjete }} z {{ entry.wiersze }}). Dziękujemy za poprawienie danych.
+{% else %}
+Przy ostatnim scalaniu krajowego wykazu AED portal przyjął {{ entry.przyjete }} z {{ entry.wiersze }} wierszy Twojego wykazu, odrzucił {{ rejected_rows }}.{% if entry.status == "czesciowo" %} Poprawne wiersze przeszły sprawdzenie i biorą udział w scalaniu krajowego wykazu AED (urządzenia prywatne i powtórzenia nie są publikowane); odrzucone wiersze nie są brane pod uwagę, dopóki ich nie poprawisz.{% else %} Żadne urządzenie z tego wykazu nie trafiło do krajowego wykazu AED.{% endif %}
+
+Problemy{% if more_problems %} (pierwsze {{ problems|length }} z {{ entry.problemy_razem }}){% endif %}:
+{% for p in problems %}- {% if p.wiersz %}Wiersz {{ p.wiersz }}{% else %}Plik{% endif %}{% if p.pole %}, pole {{ p.pole }}{% endif %}: {{ p.komunikat }}
+{% endfor %}
+Popraw plik w zasobie i zapisz go w panelu: {{ admin_url }}
+Portal sprawdzi wykaz ponownie przy najbliższym scalaniu (codziennie).{% if help_url %}
+Wzorzec i konwerter pliku do standardu AED: {{ help_url }}{% endif %}
+{% endif %}
+Zbiór w portalu: {{ dataset_url }}
+Raport ze scalania: {{ report_url }}
+
+Wiadomość dostajesz, bo ten adres jest podany do powiadomień o zbiorze albo jako adres instytucji. Wysyłamy ją tylko wtedy, gdy wynik sprawdzenia wykazu się zmienił.
+
+Z poważaniem,
+Zespół administratorów portalu dane.gov.pl
+
+Wiadomość została wygenerowana automatycznie, prosimy na nią nie odpowiadać.
+{% endautoescape %}

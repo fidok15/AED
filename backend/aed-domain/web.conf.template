@@ -1,0 +1,64 @@
+# nginx of the aed-web container in the full-portal deployment (docker-compose.aed-domain.yml).
+# Same frontend build as the light prototype (docker/nginx.conf.template), but /api, /cms and /media come from the
+# portal fork running next to it instead of the read-only public dane.gov.pl - the same targets as
+# frontend/proxy.aed-local.conf.json. TLS ends in Caddy, hence X-Forwarded-Proto from the request.
+server {
+    listen 80;
+    root /usr/share/nginx/html;
+    index index.html;
+    client_max_body_size 6m;
+
+    location /api/aed {
+        proxy_pass ${AED_SERVICE_URL};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    }
+
+    location /api/ {
+        proxy_pass http://mcod-local-api:8000/1.4/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    }
+
+    location /cms/ {
+        proxy_pass http://mcod-local-cms:8002/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    }
+
+    location /pn-apps {
+        proxy_pass http://mcod-local-admin:8001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    }
+
+    # Public media folders only, as in Caddyfile (public_media); the rest of MEDIA_ROOT is 403.
+    location ~ ^/media/resources/waiting/ {
+        return 403;
+    }
+    location ~ ^/media/(resources|images|showcases|academy|newsletter|lab_reports|datasets|dcat|original_images)/ {
+        root /srv;
+        # Editors upload these files (the portal accepts HTML and SVG): never let one run as a page of this origin.
+        add_header Content-Security-Policy "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:" always;
+        add_header X-Content-Type-Options nosniff always;
+    }
+    location /media/ {
+        return 403;
+    }
+
+    location /flags/ {
+        proxy_pass https://dane.gov.pl/flags/;
+        proxy_set_header Host dane.gov.pl;
+        proxy_ssl_server_name on;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

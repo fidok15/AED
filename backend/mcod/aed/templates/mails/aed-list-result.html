@@ -1,0 +1,53 @@
+{% load static i18n %}
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="pl">
+   <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+      <title>{% if entry.status == "odrzucony" %}Wykaz AED odrzucony przy scalaniu{% elif entry.status == "czesciowo" %}Wykaz AED przyjęty częściowo{% else %}Wykaz AED przyjęty w całości{% endif %}</title>
+   </head>
+   <body>
+		<div style="width:650px; margin:auto;">
+               <table border="0" cellspacing="0" cellpadding="0" align="center" style="width:100%;display:block;margin:0 auto;border:none;max-width:580px;table-layout:fixed;">
+                    <tr style="max-width:580px; padding-top:10px; padding-bottom:10px;">
+                        <td width="580" style="padding-top:10px; padding-bottom:10px; width:100%; overflow:hidden; float:left;"><img src="{{ host }}{% static "mails/logo-otwarte-dane.png" %}" alt="dane.gov.pl"></td>
+                    </tr>
+                    <tr style="max-width:580px; padding-top:10px; padding-bottom:10px;">
+                        <td width="580" align="left" style="padding-top:10px; padding-bottom:10px; max-width:580px;border-collapse: collapse;text-align:left; vertical-align:middle">
+                            <div style="text-align:left;font-size:32px;font-family: Open Sans Light , Arial, Helvetica, sans-serif;color:rgb(102, 102, 102);">{% if entry.status == "odrzucony" %}Wykaz AED odrzucony przy scalaniu{% elif entry.status == "czesciowo" %}Wykaz AED przyjęty częściowo{% else %}Wykaz AED przyjęty w całości{% endif %}</div>
+                        </td>
+                    </tr>
+                    <tr style="max-width:580px; padding-top:10px; padding-bottom:10px;">
+                        <td width="580" align="left" style="padding-top:10px; padding-bottom:10px; max-width:580px; overflow:hidden;"><img src="{{ host }}{% static "mails/kreska-mail.png" %}" alt=""></td>
+                    </tr>
+                </table>
+
+                <table border="0" cellspacing="0" cellpadding="0" align="center" style="width:100%;display:block;margin:0 auto;border:#dadada 1px solid;max-width:580px;table-layout:fixed; clear:both;">
+                    <tr>
+                        <td width="580" align="left" style="padding: 0px 10px; text-align:left;font-family: Open Sans Light , Arial, Helvetica, sans-serif;color:rgb(51, 51, 51);line-height:140%;">
+                            <p><strong>Zasób:</strong> <a href="{{ admin_url }}">{{ resource_title }}</a><br>
+                            <strong>Zbiór:</strong> <a href="{{ dataset_url }}">{{ dataset_title }}</a></p>
+                            {% if entry.status == "przyjety" %}
+                            <p>Przy ostatnim scalaniu krajowego wykazu AED portal przyjął wszystkie wiersze Twojego wykazu ({{ entry.przyjete }} z {{ entry.wiersze }}). Dziękujemy za poprawienie danych.</p>
+                            {% else %}
+                            <p>Przy ostatnim scalaniu krajowego wykazu AED portal przyjął <strong>{{ entry.przyjete }} z {{ entry.wiersze }}</strong> wierszy Twojego wykazu, odrzucił <strong>{{ rejected_rows }}</strong>.
+                            {% if entry.status == "czesciowo" %}Poprawne wiersze przeszły sprawdzenie i biorą udział w scalaniu krajowego wykazu AED (urządzenia prywatne i powtórzenia nie są publikowane); odrzucone wiersze nie są brane pod uwagę, dopóki ich nie poprawisz.{% else %}Żadne urządzenie z tego wykazu nie trafiło do krajowego wykazu AED.{% endif %}</p>
+                            <p><strong>Problemy{% if more_problems %} (pierwsze {{ problems|length }} z {{ entry.problemy_razem }}){% endif %}:</strong></p>
+                            <table border="0" cellspacing="0" cellpadding="4" style="width:100%;border-collapse:collapse;font-size:14px;">
+                                <tr><th align="left" scope="col" style="border-bottom:1px solid #dadada;">Wiersz</th><th align="left" scope="col" style="border-bottom:1px solid #dadada;">Pole</th><th align="left" scope="col" style="border-bottom:1px solid #dadada;">Komunikat</th></tr>
+                                {% for p in problems %}<tr><td valign="top" style="border-bottom:1px solid #eeeeee;">{{ p.wiersz|default:"plik" }}</td><td valign="top" style="border-bottom:1px solid #eeeeee;">{{ p.pole|default:"–" }}</td><td valign="top" style="border-bottom:1px solid #eeeeee;">{{ p.komunikat }}</td></tr>
+                                {% endfor %}
+                            </table>
+                            <p>Popraw plik w zasobie i zapisz go w panelu: <a href="{{ admin_url }}">{{ admin_url }}</a>. Portal sprawdzi wykaz ponownie przy najbliższym scalaniu (codziennie).</p>
+                            {% if help_url %}<p>Wzorzec i konwerter pliku do standardu AED: <a href="{{ help_url }}">{{ help_url }}</a></p>{% endif %}
+                            {% endif %}
+                            <p>Raport ze scalania: <a href="{{ report_url }}">{{ report_url }}</a></p>
+                            <p style="font-size:12px;color:rgb(102, 102, 102);">Wiadomość dostajesz, bo ten adres jest podany do powiadomień o zbiorze albo jako adres instytucji. Wysyłamy ją tylko wtedy, gdy wynik sprawdzenia wykazu się zmienił.</p>
+                        </td>
+                    </tr>
+                </table>
+                <table border="0" cellspacing="0" cellpadding="0" align="center" style="width:100%;display:block;margin:0 auto;border:none;max-width:580px;table-layout:fixed; clear:both;">
+                  {% include 'mails/_footer.html' with strip=True %}
+                </table>
+		</div>
+   </body>
+</html>

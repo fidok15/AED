@@ -61,17 +61,17 @@ describe('AedQrComponent, manager view', () => {
     fixture.detectChanges();
   };
 
-  it('says the device is active only when the service made it active', () => {
+  it('says the device is verified only when the service made it active', () => {
     open(record(), record({ status: 'aktywny' }));
     choose('input[name="aed-stan"][value="sprawny"]');
     submit();
 
     expect(page.querySelector('#aed-done').textContent).toContain('Dane potwierdzone');
-    expect(page.querySelector('.aed-result').textContent).toContain('status „aktywny”');
+    expect(page.querySelector('.aed-result').textContent).toContain('status „Zweryfikowany”');
     expect(page.querySelector('.aed-result__mark--problem')).toBeNull();
   });
 
-  it('reports a problem as a problem: no "aktywny", no success mark', () => {
+  it('reports a problem as a problem: no "Zweryfikowany", no success mark', () => {
     open(record(), record({ status: 'niepotwierdzony' }));
     choose('input[name="aed-stan"][value="problem"]');
     type('#aed-uwagi', 'Mija termin ważności baterii');
@@ -79,9 +79,9 @@ describe('AedQrComponent, manager view', () => {
 
     expect(confirm.mock.calls[0][1]).toMatchObject({ stan: 'problem', uwagi: 'Mija termin ważności baterii' });
     expect(page.querySelector('#aed-done').textContent).toContain('Zgłoszenie problemu zapisane');
-    expect(page.querySelector('.aed-result').textContent).toContain('nie jest teraz pokazywane jako aktywne');
+    expect(page.querySelector('.aed-result').textContent).toContain('nie jest teraz pokazywane jako zweryfikowane');
     expect(page.querySelector('.aed-result').textContent).toContain('Niepotwierdzony');
-    expect(page.querySelector('.aed-result').textContent).not.toContain('status „aktywny”');
+    expect(page.querySelector('.aed-result').textContent).not.toContain('status „Zweryfikowany”');
     expect(page.querySelector('.aed-result__mark--problem')).not.toBeNull();
   });
 
@@ -100,14 +100,17 @@ describe('AedQrComponent, manager view', () => {
     expect('kod_pocztowy' in body).toBe(false);
   });
 
-  it('lets the manager enter new battery and electrode dates, first on the page when a date is close', () => {
+  it('lets the manager enter new battery and electrode dates after the required steps, flagging a close date on top', () => {
     const soon = inDays(20);
     open(record({ data_waznosci_baterii: soon }), record());
     const cards = Array.from(page.querySelectorAll('form .aed-card')).map(
       (card) => card.querySelector('h2').textContent,
     );
-    expect(cards[0]).toContain('Bateria i elektrody');
-    expect(page.querySelector('.aed-message--warn').textContent).toContain(soon);
+    expect(cards[0]).toContain('Gdzie znajduje się urządzenie');
+    expect(cards[cards.length - 1]).toContain('Bateria i elektrody');
+    expect(page.querySelector('.aed-device__expiry').textContent).toMatch(
+      /Bateria: ważna do .* r\. \(zostało 20 dni\)/,
+    );
     expect(page.querySelector<HTMLInputElement>('#aed-data_waznosci_baterii').type).toBe('date');
 
     const next = inDays(1500);
@@ -115,6 +118,43 @@ describe('AedQrComponent, manager view', () => {
     choose('input[name="aed-stan"][value="sprawny"]');
     submit();
     expect(confirm.mock.calls[0][1]).toMatchObject({ data_waznosci_baterii: next });
+  });
+
+  it('does not prefill a point known only from OpenStreetMap and sends the owner contact', () => {
+    open(record({ licencja: 'ODbL 1.0', status: 'niepotwierdzony' }), record());
+    expect(page.querySelector<HTMLInputElement>('#aed-nazwa').value).toBe('');
+    expect(page.querySelector<HTMLInputElement>('#aed-opis_lokalizacji').value).toBe('');
+    expect(page.textContent).toContain('OpenStreetMap');
+
+    type('#aed-nazwa', 'Szkoła nr 1');
+    type('#aed-miejscowosc', 'Fikcyjnowo');
+    type('#aed-szerokosc_geograficzna', '52.2');
+    type('#aed-dlugosc_geograficzna', '21.1');
+    choose('input[name="aed-dostep"][value="publiczny"]');
+    choose('input[name="aed-hours-mode"][value="all"]');
+    type('#aed-dysponent_email', 'aed@urzad.example');
+    choose('input[name="aed-stan"][value="sprawny"]');
+    submit();
+    const body = confirm.mock.calls[0][1];
+    expect(body).toMatchObject({ nazwa: 'Szkoła nr 1', godziny_dostepu: '24/7', dysponent_email: 'aed@urzad.example' });
+    expect('opis_lokalizacji' in body).toBe(false); // the OSM value was never put into the form
+  });
+
+  it('does not ask for the owner contact when the record has one', () => {
+    open(record({ dysponent_email: 'aed@urzad.example' }), record());
+    expect(page.querySelector('#aed-step-owner')).toBeNull();
+  });
+
+  it('asks for the owner contact when the record has none', () => {
+    open(record(), record());
+    expect(page.querySelector('#aed-step-owner')).not.toBeNull();
+    type('#aed-dysponent_email', 'aed@gmina.example');
+    choose('input[name="aed-stan"][value="sprawny"]');
+    submit();
+    expect(confirm.mock.calls[0][1]).toMatchObject({
+      dysponent_email: 'aed@gmina.example',
+      nazwa: 'Urząd Demonstracyjny',
+    });
   });
 
   it('keeps the battery and electrode step last when no date is close', () => {

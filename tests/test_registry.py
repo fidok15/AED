@@ -51,6 +51,13 @@ class RegistryTest(unittest.TestCase):
         self.assertEqual(sources, [])
         self.assertTrue(any("feilds" in e for e in errors), errors)
 
+    def test_non_text_identifiers_are_skipped_not_fatal(self):
+        bad = [dict(VALID, id=["x"]), dict(VALID, id="liczba", zrodlo=5), dict(VALID, id="pusty", file="")]
+        sources, _, errors = R.load_registry(self.write({"licences": {}, "sources": bad + [dict(VALID, zrodlo="z")]}))
+        self.assertEqual([s["id"] for s in sources], ["testowo"])
+        self.assertEqual(len(errors), 3, errors)
+        self.assertIn("nr 1", errors[0])
+
     def test_submission_zrodlo_is_reserved(self):
         _, _, errors = R.load_registry(self.write({"licences": {}, "sources": [dict(VALID, zrodlo=R.SUBMISSION)]}))
         self.assertEqual(len(errors), 1)

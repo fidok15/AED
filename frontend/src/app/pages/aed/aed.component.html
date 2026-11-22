@@ -13,54 +13,38 @@
     <div class="container aed-page">
       <nav class="aed-nav" aria-label="Rejestr AED">
         <ul class="aed-nav__list">
-          <li>
-            <a
-              class="aed-nav__link"
-              [routerLink]="['/!aed'] | localize"
-              routerLinkActive="aed-nav__link--active"
-              [routerLinkActiveOptions]="{ exact: true }"
-              ariaCurrentWhenActive="page">
-              Start
-            </a>
-          </li>
-          <li>
-            <a
-              class="aed-nav__link"
-              [routerLink]="['/!aed', '!registry'] | localize"
-              routerLinkActive="aed-nav__link--active"
-              ariaCurrentWhenActive="page">
-              Rejestr urządzeń
-            </a>
-          </li>
-          <li>
-            <a
-              class="aed-nav__link"
-              [routerLink]="['/!aed', '!company'] | localize"
-              routerLinkActive="aed-nav__link--active"
-              ariaCurrentWhenActive="page">
-              Panel firmy
-            </a>
-          </li>
-          <li>
-            <a
-              class="aed-nav__link"
-              [routerLink]="['/!aed', '!ministry'] | localize"
-              routerLinkActive="aed-nav__link--active"
-              ariaCurrentWhenActive="page">
-              Panel ministerstwa
-            </a>
-          </li>
-          <li>
-            <a
-              class="aed-nav__link"
-              [routerLink]="['/!aed', '!sellers'] | localize"
-              routerLinkActive="aed-nav__link--active"
-              ariaCurrentWhenActive="page">
-              Ranking firm
-            </a>
-          </li>
+          @for (link of links; track link.label) {
+            <li>
+              <a
+                class="aed-nav__link"
+                [routerLink]="link.path | localize"
+                routerLinkActive="aed-nav__link--active"
+                [routerLinkActiveOptions]="{ exact: link.exact }"
+                ariaCurrentWhenActive="page">
+                {{ link.label }}
+              </a>
+            </li>
+          }
         </ul>
-        <span class="aed-tag">prototyp</span>
+        <!-- Below 480 px a sideways row hides the last sections; a disclosure lists them all. -->
+        <details class="aed-nav__menu" #menu>
+          <summary>Sekcje AED: {{ current() }}</summary>
+          <ul>
+            @for (link of links; track link.label) {
+              <li>
+                <a
+                  class="aed-nav__link"
+                  [routerLink]="link.path | localize"
+                  routerLinkActive="aed-nav__link--active"
+                  [routerLinkActiveOptions]="{ exact: link.exact }"
+                  ariaCurrentWhenActive="page"
+                  (click)="menu.open = false">
+                  {{ link.label }}
+                </a>
+              </li>
+            }
+          </ul>
+        </details>
       </nav>
       <router-outlet />
     </div>

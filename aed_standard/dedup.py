@@ -152,7 +152,7 @@ def candidate_pairs(records):
 
 
 def merge_cluster(members):
-    """members sorted by priority. -> merged record (primary's values, gaps from non-OSM members)."""
+    """members sorted by (non-copying last, priority). -> merged record (primary's values, gaps from non-OSM members)."""
     primary = members[0]
     rec = {k: v for k, v in primary.items() if not k.startswith("_")}
     used = [primary]
@@ -182,6 +182,10 @@ def deduplicate(records):
     parent = list(range(n))
     sources = [{records[i]["zrodlo"]} for i in range(n)]
     serials = [{serial_key(r)} - {None} for r in records]  # a cluster holds at most one known serial identity
+    # A private AED whose values may be copied never shares a cluster with a non-private one whose values may be
+    # copied: they would fill each other's gaps (e.g. nr_lokalu) and the private details could reach the open data.
+    # Such a pair goes to review. OSM records copy nothing, so their access class does not matter here.
+    access = [{r.get("dostep") == "prywatny"} if copies_values(r) else set() for r in records]
 
     def find(i):
         while parent[i] != i:
@@ -223,11 +227,15 @@ def deduplicate(records):
             continue
         if serial_conflict(serials[ri], serials[rj]):
             continue  # two different known serial numbers = two devices, even in one building
+        if len(access[ri] | access[rj]) > 1:
+            review.append((i, j, d, sim, "konflikt_dostepu"))
+            continue
         if sources[ri] & sources[rj]:
             # One record per source in a cluster; edges are processed closest first, so the closest wins.
             review.append((i, j, d, sim, "konflikt_zrodel"))
             continue
         parent[rj] = ri
+        access[ri] |= access[rj]
         sources[ri] |= sources[rj]
         serials[ri] |= serials[rj]
         merged_edges.append((records[i]["zrodlo"], records[j]["zrodlo"], rule))
@@ -237,7 +245,9 @@ def deduplicate(records):
         clusters[find(i)].append(i)
     merged, cluster_id = [], {}
     for root, idx in clusters.items():
-        members = sorted((records[i] for i in idx), key=priority)
+        # A record whose values may not be copied (ODbL) is never the primary, whatever its priority: it would turn
+        # the merged record into ODbL and drop the other sources' device from the export.
+        members = sorted((records[i] for i in idx), key=lambda r: (not copies_values(r), priority(r)))
         rec = merge_cluster(members)
         merged.append(rec)
         for i in idx:
@@ -251,5 +261,10 @@ def deduplicate(records):
         pairs.append({"id_aed_a": cluster_id[i], "id_aed_b": cluster_id[j], "rekord_a": records[i], "rekord_b": records[j],
                       "odleglosc_m": None if d is None else round(d, 1), "podobienstwo": sim, "powod": reason})
     pairs.sort(key=lambda p: (p["odleglosc_m"] is None, p["odleglosc_m"] or 0, p["id_aed_a"], p["id_aed_b"]))
+    # Two merged devices can be linked by several source-record edges: one question for the reviewer, the closest.
+    unique = {}
+    for p in pairs:
+        unique.setdefault(frozenset((p["id_aed_a"], p["id_aed_b"])), p)
+    pairs = list(unique.values())
     merged.sort(key=lambda r: r["id_aed"])
     return merged, pairs, merged_edges

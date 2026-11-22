@@ -56,8 +56,8 @@
     ]
   },
   "reguly": [
-    "Rekord o statusie aktywny musi mieć wypełnione pola dostep, godziny_dostepu i data_weryfikacji.",
-    "Współrzędne muszą leżeć w granicach Polski; zamienione szerokość i długość są zgłaszane jako błąd z podpowiedzią.",
+    "Rekord zweryfikowany (status aktywny) musi mieć wypełnione pola dostep, godziny_dostepu i data_weryfikacji.",
+    "Współrzędne muszą leżeć w prostokącie obejmującym Polskę (to przybliżenie, nie granica państwa – punkt tuż za granicą przechodzi sprawdzenie); zamienione szerokość i długość są zgłaszane jako błąd z podpowiedzią.",
     "Daty nie mogą być z przyszłości, z wyjątkiem dat ważności elektrod i baterii.",
     "Minięta data ważności elektrod lub baterii jest ostrzeżeniem, nie błędem.",
     "Para producent i numer_seryjny jest unikalna."
@@ -522,7 +522,7 @@
       "type": "string",
       "grupa": "weryfikacja",
       "waga": 0,
-      "description": "Stan rekordu: zgloszony (znane urządzenie, miejsce niepotwierdzone), aktywny (potwierdzony przez dysponenta), niepotwierdzony (z importu, nikt odpowiedzialny nie potwierdził), nieaktualny (brak potwierdzenia w terminie), wycofany.",
+      "description": "Stan rekordu: zgloszony (znane urządzenie, miejsce niepotwierdzone), aktywny (etykieta „Zweryfikowany”: dysponent potwierdził miejsce, dostęp i godziny dostępu; data w polu data_weryfikacji), niepotwierdzony (z importu, nikt odpowiedzialny nie potwierdził), nieaktualny (brak potwierdzenia w terminie), wycofany.",
       "constraints": {
         "enum": [
           "zgloszony",
@@ -537,7 +537,7 @@
       "wypelnia": "system",
       "etykiety": {
         "zgloszony": "Zgłoszony",
-        "aktywny": "Aktywny",
+        "aktywny": "Zweryfikowany",
         "niepotwierdzony": "Niepotwierdzony",
         "nieaktualny": "Nieaktualny",
         "wycofany": "Wycofany"

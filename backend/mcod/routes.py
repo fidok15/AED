@@ -1,4 +1,5 @@
 from mcod.academy import views as academy_views
+from mcod.aed import views as aed_views
 from mcod.core.api.utils import views as core_views
 from mcod.core.api.views import MetricsResource
 from mcod.datasets import views as dataset_views
@@ -147,6 +148,10 @@ routes = [
     ("/resources/{id:int},{slug}/comments", res_views.ResourceCommentsView()),
     # DGA
     ("/dga-aggregated", res_views.AggregatedDGAInfoView()),
+    # national AED list (mcod/aed, modelled on DGA)
+    ("/aed-aggregated", aed_views.AggregatedAEDInfoView()),
+    ("/aed-aggregated/resource", aed_views.AggregatedAEDRedirectView("resource")),
+    ("/aed-aggregated/file", aed_views.AggregatedAEDRedirectView("file")),
     # Depricated views
     ("/resources/{id:int}/incr_download_count", res_views.ResourceDownloadCounter()),
     (

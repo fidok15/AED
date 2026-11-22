@@ -17,21 +17,28 @@ import { AedApiService, aedLinkFactory } from './aed-api.service';
     <h1 class="heading heading--md">Jeden rejestr defibrylatorów AED dla Polski</h1>
     <p class="aed-lede">
       Firma zgłasza sprzedane urządzenie, jego dysponent potwierdza miejsce z naklejki z kodem QR, a ministerstwo
-      prowadzi rejestr i publikuje zbiór na dane.gov.pl. Przejdź te trzy kroki po kolei.
+      prowadzi rejestr i publikuje zbiór na dane.gov.pl.
+    </p>
+    <p>
+      <a class="btn btn-primary" [routerLink]="['/!aed', '!registry'] | localize" fragment="aed-near">
+        Znajdź najbliższy AED
+      </a>
     </p>
 
+    <h2 class="aed-h2">Jak urządzenie trafia do rejestru</h2>
+    <p>Przejdź te trzy kroki po kolei.</p>
     <ol class="aed-paths">
       <li class="aed-path">
-        <h2 class="aed-path__title">
+        <h3 class="aed-path__title">
           <a [routerLink]="['/!aed', '!company'] | localize">Firma zgłasza urządzenia</a>
-        </h2>
+        </h3>
         <p>
           Zaloguj się kontem demonstracyjnym, pobierz przykładowy plik CSV i wgraj go. Zwróć uwagę na raport sprawdzenia
           pliku, a po wysłaniu – na naklejki z kodem QR i linki dla dysponentów.
         </p>
       </li>
       <li class="aed-path">
-        <h2 class="aed-path__title">Dysponent potwierdza urządzenie z naklejki</h2>
+        <h3 class="aed-path__title">Dysponent potwierdza dane urządzenia po zeskanowaniu naklejki</h3>
         <p>
           Otwórz „Stronę potwierdzenia dla dysponenta” z wyniku zgłoszenia w kroku 1 albo link z wiadomości w panelu
           ministerstwa – najlepiej na telefonie. Zwróć uwagę na lokalizację jednym przyciskiem i wybór godzin dostępu.
@@ -44,9 +51,9 @@ import { AedApiService, aedLinkFactory } from './aed-api.service';
         }
       </li>
       <li class="aed-path">
-        <h2 class="aed-path__title">
+        <h3 class="aed-path__title">
           <a [routerLink]="['/!aed', '!ministry'] | localize">Ministerstwo prowadzi rejestr i publikuje zbiór</a>
-        </h2>
+        </h3>
         <p>
           Zaloguj się kontem demonstracyjnym ministerstwa. Zwróć uwagę na kolejkę możliwych duplikatów, wiadomości do
           dysponentów, historię zadań cyklicznych i plik do publikacji.
@@ -64,6 +71,10 @@ import { AedApiService, aedLinkFactory } from './aed-api.service';
         <li>
           <a [routerLink]="['/!aed', '!sellers'] | localize">Ranking firm</a> – kto zgłasza urządzenia i dba o ich dane,
           z odznaką za wynik.
+        </li>
+        <li>
+          <a [routerLink]="['/!aed', '!konwerter'] | localize">Konwerter do standardu AED</a> – zamień własny plik z
+          defibrylatorami na wykaz gotowy do publikacji na dane.gov.pl, bez logowania.
         </li>
         <li>
           <a [href]="api.exportUrl" download>Zbiór do publikacji na dane.gov.pl (CSV)</a> – tylko rekordy gotowe do

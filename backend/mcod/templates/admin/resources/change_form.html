@@ -87,6 +87,10 @@
                   $('input[name="contains_protected_data"]').prop('checked', false);
                   $(this).prop('checked', true);
                 });
+                $('input[name="contains_aed_list"]').click(function(){  // AED list (mcod/aed): Tak/Nie as DGA
+                  $('input[name="contains_aed_list"]').prop('checked', false);
+                  $(this).prop('checked', true);
+                });
                 var $dataDateField = $("div.field-data_date div .controls span.datetimeshortcuts");
                 var $dataDateInput = $("div.field-data_date div.controls input");
                 var $isAutoDataDateLabel = $("div.field-is_auto_data_date div.control-label label");

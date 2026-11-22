@@ -1,7 +1,76 @@
 <h1 class="heading heading--md">Rejestr defibrylatorów AED</h1>
 <p class="aed-lede">
-  Jeden zbiór dla całej Polski. Urządzenie jest aktywne, gdy jego dysponent potwierdził miejsce, dostęp i stan.
+  Jeden zbiór dla całej Polski. Urządzenie jest zweryfikowane, gdy jego dysponent potwierdził miejsce, dostęp i godziny
+  dostępu.
 </p>
+<!-- The map comes first on screen; the list below holds everything the map shows, one Tab away. -->
+<a class="aed-skip" href="#" (click)="skipToList($event)">Przejdź do listy urządzeń</a>
+
+<section class="aed-map" aria-labelledby="aed-map-heading">
+  <h2 class="visually-hidden" id="aed-map-heading">Mapa</h2>
+  <app-aed-map
+    [filters]="filters()"
+    [origin]="origin()"
+    [picking]="picking()"
+    [locating]="locating()"
+    (locate)="locate()"
+    (picked)="setOrigin($event)"
+    (showOnList)="showOnList($event)" />
+</section>
+
+<!-- Nearest device first: on a phone the location button and the open-now switch are the first controls under the map. -->
+<section class="aed-near" aria-labelledby="aed-near-heading">
+  <h2 class="aed-h2" id="aed-near-heading">Najbliższe urządzenia</h2>
+  <div class="aed-near__row">
+    <button
+      class="btn btn-primary aed-near__locate"
+      id="aed-locate"
+      type="button"
+      (click)="locate()"
+      [disabled]="locating()">
+      {{ locating() ? 'Ustalam lokalizację…' : 'Użyj mojej lokalizacji' }}
+    </button>
+    <button
+      class="btn btn-outline-primary"
+      type="button"
+      (click)="picking.set(!picking())"
+      [attr.aria-pressed]="picking()">
+      Wskaż punkt na mapie
+    </button>
+    @if (origin()) {
+      <button class="btn btn-link" type="button" (click)="setOrigin(null)">Nie sortuj po odległości</button>
+    }
+  </div>
+  <label class="aed-filter__option aed-near__open">
+    <input
+      type="checkbox"
+      [checked]="openNowOnly()"
+      (change)="filter({ openNow: $any($event.target).checked })"
+      aria-describedby="aed-open-note" />
+    <span>Dostępny teraz według rejestru</span>
+  </label>
+  @if (nearError()) {
+    <p class="aed-message aed-message--warn" role="alert">{{ nearError() }}</p>
+  }
+  @if (origin(); as from) {
+    <p class="aed-near__from">Odległość od {{ fromText(from) }}, w linii prostej.</p>
+  }
+  <details class="aed-details aed-near__how">
+    <summary>Jak używamy lokalizacji i godzin</summary>
+    <p class="aed-note">
+      Lista ułoży się od najbliższego urządzenia; odległość liczymy w linii prostej, nie wzdłuż drogi. Położenie trafia
+      tylko do zapytania o listę – usługa go nie przechowuje i nie zapisuje w dzienniku.
+    </p>
+    <p class="aed-note" id="aed-open-note">
+      „Dostępny teraz” wynika z godzin podanych w rejestrze i z bieżącej godziny w Polsce. Urządzenia bez godzin albo z
+      godzinami, których nie da się jednoznacznie odczytać, nie przechodzą tego filtra; lista podaje, ile ich jest.
+    </p>
+  </details>
+</section>
+
+@if (origin()) {
+  <ng-container *ngTemplateOutlet="list" />
+}
 
 @if (stats(); as stats) {
   <dl class="aed-facts">
@@ -10,7 +79,7 @@
       <dd>{{ number(stats.razem) }}</dd>
     </div>
     <div>
-      <dt>Potwierdzone przez dysponenta</dt>
+      <dt>Zweryfikowane przez dysponenta</dt>
       <dd>{{ number(stats.wg_statusu.aktywny ?? 0) }}</dd>
     </div>
     <div>
@@ -31,11 +100,12 @@
   </div>
 
   <fieldset class="aed-filter">
-    <legend class="aed-filter__legend">Pokaż urządzenia o statusie</legend>
+    <legend class="aed-filter__legend">Filtruj według statusu danych</legend>
     <label class="aed-filter__option">
       <input type="radio" name="aed-status" value="" [checked]="status() === ''" (change)="filter({ status: '' })" />
       <span>Wszystkie</span>
-      <span class="aed-filter__count">{{ stats.razem }}</span>
+      <!-- "All" lists every status except withdrawn (as the API without `status`); "Wycofany" shows those. -->
+      <span class="aed-filter__count">{{ stats.razem - (stats.wg_statusu.wycofany ?? 0) }}</span>
     </label>
     @for (item of statuses; track item) {
       <label class="aed-filter__option">
@@ -52,6 +122,154 @@
   </fieldset>
 }
 
+<details class="aed-details aed-more">
+  <summary>
+    Dodatkowe filtry
+    @if (extraCount()) {
+      <span class="aed-more__count">(wybrane: {{ extraCount() }})</span>
+    }
+  </summary>
+  @if (options(); as options) {
+    <div class="aed-more__grid">
+      <fieldset class="aed-more__group">
+        <legend class="aed-field__label">{{ title('dostep') }}</legend>
+        <label class="aed-more__choice">
+          <input type="radio" name="aed-dostep" [checked]="!extra().dostep" (change)="setExtra('dostep', '')" />
+          <span>Każdy</span>
+        </label>
+        @for (item of access; track item) {
+          <label class="aed-more__choice">
+            <input
+              type="radio"
+              name="aed-dostep"
+              [checked]="extra().dostep === item"
+              (change)="setExtra('dostep', item)" />
+            <span
+              >{{ accessLabel(item) }}
+              <span class="aed-filter__count">{{ number(options.dostep[item] ?? 0) }}</span></span
+            >
+          </label>
+        }
+      </fieldset>
+
+      <fieldset class="aed-more__group">
+        <legend class="aed-field__label">{{ title('godziny_dostepu') }}</legend>
+        <label class="aed-more__choice">
+          <input type="checkbox" [checked]="!!extra().calodobowo" (change)="setExtra('calodobowo', check($event))" />
+          <span
+            >Całodobowo (24/7) <span class="aed-filter__count">{{ number(options.calodobowo) }}</span></span
+          >
+        </label>
+        <label class="aed-more__choice">
+          <input type="checkbox" [checked]="!!extra().z_godzinami" (change)="setExtra('z_godzinami', check($event))" />
+          <span>
+            Tylko z podanymi godzinami dostępu
+            <span class="aed-filter__count">{{ number(options.z_godzinami) }}</span>
+          </span>
+        </label>
+      </fieldset>
+
+      <fieldset class="aed-more__group">
+        <legend class="aed-field__label">Miejsce urządzenia</legend>
+        <label class="aed-more__choice">
+          <input
+            type="radio"
+            name="aed-wewnatrz"
+            [checked]="!extra().wewnatrz_budynku"
+            (change)="setExtra('wewnatrz_budynku', '')" />
+          <span>Każde</span>
+        </label>
+        @for (item of inside; track item.value) {
+          <label class="aed-more__choice">
+            <input
+              type="radio"
+              name="aed-wewnatrz"
+              [checked]="extra().wewnatrz_budynku === item.value"
+              (change)="setExtra('wewnatrz_budynku', item.value)" />
+            <span>
+              {{ item.label }}
+              <span class="aed-filter__count">{{ number(options.wewnatrz_budynku[item.value] ?? 0) }}</span>
+            </span>
+          </label>
+        }
+      </fieldset>
+
+      <div class="aed-more__group">
+        <label class="aed-field__label" for="aed-f-producent">{{ title('producent') }}</label>
+        <select
+          class="form-control"
+          id="aed-f-producent"
+          aria-describedby="aed-f-device-note"
+          (change)="setExtra('producent', $any($event.target).value)">
+          <option value="" [selected]="!extra().producent">Każdy producent</option>
+          @for (item of options.producent; track item.wartosc) {
+            <option [value]="item.wartosc" [selected]="extra().producent === item.wartosc">
+              {{ item.wartosc }} ({{ number(item.liczba) }})
+            </option>
+          }
+        </select>
+        <label class="aed-field__label aed-more__next" for="aed-f-model">{{ title('model') }}</label>
+        <select
+          class="form-control"
+          id="aed-f-model"
+          aria-describedby="aed-f-device-note"
+          (change)="setExtra('model', $any($event.target).value)">
+          <option value="" [selected]="!extra().model">Każdy model</option>
+          @for (item of models(); track item.producent + item.wartosc) {
+            <option [value]="item.wartosc" [selected]="extra().model === item.wartosc">
+              {{ item.wartosc }}{{ item.producent && !extra().producent ? ', ' + item.producent : '' }} ({{
+                number(item.liczba)
+              }})
+            </option>
+          }
+        </select>
+        <p class="aed-note" id="aed-f-device-note">
+          Producenta podano dla {{ number(withProducer()) }} z {{ number(options.razem) }} urządzeń, model dla
+          {{ number(withModel()) }} – głównie w API Warszawy i w zgłoszeniach firm.
+        </p>
+      </div>
+
+      <div class="aed-more__group">
+        <label class="aed-field__label" for="aed-f-miejscowosc">{{ title('miejscowosc') }}</label>
+        <select
+          class="form-control"
+          id="aed-f-miejscowosc"
+          aria-describedby="aed-f-town-note"
+          (change)="setExtra('miejscowosc', $any($event.target).value)">
+          <option value="" [selected]="!extra().miejscowosc">Każda miejscowość</option>
+          @for (item of options.miejscowosc; track item.wartosc) {
+            <option [value]="item.wartosc" [selected]="extra().miejscowosc === item.wartosc">
+              {{ item.wartosc }} ({{ number(item.liczba) }})
+            </option>
+          }
+        </select>
+        <p class="aed-note" id="aed-f-town-note">
+          Miejscowość ma {{ number(withTown()) }} z {{ number(options.razem) }} urządzeń; punkty z OpenStreetMap zwykle
+          jej nie podają – szukaj ich na mapie.
+        </p>
+        <label class="aed-field__label aed-more__next" for="aed-f-zrodlo">Źródło danych</label>
+        <select class="form-control" id="aed-f-zrodlo" (change)="setExtra('zrodlo', $any($event.target).value)">
+          <option value="" [selected]="!extra().zrodlo">Każde źródło</option>
+          @for (item of options.zrodlo; track item.wartosc) {
+            <option [value]="item.wartosc" [selected]="extra().zrodlo === item.wartosc">
+              {{ item.etykieta }} ({{ number(item.liczba) }})
+            </option>
+          }
+        </select>
+      </div>
+    </div>
+    <button
+      class="btn btn-outline-primary aed-more__clear"
+      type="button"
+      (click)="clearExtra()"
+      [attr.aria-disabled]="!extraCount()">
+      Wyczyść filtry
+    </button>
+  } @else {
+    <p class="aed-note">Wczytuję listy wartości…</p>
+  }
+</details>
+
 <form class="aed-search" role="search" (submit)="$event.preventDefault(); filter({ query: search.value })">
   <label class="aed-field__label" for="aed-search">Szukaj po nazwie miejsca lub miejscowości</label>
   <div class="aed-search__row">
@@ -60,65 +278,89 @@
   </div>
 </form>
 
-@if (error()) {
-  <p class="aed-message aed-message--error" role="alert">{{ error() }}</p>
+@if (!origin()) {
+  <ng-container *ngTemplateOutlet="list" />
 }
 
-<h2 class="aed-h2" id="aed-list-heading">Lista urządzeń</h2>
-<p class="aed-count" role="status">{{ shown() }}</p>
-<p class="aed-note">
-  Każdy wiersz podaje, czy urządzenie jest teraz dostępne. Filtrować według tej dostępności można na razie tylko na
-  mapie pod listą.
-</p>
-
-<ul class="aed-list" aria-labelledby="aed-list-heading">
-  @for (record of records(); track record.id_aed) {
-    <li class="aed-row">
-      <div class="aed-row__main">
-        <h3 class="aed-row__name">{{ record['nazwa'] || 'Miejsce bez nazwy' }}</h3>
-        <p class="aed-row__address">
-          {{ address(record) || record['opis_lokalizacji'] || record['dysponent_nazwa'] }}
-        </p>
-        <p class="aed-row__id">{{ record.id_aed }}</p>
-      </div>
-      <div class="aed-row__status">
-        <app-aed-status [status]="record.status" />
-        @if (record['data_weryfikacji']) {
-          <p class="aed-row__note">{{ title('data_weryfikacji') }}: {{ record['data_weryfikacji'] }}</p>
-        }
-      </div>
-      <div class="aed-row__access">
-        <dl>
-          <div>
-            <dt>{{ title('dostep') }}</dt>
-            <dd>{{ record['dostep'] || 'brak danych' }}</dd>
-          </div>
-          <div>
-            <dt>{{ title('godziny_dostepu') }}</dt>
-            <dd>{{ record['godziny_dostepu'] || 'brak danych' }}</dd>
-          </div>
-        </dl>
-        <p class="aed-row__note">{{ openNow(record) }}</p>
-      </div>
-      <p class="aed-row__gauge">
-        <span>{{ title('kompletnosc') }} {{ record.kompletnosc }}%</span>
-        <span class="aed-gauge" aria-hidden="true"><span [style.width.%]="record.kompletnosc"></span></span>
-      </p>
-    </li>
-  } @empty {
-    <li class="aed-row aed-row--empty">Nic nie pasuje do wybranego statusu i szukanej frazy. Zmień jedno z nich.</li>
+<ng-template #list>
+  @if (error()) {
+    <p class="aed-message aed-message--error" role="alert">{{ error() }}</p>
   }
-</ul>
 
-@if (total() > perPage) {
-  <app-pagination [itemsPerPage]="perPage" [totalItems]="total()" [page]="page()" (pageChange)="load($event)" />
-}
+  <h2 class="aed-h2" id="aed-list-heading" tabindex="-1">Lista urządzeń</h2>
+  <p class="aed-count" role="status">{{ shown() }}</p>
 
-<section class="aed-map" aria-labelledby="aed-map-heading">
-  <h2 class="aed-h2" id="aed-map-heading">Mapa</h2>
-  <p>
-    Mapa pokazuje urządzenia z tego samego rejestru i uwzględnia status wybrany nad listą. Wszystkie informacje z mapy
-    są też na liście; wyszukiwanie działa tylko na liście.
-  </p>
-  <app-aed-map [status]="status()" />
-</section>
+  <ul class="aed-list" aria-labelledby="aed-list-heading">
+    @for (record of records(); track record.id_aed) {
+      <li class="aed-row">
+        <div class="aed-row__main">
+          @let heading = placeTitle(record['nazwa'], address(record), record['opis_lokalizacji']);
+          @let where = address(record) || record['opis_lokalizacji'] || record['dysponent_nazwa'];
+          <h3 class="aed-row__name" id="aed-row-{{ record.id_aed }}" tabindex="-1">{{ heading }}</h3>
+          @if (where && where !== heading) {
+            <p class="aed-row__address">{{ where }}</p>
+          }
+          @if (record['odleglosc_m'] !== undefined) {
+            <p class="aed-row__distance">{{ distanceText(+record['odleglosc_m']) }}</p>
+          }
+          @let open = openState(record);
+          <p class="aed-open aed-open--{{ open }}">{{ schedule[open] }}</p>
+        </div>
+        <div class="aed-row__status">
+          @if (hasPoint(record)) {
+            <a
+              class="btn btn-outline-primary aed-route"
+              [href]="routeUrl(record['szerokosc_geograficzna'], record['dlugosc_geograficzna'])"
+              target="_blank"
+              rel="noopener">
+              Wyznacz trasę<span class="visually-hidden"
+                >: {{ record['nazwa'] || record.id_aed }} (Mapy Google, nowa karta)</span
+              >
+            </a>
+            <button class="btn btn-link aed-row__map" type="button" (click)="showOnMap(record)">
+              Pokaż na mapie<span class="visually-hidden">: {{ record['nazwa'] || record.id_aed }}</span>
+            </button>
+          }
+        </div>
+        <div class="aed-row__more">
+          <dl class="aed-row__access">
+            <div>
+              <dt>Status danych</dt>
+              <dd><app-aed-status [status]="record.status" /></dd>
+            </div>
+            <div>
+              <dt>{{ title('dostep') }}</dt>
+              <dd>{{ record['dostep'] || 'brak danych' }}</dd>
+            </div>
+            <div>
+              <dt>{{ title('godziny_dostepu') }}</dt>
+              <dd>{{ record['godziny_dostepu'] || 'brak danych' }}</dd>
+            </div>
+            @if (record['data_weryfikacji']) {
+              <div>
+                <dt>{{ title('data_weryfikacji') }}</dt>
+                <dd>{{ record['data_weryfikacji'] }}</dd>
+              </div>
+            }
+          </dl>
+          <details class="aed-row__details">
+            <summary>
+              Identyfikator i kompletność danych<span class="visually-hidden">: {{ heading }}</span>
+            </summary>
+            <p class="aed-row__id">{{ title('id_aed') }}: {{ record.id_aed }}</p>
+            <p class="aed-row__gauge">
+              <span>{{ title('kompletnosc') }} {{ record.kompletnosc }}%</span>
+              <span class="aed-gauge" aria-hidden="true"><span [style.width.%]="record.kompletnosc"></span></span>
+            </p>
+          </details>
+        </div>
+      </li>
+    } @empty {
+      <li class="aed-row aed-row--empty">Nic nie pasuje do wybranych filtrów i szukanej frazy. Zmień jeden z nich.</li>
+    }
+  </ul>
+
+  @if (total() > perPage) {
+    <app-pagination [itemsPerPage]="perPage" [totalItems]="total()" [page]="page()" (pageChange)="load($event)" />
+  }
+</ng-template>

@@ -160,6 +160,18 @@ class NewSourceTest(unittest.TestCase):
         self.assertEqual(mine["3"]["szerokosc_geograficzna"], "52.3")
         self.assertTrue(any("Testowo, rekord 2" in n for n in notes), notes)
 
+    def test_source_cannot_inject_ids(self):
+        # "fields": "*" maps every standard column; id_aed from the file (here repeated) must not be taken over
+        entry = dict(NEW_ENTRY, record_id={"row_number": True}, fields="*")
+        entry.pop("coordinates")
+        rows = "AED-ZLY,Urząd,Testowo,52.1,19.1,x\nAED-ZLY,Szkoła,Testowo,52.2,19.2,y\n"
+        records, _, report = self.fixture(header="id_aed,nazwa,miejscowosc,szerokosc_geograficzna,dlugosc_geograficzna,"
+                                                 "powiazane_zrodla", rows=rows, entry=entry)
+        mine = [r for r in records if r["zrodlo"] == "dane.gov.pl/999999"]
+        self.assertEqual({r["id_aed"] for r in mine}, {A.make_id("dane.gov.pl/999999", "1/1"), A.make_id("dane.gov.pl/999999", "1/2")})
+        self.assertEqual({r["powiazane_zrodla"] for r in mine}, {""})
+        self.assertEqual(report["bledy_zrodel"], [])
+
     def test_missing_file_skips_source(self):
         _, _, report = self.fixture(in_manifest=False)
         self.assertEqual(report["pominiete_zrodla"], ["dane.gov.pl/999999"])
@@ -241,6 +253,18 @@ class BuildTest(unittest.TestCase):
             members = [m["zrodlo"]] + [x.split(":", 1)[0] for x in m["powiazane_zrodla"].split(";") if x]
             self.assertEqual(len(members), len(set(members)), m)
 
+    def test_odbl_record_is_never_the_primary(self):
+        # a future source ranked below OSM must not turn the merged record into ODbL (and out of the export)
+        city = dict(rec("dane.gov.pl/1", "1", 52.2, 21.0, nazwa="Urząd"), _priority=5, _copy_values=True)
+        osm = dict(rec(M.OSM, "node/1", 52.2, 21.00001, nazwa="Urząd OSM", godziny_dostepu="24/7"),
+                   _priority=3, _copy_values=False)
+        merged, _, _ = deduplicate([osm, city])
+        self.assertEqual(len(merged), 1)
+        m = merged[0]
+        self.assertEqual((m["zrodlo"], m["nazwa"], m["godziny_dostepu"], m["licencja"]),
+                         ("dane.gov.pl/1", "Urząd", "", "CC BY 4.0"))
+        self.assertEqual(m["powiazane_zrodla"], "openstreetmap:node/1")
+
     def test_osm_values_never_leak(self):
         w = rec(M.WARSAW, "1", 52.2, 21.0, nazwa="Urząd")
         o = rec(M.OSM, "node/1", 52.2, 21.00001, nazwa="Urząd", godziny_dostepu="24/7", dostep="publiczny")
@@ -289,6 +313,19 @@ class BuildTest(unittest.TestCase):
                          "przecinek_dziesietny"} <= codes(bad))
         _, pub = A.validate_csv(read(os.path.join(ROOT, "wzorzec", "przyklad-publikacja.csv")), "publikacja")
         self.assertTrue(pub["poprawny"], pub["problemy"])
+
+    def test_template_public_view(self):
+        """The open-data view has exactly the published columns, a valid example and its own XLSX sheet."""
+        import re
+        import zipfile
+        from aed_standard.build import HIDDEN_PUBLIC
+        text = read(os.path.join(ROOT, "wzorzec", "przyklad-dane-otwarte.csv"))
+        self.assertEqual(text.splitlines()[0].decode("utf-8").split(","), [n for n in S.FIELD_NAMES if n not in HIDDEN_PUBLIC])
+        _, rep = A.validate_csv(text, "publikacja")
+        self.assertTrue(rep["poprawny"], rep["problemy"])
+        with zipfile.ZipFile(os.path.join(ROOT, "wzorzec", "wzorzec-aed.xlsx")) as z:
+            sheets = re.findall(r'<sheet [^>]*name="([^"]+)"', z.read("xl/workbook.xml").decode("utf-8"))
+        self.assertEqual(sheets[:2], ["Dane", "Dane otwarte (publikacja)"])  # "Dane" stays first: the converter reads it
 
     def test_malformed_files_are_file_level_problems(self):
         cases = {
@@ -340,6 +377,78 @@ class BuildTest(unittest.TestCase):
         self.assertEqual(report["poprawne_wiersze"], [])
         self.assertEqual(A.completeness(S.blank_record()), 0)
         self.assertEqual(A.field_names(), [f["name"] for f in A.load_schema()["fields"]])
+
+
+
+class ReviewPairsTest(unittest.TestCase):
+    def test_each_pair_of_devices_is_listed_once(self):
+        _, pairs, _ = A.build_registry(RAW)
+        keys = [frozenset((p["id_aed_a"], p["id_aed_b"])) for p in pairs]
+        self.assertEqual(len(keys), len(set(keys)))
+
+
+class AuditTest(unittest.TestCase):
+    """Findings of docs/ewaluacja-codex/audyt-uslugi.md that live in aed_standard."""
+
+    def published(self, **kw):
+        r = rec("um.warszawa.pl", "1", 52.23, 21.01, nazwa="Urząd", miejscowosc="Warszawa")
+        r.update(kw)
+        r["id_aed"] = A.make_id(r["zrodlo"], r["zrodlo_id"])
+        return r
+
+    def test_lock_code_in_free_text_blocks_publication(self):  # finding 4
+        self.assertEqual(len(publication_export([self.published()])), 1)
+        for field, text in (("opis_lokalizacji", "Szafka zamknięta, kod do szafki 4590"),
+                            ("godziny_dostepu_opis", "Po godzinach PIN: 1234#"), ("nazwa", "Urząd (szyfr 98765)")):
+            r = self.published(**{field: text})
+            self.assertEqual(publication_export([r]), [], text)
+            self.assertIn("kod_do_szafki", {p["kod"] for p in check_record(r, "publikacja")})
+        for text in ("Kod pocztowy 00-950", "kod pocztowy 00950", "Centrum Szyfrów Enigma, 1 piętro", "OSP Kodrąb 123"):
+            self.assertEqual(len(publication_export([self.published(opis_lokalizacji=text)])), 1, text)
+
+    def test_private_record_never_fills_public_one(self):  # finding 5
+        city = rec("dane.gov.pl/4581", "1", 52.0, 21.0, nazwa="Szkoła", miejscowosc="X", dostep="publiczny")
+        home = rec("dane.gov.pl/3624", "2", 52.00001, 21.0, nazwa="Szkoła", nr_lokalu="7", dostep="prywatny")
+        merged, pairs, _ = deduplicate([city, home])
+        self.assertEqual(len(merged), 2)
+        self.assertEqual([p["powod"] for p in pairs], ["konflikt_dostepu"])
+        self.assertEqual({r["nr_lokalu"] for r in merged if r["dostep"] == "publiczny"}, {""})
+
+    def test_osm_rule_is_shared(self):  # finding 6
+        self.assertTrue(M.from_osm({"zrodlo": "OpenStreetMap"}))
+        self.assertTrue(M.from_osm({"licencja": "ODbL 1.0"}))
+        self.assertFalse(M.from_osm({"zrodlo": "zgloszenie", "licencja": "CC0 1.0", "powiazane_zrodla": "openstreetmap:node/1"}))
+
+    def test_formulas_are_neutralised_in_csv(self):  # finding 7
+        r = self.published(nazwa="=HYPERLINK(\"http://x\")", opis_lokalizacji="@SUM(A1)", model="-2+3",
+                           dysponent_telefon="+48 22 123 45 67 wew. 12", dlugosc_geograficzna="-1.5")
+        row = next(iter(__import__("csv").DictReader(to_csv([r]).splitlines())))
+        self.assertEqual((row["nazwa"], row["opis_lokalizacji"]), ("'=HYPERLINK(\"http://x\")", "'@SUM(A1)"))
+        self.assertEqual((row["model"], row["dysponent_telefon"], row["dlugosc_geograficzna"]),
+                         ("-2+3", "+48 22 123 45 67 wew. 12", "-1.5"))
+
+    def test_submitted_record_waits_for_the_manager(self):  # finding 8
+        r = self.published(status="zgloszony")
+        self.assertEqual(publication_export([r]), [])
+        self.assertIn("status zgloszony – dysponent jeszcze nie potwierdził miejsca i dostępu",
+                      A.build.publication_reasons(r))
+        self.assertEqual(len(publication_export([self.published()])), 1)  # import record (niepotwierdzony) unchanged
+        self.assertEqual(publication_export([self.published(status="wycofany")]), [])  # same rule in every export
+
+
+class DateHintTest(unittest.TestCase):
+    def test_ambiguous_date_is_not_guessed(self):
+        from aed_standard.validate import check_value
+
+        def msg(value):
+            return check_value("data_waznosci_baterii", value)[0][1]
+
+        self.assertIn("czy chodzi o 3 kwietnia czy 4 marca 2028 r.", msg("03/04/2028"))
+        self.assertNotIn("Zamień", msg("03/04/2028"))
+        self.assertIn("Zamień na 2028-12-25.", msg("25.12.2028"))
+        self.assertIn("Zamień na 2020-01-13.", msg("01/13/2020"))
+        self.assertNotIn("Zamień", msg("31.02.2030"))
+        self.assertNotIn("niejednoznaczna", msg("00/04/2026"))  # day zero is not a second reading
 
 
 if __name__ == "__main__":

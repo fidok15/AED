@@ -24,28 +24,48 @@ Ten rozdział ma pierwszeństwo przed wcześniejszym researchem.
 
 Pola, które komisja wymieniła wprost: identyfikator, producent, model, numer seryjny, data produkcji, data ważności elektrod, data ważności baterii, szerokość i długość geograficzna, godziny dostępu, kto wprowadził urządzenie. Uwaga komisji „10/14 lat żywotności” rozumiemy jako żywotność samego urządzenia (baterie i elektrody są wymienne) – do potwierdzenia.
 
+### Wskazówka prowadzącego (noc 21/22.11) – wykazy w portalu
+
+Ma pierwszeństwo przy wyborze, co pokazujemy jako główną ścieżkę. Streszczenie wypowiedzi:
+
+- dane mają być wystawione jako **zasoby w dane.gov.pl**; struktura jest rozproszona po wielu dostawcach, więc musi powstać **zbiorcza tabela – WYKAZ** (w portalu są wykazy o podobnym rozwiązaniu; odtworzyć ich logikę z kodu);
+- postawić środowisko: na localhost ma być strona taka sama jak dane.gov.pl; znaleźć wejście do **panelu administracyjnego**;
+- najważniejsze nie jest osobna aplikacja zbierająca dane, tylko **dostosowanie logiki i metod portalu**, żeby wykazy dało się pobierać i scalać w jedną standardową listę;
+- jury może nie mieć dostępu do wszystkich domen – cenniejsze jest **rozwiązanie do odczytu**.
+
+Odpowiedź (PR #16): wykaz AED w forku portalu wzorem wykazu DGA – analiza `docs/wykaz-dga-analiza.md`, uruchomienie `docs/wykaz-aed-w-portalu.md`. Kod Django uruchomiono 22.11 lokalnie w pełnym stosie forka (migracje, testy, scalanie przez Celery, tabela i mapa we frontendzie); nie na serwerze publicznym.
+
 ## Proces, który budujemy
 
+Dwa kanały zasilają jeden standard; mapper istniejących źródeł daje stan początkowy.
+
 ```
-producent / sprzedawca ──(konto firmy: CSV lub formularz)──┐
-zarządca ──(skan QR: lokalizacja, godziny, potwierdzenie)──┤
-samorządy i inne zbiory na dane.gov.pl ──(mapper)──────────┼─► standard AED ─► walidacja ─► deduplikacja
-OpenStreetMap, API Warszawy ──(mapper, cyklicznie)─────────┘                                    │
-                                                                                                 ▼
-        przypomnienia i prośby o potwierdzenie ◄── rejestr krajowy (ministerstwo) ──► zbiór na dane.gov.pl
-        (termin baterii i elektrod, brak weryfikacji)                               (CSV + zasilanie XML)
+KANAŁ 1 (główny): wykazy w portalu
+samorząd / instytucja / firma ──(zasób CSV „Wykaz AED: TAK” w swoim zbiorze)──► walidacja przy zapisie (aed_standard)
+                                                                                         │
+                                           zadanie dzienne 03:45 lub manage.py create_main_aed_resource
+                                                                                         ▼
+                                walidacja ─► deduplikacja ─► profil publikacja ─► „Krajowy wykaz AED”
+                                                                                 (zasób zbiorczy w zbiorze ministerstwa,
+                                                                                  odczyt: GET /aed-aggregated, tabela, mapa, API)
+KANAŁ 2: usługa AED (aed_service)                                                        ▲
+producent / sprzedawca ──(konto firmy: CSV lub formularz)──┐                             │
+zarządca ──(skan QR: lokalizacja, godziny, potwierdzenie)──┼─► rejestr ministerstwa ─────┘ wykaz ministerstwa (CSV/link)
+mapper: zbiory z dane.gov.pl, API Warszawy, OSM ───────────┘   │                           + zasilanie XML dla harvestera
+                                                               └─► przypomnienia i prośby o potwierdzenie
+                                                                   (termin baterii i elektrod, brak weryfikacji)
 ```
 
-Cykl życia rekordu: `zgloszony` (sprzedawca podał dane urządzenia) → `aktywny` (zarządca potwierdził miejsce i dostęp) → `nieaktualny` (brak potwierdzenia w terminie) → `wycofany`. Rekord z mappera, którego nikt odpowiedzialny nie potwierdził, ma status `niepotwierdzony`.
+Cykl życia rekordu: `zgloszony` (sprzedawca podał dane urządzenia) → `aktywny`, w interfejsie „Zweryfikowany” (zarządca potwierdził miejsce i dostęp) → `nieaktualny` (brak potwierdzenia w terminie) → `wycofany`. Rekord z mappera, którego nikt odpowiedzialny nie potwierdził, ma status `niepotwierdzony`.
 
 ## Punktacja
 
 | Kryterium | Waga | Co je realizuje |
 |---|---|---|
-| Zgodność z zasadami dane.gov.pl | 30% | fork portalu z kontami firm i zgłaszaniem CSV; zbiór publikowany mechanizmami portalu |
+| Zgodność z zasadami dane.gov.pl | 30% | wykaz AED w forku portalu wzorem DGA (flaga zasobu, walidacja w panelu, scalanie, publiczny odczyt); zbiór publikuje ministerstwo mechanizmami portalu (zasób, harvester XML); pełny fork uruchomiony lokalnie (także próbnie pod `aed.localhost`), serwer publiczny dla jury – do zrobienia przez zespół |
 | Logotyp i hasło | 25% | nazwa akcji, hasło, logo, księga znaku, materiały dla dostawców |
 | Kreatywność i innowacyjność | 15% | kanał sprzedawcy, QR, potwierdzenia, wskaźnik kompletności, zachęty |
-| Zgodność z tematem | 15% | mapper wielu źródeł, deduplikacja, wskazanie zakresu każdego źródła |
+| Zgodność z tematem | 15% | scalanie wykazów wielu dostawców, mapper wielu źródeł, deduplikacja, wskazanie zakresu każdego źródła |
 | Wzorcowy zakres danych | 10% | `wzorzec-aed.xlsx` wygenerowany ze standardu |
 | Prezentacja | 5% | slajdy ze zrzutami, instrukcja dla jury |
 
@@ -70,7 +90,7 @@ Nazwy kolumn adresu i położenia są zgodne ze zbiorem Legionowa, najczystszym 
 
 Ta sama struktura obsługuje dwa profile wymagalności:
 
-- **`sprzedaz`** – sprzedawca zna urządzenie i nabywcę, nie zna jeszcze miejsca montażu. Wymagane: producent, model, numer seryjny, data produkcji, daty ważności elektrod i baterii, nabywca.
+- **`sprzedaz`** – sprzedawca zna urządzenie i nabywcę, nie zna jeszcze miejsca montażu. Wymagane: producent, model, numer seryjny, data produkcji, daty ważności elektrod i baterii, nazwa i e-mail dysponenta (`dysponent_nazwa`, `dysponent_email`).
 - **`publikacja`** – rekord w zbiorze otwartym. Wymagane: identyfikator, nazwa miejsca, współrzędne, miejscowość, status, źródło, licencja. Dostęp, godziny dostępu i data weryfikacji są wymagane dopiero dla statusu `aktywny`; ich brak w rekordach z importu obniża kompletność.
 
 Do zbioru na dane.gov.pl trafia tylko rekord spełniający profil `publikacja`. Kompletność rekordu (0–100) liczymy z wag pól zapisanych w schemacie.
@@ -93,25 +113,43 @@ wzorzec/        wzorzec-aed.xlsx i przykładowe pliki CSV
 datasets/raw/   surowe źródła z manifestem (nie edytować ręcznie)
 datasets/out/   zbiór krajowy, lista duplikatów do przeglądu, raport
 backend/        fork backendu dane.gov.pl (mcod 2.63.0: Python 3.8, Django 2.2, Falcon, Docker Compose)
+  mcod/aed/     wykaz AED wzorem wykazu DGA: walidacja, scalanie, zadanie dzienne, GET /aed-aggregated
+  docker-compose.aed-domain.yml, aed-domain/   pełny fork pod domeną z HTTPS (docs/wdrozenie-serwer.md)
 frontend/       fork frontendu dane.gov.pl (Angular 18)
+docker-compose.yml, docker-compose.prod.yml    lekki prototyp (usługa AED + build frontendu), lokalnie i pod domeną
 kampania/       nazwa i hasło, brief logo, szablon księgi znaku, zachęty; docelowo pliki logo
-docs/           zadanie, research, api-aed.md (kontrakt API), integracja-portal-backend.md,
-                prezentacja-konspekt.md, instrukcja-dla-jury.md, użycie AI
+docs/           zadanie, research, api-aed.md (kontrakt API), wykaz-dga-analiza.md, wykaz-aed-w-portalu.md,
+                panel-portalu-krok-po-kroku.md, integracja-portal-backend.md, wdrozenie-serwer.md,
+                prezentacja-konspekt.md, instrukcja-dla-jury.md, opis-projektu.md, przeglad-codex.md, użycie AI
 ```
 
-Kontrakt między frontendem a usługą: `docs/api-aed.md`. Ustalenia z kodu portalu i plan wdrożenia w forku: `docs/integracja-portal-backend.md`.
+Kontrakt między frontendem a usługą: `docs/api-aed.md`. Ustalenia z kodu portalu i plan wdrożenia w forku: `docs/integracja-portal-backend.md`. Wykaz AED w portalu: `docs/wykaz-dga-analiza.md` (jak działa wykaz DGA i co z niego wzięliśmy), `docs/wykaz-aed-w-portalu.md` (włączenie i pokaz). Logika scalania jest w `aed_standard/wykaz.py`, więc ta sama w portalu i w testach.
 
-Stan źródeł na 21.11: cztery zbiory z dane.gov.pl z plikami (Krosno, Marki, Przemyśl, Legionowo – razem 74 rekordy), API Warszawy (708 urządzeń; zbiór Warszawy na dane.gov.pl to tylko odnośnik do tego API), OpenAEDMap (18 298 obiektów). Po mapowaniu i deduplikacji: rejestr 18 814 rekordów, eksport publikacyjny 781 (liczby w `datasets/out/raport.json`). Usługa pokazuje publicznie mniej rekordów niż rejestr, bo pomija rekordy z dostępem `prywatny`. Innych maszynowo czytelnych zbiorów miejskich nie znaleziono; Kraków („Impuls Życia”) i Koszalin („Punkty Życia”) publikują tylko listy na stronach WWW.
+Stan źródeł na 21.11: cztery zbiory z dane.gov.pl z plikami (Krosno, Marki, Przemyśl, Legionowo – razem 74 rekordy), API Warszawy (708 urządzeń; zbiór Warszawy na dane.gov.pl to tylko odnośnik do tego API), OpenAEDMap (18 298 obiektów). Po mapowaniu i deduplikacji: rejestr 18 814 rekordów, wszystkie `niepotwierdzony`, średnia kompletność 39,2; eksport publikacyjny 781, z czego 708 z API Warszawy (liczby w `datasets/out/raport.json`). Eksporty nie zawierają numeru seryjnego ani kontaktu dysponenta – jedna reguła dla wszystkich (`HIDDEN_PUBLIC` w `aed_standard/build.py`). Usługa pokazuje publicznie mniej rekordów niż rejestr, bo pomija rekordy z dostępem `prywatny`. Innych maszynowo czytelnych zbiorów miejskich nie znaleziono; Kraków („Impuls Życia”) i Koszalin („Punkty Życia”) publikują tylko listy na stronach WWW.
 
 Fakty o portalu ustalone w kodzie:
 
 - typy instytucji w `backend/mcod/organizations/models.py`: `local`, `state`, `private`, `developer`, `other`;
 - role użytkowników: redaktor (`is_staff`), pełnomocnik (`is_agent`), urzędnik (`is_official`);
-- frontend nie serwuje API; adres backendu ustawia się w plikach `proxy.*.conf.json`.
+- frontend nie serwuje API; adres backendu ustawia się w plikach `proxy.*.conf.json`; build `aed` woła `/api`, `/cms`, `/media` względnie (nginx przed frontendem decyduje, czy to portal z forka, czy publiczny dane.gov.pl);
+- jedyny mechanizm scalania zasobów wielu dostawców to **wykaz DGA** (`resources/dga_utils.py`, zadanie 03:30, `GET /dga-aggregated`); wykaz AED go odtwarza w `mcod/aed/` (flaga `contains_aed_list`, zadanie 03:45, `GET /aed-aggregated`);
+- panel administracyjny: `admin.<host>` (lokalnie `admin.mcod.local` albo `localhost:8001`), konto z danych startowych `admin@mcod.local`.
 
 ## Podział zadań
 
-Właściciele wynikają z historii commitów i są propozycją – zmieńcie ją tutaj, jeśli zespół ustali inaczej.
+Właściciele wynikają z historii commitów i są propozycją – zmieńcie ją tutaj, jeśli zespół ustali inaczej. Bieżąca lista rzeczy do zrobienia: `docs/TODO.md`.
+
+Stan na 22.11, ok. 01:00:
+
+| Zadanie | Stan |
+|---|---|
+| A. Standard i deduplikacja | zrobione; rejestr źródeł `sources.json` (Jakub Zawadzki) |
+| B. Źródła i mapper cykliczny | rejestr źródeł i pobieranie z niego zrobione; tryb przyrostowy i raport „co przybyło” – do potwierdzenia |
+| C. Usługa AED | zrobione, testy przechodzą; poprawki po przeglądach w PR #14 i commicie `838968e` (m.in. przejęcie punktu znanego tylko z OSM) |
+| C2. Portal lokalnie | zrobione 22.11: pełny stos forka w Dockerze, testy Django AED i regresji, zrzuty `docs/zrzuty/portal-*.png` |
+| C3. Wykaz AED w portalu i wdrożenie pod domeną | wykaz uruchomiony lokalnie w pełnym stosie forka (scalanie ręcznym uruchomieniem zadania; harmonogram 03:45 niesprawdzony); nakładka domenowa uruchomiona lokalnie pod `aed.localhost`; serwer publiczny – do zrobienia przez zespół |
+| D. Frontend | wstrzymany do sygnału; zmiany w toku w `frontend/src/app/pages/aed/` |
+| E. Kampania i prezentacja | nazwa, logo i księga znaku – w toku u zespołu; konspekt, opis projektu, instrukcja dla jury – szkice gotowe |
 
 ### A. Standard danych i deduplikacja – Claude (sesja główna). Blokuje resztę.
 
@@ -152,6 +190,16 @@ Kroki i pliki: `docs/integracja-portal-backend.md`.
 
 Gotowe, gdy: zbiór krajowy widać w lokalnym portalu z mapą. Plan B po przekroczeniu limitu: zrzuty z usługi `aed_service/` i notatka integracyjna jako plan wdrożenia.
 
+### C3. Wykaz AED w portalu i pełny fork pod domeną – sesja prowadząca z agentami, uruchomienie: osoba z działającym portalem
+
+Odpowiedź na wskazówkę prowadzącego. Kroki: `docs/wykaz-aed-w-portalu.md`, `docs/wdrozenie-serwer.md`.
+
+1. Migracje, oznaczenie zasobów jako wykaz AED, `manage.py create_main_aed_resource`, sprawdzenie `/aed-aggregated`, tabeli i mapy; testy Django `backend/mcod/aed/tests/`.
+2. Pełny fork na serwerze kolegi pod domeną: `backend/docker-compose.aed-domain.yml` (Caddy, HTTPS, usługa AED w sieci portalu).
+3. Dane do pokazu: wykaz przyjęty (Legionowo), odrzucony (Krosno), wykaz ministerstwa jako link do eksportu usługi; zrzuty do prezentacji.
+
+Gotowe, gdy: juror pod adresem publicznym widzi zbiór zbiorczy w portalu (tabela, mapa, API) i raport wykazów bez logowania.
+
 ### D. Frontend – fidok15 z agentem
 
 1. Uruchomić `frontend/` lokalnie i wydzielić moduł AED.
@@ -177,16 +225,17 @@ Materiały przygotowane przez agenta czekają na decyzje człowieka: `kampania/n
 2. Równolegle: A2–A5, C2.1 (portal lokalnie), D1 (frontend lokalnie), E1–E2 (nazwa i logo), B2.
 3. Po A2–A4: usługa C, potem D2–D4 podpinają ją zamiast danych próbnych.
 4. Na końcu: C2.2, D5, zrzuty ekranu, prezentacja, niezależny przegląd całości (kod i UI/UX) przez Codexa i poprawki po nim.
+5. Od 22.11: C3 (wykaz AED uruchomiony w portalu, serwer pod domeną) przed nowymi funkcjami usługi; zrzuty z portalu zastępują plan B. Przeglądy Codexa: `docs/przeglad-codex.md`.
 
 Git: każdy etap idzie przez osobną gałąź, PR i merge do `main`, gdy testy przechodzą. Agenty nie commitują – robi to sesja prowadząca.
 
-Gdy brakuje czasu, tniemy w tej kolejności: ranking i odznaki → mapa sprzedawców → przypomnienia (zostają na slajdzie) → publikacja w lokalnym portalu (plan B). Nie tniemy: standardu i szablonu XLSX, mappera z deduplikacją, zgłoszenia CSV przez firmę, strony QR, logo i księgi znaku, instrukcji dla jury.
+Gdy brakuje czasu, tniemy w tej kolejności: ranking i odznaki → mapa sprzedawców → przypomnienia (zostają na slajdzie) → serwer pod domeną (zostaje lekki prototyp i zrzuty z lokalnego portalu) → publikacja w lokalnym portalu (plan B). Nie tniemy: wykazu AED w forku portalu, standardu i szablonu XLSX, mappera z deduplikacją, zgłoszenia CSV przez firmę, strony QR, logo i księgi znaku, instrukcji dla jury.
 
 ## Co oddajemy
 
 - [ ] tytuł i szczegółowy opis projektu
 - [ ] prezentacja, min. 5 slajdów ze zrzutami, krokami użytkownika i ograniczeniami
-- [ ] klikalny prototyp, który jury uruchomi bez konfiguracji
+- [ ] klikalny prototyp, który jury uruchomi bez konfiguracji (adres publiczny: `docs/wdrozenie-serwer.md`)
 - [ ] `wzorzec-aed.xlsx`
 - [ ] kod źródłowy
 - [ ] logo: `.svg`, `.png`, `.jpg`, `.pdf`; księga znaku `.pdf`
@@ -210,10 +259,25 @@ Gdy brakuje czasu, tniemy w tej kolejności: ranking i odznaki → mapa sprzedaw
 - **Harmonogram:** pierwsza iteracja w 2 godziny (do ok. 20:15), całość „mniej więcej stoi” do północy, potem nowe funkcje i poprawki.
 - **Kluczowe decyzje podejmuje człowiek:** gdy agent czegoś nie wie albo wybór zmienia kierunek, pyta zamiast zgadywać.
 
+## Decyzje podjęte (noc 21/22.11, po wskazówce prowadzącego)
+
+- **Główna ścieżka to wykaz AED w portalu.** Dostawcy publikują wykazy jako zasoby w swoich zbiorach, a portal je waliduje i scala w zasób zbiorczy ministerstwa (wzór: wykaz DGA). Zmienia to wcześniejszą decyzję „w backendzie portalu tylko publikacja zbioru”: logika wykazu jest w `backend/mcod/aed/`, wydzielona jako łatka. Usługa AED zostaje drugim kanałem: rekordy potwierdzone przez sprzedawcę i zarządcę trafiają do ministerstwa i wracają do portalu jako jego wykaz (plik lub link) albo zasilanie XML.
+- **Prototyp dla jury:** pełny fork portalu na serwerze kolegi pod kupioną domeną (`docs/wdrozenie-serwer.md`); zastępuje decyzję „na razie tylko lokalnie”. Lekki wariant (`docker-compose.prod.yml`) zostaje jako zapas. Stan 22.11: uruchomiony lokalnie (także pod `aed.localhost`), serwera publicznego jeszcze nie ma.
+- **Dane kontaktowe i numer seryjny** są wycinane z każdego eksportu jedną regułą (`HIDDEN_PUBLIC`); zbiór zbiorczy ma warunki licencji CC BY 4.0, bo część wykazów jest na CC BY (po przeglądzie Codexa, PR #16).
+
+## Decyzje podjęte (22.11)
+
+- **Hasła kont demo** usługi AED zostają publiczne (`…-demo`) – świadomie, na czas pokazu.
+- **Konto dla jury w panelu portalu:** `jury@aed.example`, redaktor instytucji demonstracyjnej.
+- **Numer seryjny** jest ukryty w danych publicznych; widzi go firma zgłaszająca i ministerstwo.
+- **Zasilanie XML z usługi** zostaje w wersji 1.13 (produkcyjny portal zna 1.13); XSD 1.14 z `containsAedList` jest tylko w forku.
+- **Kto odpowiada za wykaz i ile wykazów na instytucję** – odłożone; zależy od przyszłych przepisów. Do tego czasu każdy typ instytucji i wiele wykazów.
+
 ## Otwarte decyzje
 
-- Czy i gdzie wystawić prototyp pod publicznym adresem dla jury (dziś działa tylko lokalnie).
+- Serwer i domena: architektura (zakładamy Linux amd64), RAM i dysk, nazwa domeny, rekordy `api.`, `admin.`, `cms.`; do kiedy serwer działa i kto go wyłączy.
+- Czy wymagać `id_aed` albo `zrodlo_id` w wykazie (bez nich identyfikator zależy od kolejności wierszy)?
+- Harmonogram Celery na serwerze: scalanie samo o 03:45 czy ręcznie na pokazie?
 - Ostateczna godzina i sposób oddania projektu – potwierdzić u organizatora.
 - Nazwa i hasło akcji (kandydaci w `kampania/nazwa-i-haslo.md`).
-- Czy numer seryjny jest publikowany w zbiorze otwartym, czy zostaje tylko w rejestrze.
 - Podstawa prawna obowiązku raportowania przez sprzedawców: dziś brak, więc dobrowolność i zachęty; rekomendacja regulacyjna na slajdzie „co dalej”.

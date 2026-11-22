@@ -1,5 +1,7 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
+import { catchError, map, of } from 'rxjs';
 
 import { AedAccount, AedApiService, aedErrorMessage, aedFocusFactory } from './aed-api.service';
 import { AED_DEMO_ACCOUNTS } from './aed-prototype';
@@ -57,6 +59,9 @@ import { AED_DEMO_ACCOUNTS } from './aed-prototype';
             <h3 class="aed-h3" id="aed-demo-heading">Konta demonstracyjne</h3>
             <p class="aed-field__hint">
               Fikcyjne konta do wypróbowania prototypu. Wybierz „Wypełnij”, a potem „Zaloguj się”.
+              @if (defaultPasswords() === false) {
+                Na tym serwerze hasła kont demonstracyjnych są inne niż domyślne – przekazujemy je osobno.
+              }
             </p>
             <ul class="aed-demo__list">
               @for (account of demo(); track account.email) {
@@ -65,12 +70,16 @@ import { AED_DEMO_ACCOUNTS } from './aed-prototype';
                     <strong>{{ account.opis }}</strong
                     ><br />
                     e-mail: {{ account.email }}<br />
-                    hasło: {{ account.haslo }}
+                    @if (defaultPasswords() === false) {
+                      hasło: przekazane osobno
+                    } @else if (defaultPasswords()) {
+                      hasło: {{ account.haslo }}
+                    }
                   </span>
                   <button
                     class="btn btn-outline-primary"
                     type="button"
-                    (click)="form.setValue({ email: account.email, haslo: account.haslo })">
+                    (click)="form.setValue({ email: account.email, haslo: defaultPasswords() ? account.haslo : '' })">
                     Wypełnij<span class="visually-hidden"> danymi konta: {{ account.opis }}</span>
                   </button>
                 </li>
@@ -101,6 +110,13 @@ export class AedLoginComponent {
   private readonly focus = aedFocusFactory();
   protected readonly error = signal('');
   protected readonly wrongRole = computed(() => this.api.account()?.rola !== this.rola());
+  /** The service says whether the demo accounts still have the passwords shown on the cards (not on public servers). */
+  protected readonly defaultPasswords = toSignal(
+    this.api.stats().pipe(
+      map((stats) => stats.hasla_demo_domyslne),
+      catchError(() => of(undefined)),
+    ),
+  );
   protected readonly demo = computed(() => AED_DEMO_ACCOUNTS.filter((account) => account.rola === this.rola()));
 
   protected logout(): void {

@@ -42,10 +42,10 @@
     }
   },
   "do_przegladu": {
-    "razem": 214,
+    "razem": 195,
     "powody": {
-      "kandydat": 153,
-      "konflikt_zrodel": 61
+      "kandydat": 148,
+      "konflikt_zrodel": 47
     }
   },
   "statusy": {

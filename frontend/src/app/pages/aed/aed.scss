@@ -11,6 +11,7 @@
 @mixin high-contrast($ink, $paper) {
   --aed-blue: #{$ink};
   --aed-blue-dark: #{$ink};
+  --aed-navy: #{$ink};
   --aed-ink: #{$ink};
   --aed-muted: #{$ink};
   --aed-line: #{$ink};
@@ -28,6 +29,7 @@
 .aed {
   --aed-blue: #{portal.$color-gov-primary};
   --aed-blue-dark: #{portal.$color-hover-2};
+  --aed-navy: #{portal.$color-hover-2};
   --aed-ink: #1b1b1b;
   --aed-muted: #{portal.$color-grey-dark};
   --aed-line: #{portal.$color-grey-light-2};
@@ -79,7 +81,7 @@
     max-width: 44rem;
   }
 
-  a {
+  a:not(.btn) {
     color: var(--aed-blue);
     text-decoration: underline;
   }
@@ -180,44 +182,25 @@
     }
   }
 
-  // Readiness indicator: a small window with a mark, as on a real device.
+  // Status label: the map symbol (AED_MARKS, styled by .aed-mark below) followed by the status name.
   .aed-status {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
     font-weight: 700;
 
-    &__window {
-      flex: none;
+    .aed-mark {
+      display: grid;
       width: 1.5rem;
-      height: 1.5rem;
-      border: 2px solid currentColor;
-      border-radius: 2px;
-      color: var(--aed-muted);
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 2.5;
-      stroke-linecap: round;
-      stroke-linejoin: round;
+      flex: none;
+      place-items: center;
+
+      svg {
+        width: auto;
+        height: 1.375rem;
+        filter: none;
+      }
     }
-  }
-
-  .aed-status--aktywny .aed-status__window {
-    border-color: var(--aed-ok);
-    background: var(--aed-ok);
-    color: var(--aed-paper);
-  }
-
-  .aed-status--zgloszony .aed-status__window {
-    color: var(--aed-blue);
-  }
-
-  .aed-status--nieaktualny .aed-status__window {
-    color: var(--aed-warn);
-  }
-
-  .aed-status--wycofany .aed-status__window {
-    color: var(--aed-error);
   }
 
   details.aed-details {
@@ -408,6 +391,43 @@
       margin: 0;
       padding: 0;
       list-style: none;
+
+      // Narrow screens: the disclosure below replaces the row.
+      @media (max-width: 479.98px) {
+        display: none;
+      }
+    }
+
+    &__menu {
+      width: 100%;
+
+      @media (min-width: 480px) {
+        display: none;
+      }
+
+      summary {
+        min-height: 2.75rem;
+        padding: 0.625rem 0;
+        color: var(--aed-blue);
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      ul {
+        margin: 0 0 0.5rem;
+        padding: 0;
+        list-style: none;
+      }
+
+      .aed-nav__link {
+        padding: 0.625rem 0.75rem;
+        border-bottom: 0;
+        border-left: 4px solid transparent;
+
+        &.aed-nav__link--active {
+          border-left-color: var(--aed-blue);
+        }
+      }
     }
 
     &__link {
@@ -538,6 +558,71 @@
     }
   }
 
+  // "Dodatkowe filtry": folded; groups side by side on a wide screen, one column on a phone.
+  details.aed-more {
+    margin: 0 0 1rem;
+    padding: 0 1rem;
+    border: 1px solid var(--aed-line);
+
+    summary {
+      min-height: 2.75rem;
+      font-weight: 700;
+    }
+
+    &[open] {
+      padding-bottom: 1rem;
+    }
+  }
+
+  .aed-more {
+    &__count {
+      font-weight: 400;
+    }
+
+    &__grid {
+      display: grid;
+      // at most three columns: five groups make two even rows
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, max(16rem, calc((100% - 4rem) / 3))), 1fr));
+      gap: 1rem 2rem;
+      margin: 0.5rem 0 1rem;
+    }
+
+    &__group {
+      min-width: 0;
+      margin: 0;
+      padding: 0;
+      border: 0;
+
+      .form-control {
+        max-width: 100%;
+      }
+
+      .aed-note {
+        margin: 0.375rem 0 0;
+      }
+    }
+
+    &__next {
+      margin-top: 0.75rem;
+    }
+
+    &__choice {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-height: 2.25rem;
+      margin: 0;
+      cursor: pointer;
+
+      input {
+        flex: none;
+        width: 1.125rem;
+        height: 1.125rem;
+        accent-color: var(--aed-blue);
+      }
+    }
+  }
+
   .aed-search {
     margin: 1.5rem 0 0;
 
@@ -570,7 +655,7 @@
 
   .aed-row {
     display: grid;
-    grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.3fr) minmax(0, 1.5fr) minmax(0, 1.1fr);
+    grid-template-columns: minmax(0, 2.6fr) minmax(0, 1.4fr) minmax(0, 1.1fr);
     gap: 0.75rem 1.5rem;
     max-width: none;
     padding: 1rem 0;
@@ -614,7 +699,7 @@
       overflow-wrap: anywhere;
     }
 
-    &__access dl > div {
+    &__access > div {
       display: flex;
       flex-wrap: wrap;
       gap: 0 0.5rem;
@@ -642,13 +727,70 @@
     }
   }
 
+  // "Przejdź do listy urządzeń" right under the title, before the map.
+  .aed-skip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    margin: -0.75rem 0 0.25rem;
+  }
+
   .aed-map {
-    margin-top: 3rem;
+    margin-top: 0.5rem;
 
     &__canvas {
-      height: min(34rem, 75vh);
+      height: min(34rem, 70vh);
       border: 1px solid var(--aed-control);
       font: inherit;
+
+      @media (max-width: 575.98px) {
+        height: min(26rem, 58vh);
+      }
+    }
+
+    // "Moja lokalizacja" in the bar of + and −: same size and look as the zoom buttons.
+    &__locate {
+      display: grid;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      place-items: center;
+      border: 0;
+      border-top: 1px solid #ccc;
+      border-radius: 0 0 2px 2px;
+      background: #fff;
+      color: var(--aed-ink);
+      cursor: pointer;
+
+      &:hover {
+        background: #f4f4f4;
+      }
+
+      svg {
+        fill: none;
+        stroke: currentcolor;
+        stroke-width: 2;
+        stroke-linecap: round;
+      }
+
+      .aed-map__locate-dot {
+        fill: currentcolor;
+        stroke: none;
+      }
+    }
+
+    // The zoom-out button is no longer the last one in the bar.
+    .leaflet-control-zoom-out {
+      border-bottom: 0;
+      border-radius: 0;
+    }
+
+    .leaflet-bar a:focus-visible,
+    .leaflet-bar button:focus-visible {
+      position: relative;
+      z-index: 1;
+      outline: 3px solid var(--aed-blue);
+      outline-offset: 0;
     }
 
     &__canvas--small {
@@ -660,71 +802,414 @@
       text-decoration: none;
     }
 
-    .leaflet-popup-content {
-      margin: 0.75rem 1rem;
-      color: var(--aed-ink);
-      font-size: 0.9375rem;
+    // Quieter base map: the OSM tiles lose most of their colour, so the markers carry the colour on the map.
+    // Roads, water and place names stay readable; attribution is untouched.
+    .leaflet-tile-pane {
+      filter: saturate(0.3) brightness(1.05) contrast(0.92);
+    }
 
-      p {
-        margin: 0.25rem 0 0;
+    &__frame {
+      position: relative;
+    }
+
+    // Crosshair while a point is picked with the keyboard (Enter picks the map centre).
+    &__frame--picking {
+      .leaflet-container {
+        cursor: crosshair;
       }
+
+      &::after {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        z-index: 450;
+        width: 2rem;
+        height: 2rem;
+        margin: -1rem 0 0 -1rem;
+        background:
+          linear-gradient(var(--aed-ink), var(--aed-ink)) center / 2px 100% no-repeat,
+          linear-gradient(var(--aed-ink), var(--aed-ink)) center / 100% 2px no-repeat;
+        content: '';
+        pointer-events: none;
+      }
+    }
+
+    // Details of a point: over the map on a wide screen, under it on a phone (the map keeps its size).
+    &__panel {
+      padding: 1rem;
+      border: 1px solid var(--aed-control);
+      border-top: 4px solid var(--aed-blue);
+      background: var(--aed-paper);
+
+      p,
+      dl {
+        margin: 0.5rem 0 0;
+      }
+
+      @media (min-width: 576px) {
+        position: absolute;
+        top: 0.75rem;
+        right: 0.75rem;
+        z-index: 1000;
+        width: min(22rem, calc(100% - 5rem));
+        max-height: calc(100% - 2.5rem);
+        overflow: auto;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+      }
+    }
+
+    &__title {
+      margin: 0 0 0.5rem;
+      font-size: 1.125rem;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    &__distance {
+      font-weight: 700;
+    }
+
+    &__facts {
+      dt {
+        color: var(--aed-muted);
+        font-size: 0.875rem;
+        font-weight: 400;
+      }
+
+      dd {
+        margin: 0 0 0.25rem;
+      }
+    }
+
+    &__stack {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+
+      li {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.25rem 0.75rem;
+        padding: 0.375rem 0;
+        border-bottom: 1px solid var(--aed-line);
+      }
+
+      .btn-link {
+        padding: 0;
+        text-align: left;
+      }
+    }
+
+    &__to-list {
+      display: block;
+      margin-top: 0.5rem;
+      padding-left: 0;
+    }
+
+    &__close {
+      margin-top: 0.75rem;
     }
   }
 
-  // Map marker of one device: the status window from the list, so the mark shape tells the status.
-  .aed-pin {
-    border: 2px solid var(--aed-muted);
-    border-radius: 2px;
-    background: var(--aed-paper);
-    color: var(--aed-muted);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  // Map symbols (aed-status.component.ts AED_MARKS): shape and inner mark per status, white edge for any ground.
+  .aed-mark {
+    --mark: var(--aed-muted);
+
+    display: inline-block;
+    line-height: 0;
 
     svg {
-      display: block;
-      fill: none;
-      stroke: currentColor;
+      overflow: visible;
+      filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.45));
+    }
+
+    &__shape {
+      fill: var(--mark);
+      stroke: var(--aed-paper);
       stroke-width: 2.5;
+      stroke-linejoin: round;
+    }
+
+    &__glyph {
+      fill: none;
+      stroke: var(--aed-paper);
+      stroke-width: 3;
       stroke-linecap: round;
       stroke-linejoin: round;
     }
 
     &--aktywny {
-      border-color: var(--aed-ok);
-      background: var(--aed-ok);
-      color: var(--aed-paper);
+      --mark: var(--aed-ok);
     }
 
     &--zgloszony {
-      border-color: var(--aed-blue);
-      color: var(--aed-blue);
+      --mark: var(--aed-blue);
     }
 
     &--nieaktualny {
-      border-color: var(--aed-warn);
-      color: var(--aed-warn);
+      --mark: var(--aed-warn);
     }
 
     &--wycofany {
-      border-color: var(--aed-error);
-      color: var(--aed-error);
+      --mark: var(--aed-error);
+    }
+
+    // The point whose details are open.
+    // The point whose details are open: a blue ring behind the symbol.
+    &--selected::before {
+      position: absolute;
+      inset: -9px;
+      z-index: -1;
+      border: 3px solid var(--aed-blue);
+      border-radius: 50%;
+      background: rgba(0, 82, 165, 0.18);
+      content: '';
     }
   }
 
-  // Group of devices too close to draw separately: a disc with their number.
+  .leaflet-marker-icon.aed-mark:focus-visible,
+  .leaflet-marker-icon.aed-cluster:focus-visible,
+  .leaflet-marker-icon.aed-firm:focus-visible {
+    outline: 3px solid var(--aed-ink);
+    outline-offset: 3px;
+  }
+
+  // Group of devices too close to draw separately: a navy disc with their number and a light halo.
   .aed-cluster {
     display: grid;
     place-items: center;
     border: 2px solid var(--aed-paper);
     border-radius: 50%;
-    background: var(--aed-blue);
+    background: var(--aed-navy);
     color: var(--aed-paper);
     font-size: 0.875rem;
     font-weight: 700;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    font-variant-numeric: tabular-nums;
+    box-shadow:
+      0 0 0 4px rgba(5, 64, 127, 0.25),
+      0 1px 3px rgba(0, 0, 0, 0.4);
   }
 
-  .aed-cluster--badge {
-    background: var(--aed-ok);
+  // Several devices at one spot: the disc opens their list instead of zooming.
+  .aed-cluster--stack {
+    border-style: double;
+    border-width: 4px;
+  }
+
+  .aed-cluster--sample {
+    width: 2rem;
+    height: 2rem;
+    flex: none;
+  }
+
+  // Company seat on the "Ranking firm" map: a white square with the initial, never a disc or a status symbol.
+  .aed-firm {
+    display: grid;
+    place-items: center;
+    border: 3px solid var(--aed-navy);
+    border-radius: 6px;
+    background: var(--aed-paper);
+    color: var(--aed-navy);
+    font-size: 1rem;
+    font-weight: 700;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+
+    &__badge {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      display: grid;
+      width: 1.25rem;
+      height: 1.25rem;
+      place-items: center;
+      border: 2px solid var(--aed-paper);
+      border-radius: 50%;
+      background: var(--aed-ok);
+      color: var(--aed-paper);
+      font-size: 0.6875rem;
+      line-height: 1;
+    }
+  }
+
+  // "Jesteś tutaj": blue dot with a white ring; the accuracy circle is an SVG path of Leaflet.
+  .aed-here {
+    border: 3px solid var(--aed-paper);
+    border-radius: 50%;
+    background: #1a73e8;
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.35),
+      0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+
+  .aed-here--sample {
+    display: inline-block;
+    width: 1.25rem;
+    height: 1.25rem;
+    flex: none;
+  }
+
+  .aed-here-accuracy {
+    fill: #1a73e8;
+    fill-opacity: 0.12;
+    stroke: #1a73e8;
+    stroke-opacity: 0.5;
+    stroke-width: 1;
+  }
+
+  details.aed-legend {
+    margin: 0.75rem 0 0;
+    padding: 0.5rem 1rem 0.75rem;
+    border: 1px solid var(--aed-line);
+    background: var(--aed-paper);
+
+    summary {
+      padding: 0.25rem 0;
+      color: var(--aed-blue);
+      font-weight: 700;
+      cursor: pointer;
+    }
+  }
+
+  .aed-legend__list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: 0.5rem 1.5rem;
+    margin: 0.5rem 0;
+    padding: 0;
+    list-style: none;
+
+    li {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.25rem 0.625rem;
+    }
+
+    // Symbols at their map size, so the legend matches the markers.
+    .aed-status {
+      gap: 0.625rem;
+      font-weight: 400;
+    }
+
+    .aed-mark {
+      display: grid;
+      width: 2rem;
+      flex: none;
+      place-items: center;
+
+      svg {
+        height: auto;
+        filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.45));
+      }
+    }
+  }
+
+  .aed-near {
+    margin: 1.5rem 0;
+
+    &__row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 0.75rem;
+      margin-bottom: 0.75rem;
+
+      .btn {
+        min-height: 2.75rem;
+      }
+
+      .btn-link {
+        padding-inline: 0;
+      }
+    }
+
+    &__locate {
+      min-height: 3rem;
+
+      @media (max-width: 575.98px) {
+        width: 100%;
+      }
+    }
+
+    &__open {
+      font-weight: 700;
+    }
+
+    &__from {
+      margin: 0.5rem 0 0;
+      font-weight: 700;
+    }
+
+    &__how {
+      margin: 0.5rem 0 0;
+    }
+  }
+
+  .aed-row__distance {
+    font-weight: 700;
+  }
+
+  .aed-row__access {
+    margin: 0 0 0.5rem;
+  }
+
+  // "Według harmonogramu: …": a mark and the text; the mark differs per state, colour only repeats it.
+  .aed-open {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.25rem 0;
+    font-weight: 700;
+
+    &::before {
+      display: grid;
+      width: 1.25rem;
+      height: 1.25rem;
+      flex: none;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--aed-muted);
+      color: var(--aed-paper);
+      font-size: 0.8125rem;
+      line-height: 1;
+      content: '?';
+    }
+
+    &--dostepny::before {
+      background: var(--aed-ok);
+      content: '✓';
+    }
+
+    &--zamkniety::before {
+      content: '–';
+    }
+  }
+
+  .aed-route {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    margin-right: 1rem;
+    font-weight: 700;
+  }
+
+  // id and completeness are reference data: folded, smaller, after the action
+  .aed-row__details {
+    font-size: 0.875rem;
+
+    summary {
+      padding: 0.5rem 0;
+      color: var(--aed-blue);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+  }
+
+  .aed-row__map {
+    padding: 0;
+    text-align: left;
   }
 
   .aed-columns {
@@ -777,6 +1262,8 @@
   }
 
   .aed-scroll {
+    // relative: visually hidden labels inside the table stay clipped here instead of widening the page at 320 px
+    position: relative;
     overflow-x: auto;
     margin: 1rem 0;
   }
@@ -1142,6 +1629,14 @@
     .aed-status {
       margin-top: 0.5rem;
     }
+
+    // One line per date that is close or past; the date fields themselves are the last card of the form.
+    &__expiry {
+      margin-top: 0.5rem;
+      padding-left: 0.75rem;
+      border-left: 4px solid var(--aed-warn);
+      font-weight: 700;
+    }
   }
 
   .aed-button {
@@ -1185,6 +1680,13 @@
     .aed-button {
       margin: 0;
     }
+
+    &__missing {
+      display: block;
+      min-height: 2.75rem;
+      margin: 0.25rem auto 0;
+      padding: 0 0.5rem;
+    }
   }
 
   .aed-result {
@@ -1226,8 +1728,11 @@
 }
 
 // Keep the focused field clear of the sticky action bar (WCAG 2.4.11).
+// The bar is 1.5rem padding + 3.5rem button + 1px line + the safe area; a field brought into view by Tab
+// (or a hint under it) lands above the bar with 1rem to spare.
 html:has(.aed--app) {
-  scroll-padding-bottom: 6rem;
+  scroll-padding-top: 1rem;
+  scroll-padding-bottom: calc(6.25rem + env(safe-area-inset-bottom));
 }
 
 // Printing the sticker sheet: only the sheet, in three columns, without the portal around it.
@@ -1270,5 +1775,255 @@ html:has(.aed--app) {
       border: 0.3mm dashed #000;
       color: #000;
     }
+  }
+}
+
+// ---- Narrow-screen tables: CSV validation report (company panel) and duplicate review (ministry panel) ----
+// Kept in one block at the end of the file (review notes A6, A7).
+.aed {
+  .aed-problems__label {
+    display: none;
+  }
+
+  // A6: below 640 px each problem is a card – row number and kind on top, column and fix below.
+  // The table keeps explicit ARIA roles in the markup, so changing `display` here does not drop its semantics.
+  @media (max-width: 639.98px) {
+    .aed-problems {
+      &,
+      tbody,
+      caption {
+        display: block;
+      }
+
+      thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+
+      tr {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas:
+          'no level'
+          'field field'
+          'fix fix';
+        gap: 0.25rem 0.75rem;
+        margin-top: 0.75rem;
+        padding: 0.75rem;
+        border: 1px solid var(--aed-line);
+        border-left: 4px solid var(--aed-warn);
+        border-radius: 0.25rem;
+        background: var(--aed-paper);
+      }
+
+      .aed-problems__row--error {
+        border-left-color: var(--aed-error);
+      }
+
+      td {
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .aed-problems__row-no {
+        grid-area: no;
+        font-weight: 700;
+      }
+
+      .aed-problems__level {
+        grid-area: level;
+        justify-self: end;
+        font-weight: 700;
+      }
+
+      .aed-problems__field {
+        grid-area: field;
+      }
+
+      .aed-problems__fix {
+        grid-area: fix;
+      }
+
+      .aed-problems__label {
+        display: inline;
+        color: var(--aed-muted);
+      }
+
+      .aed-problems__row-no .aed-problems__label {
+        color: inherit;
+      }
+    }
+  }
+
+  // A7: differing fields by default, a toggle for all of them, and the decision right under the comparison.
+  .aed-compare__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    margin-top: 1rem;
+  }
+
+  .aed-compare__count {
+    margin: 0;
+  }
+
+  .aed-compare td {
+    overflow-wrap: anywhere;
+  }
+
+  .aed-decision {
+    margin: 1rem 0;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--aed-line);
+    border-bottom: 1px solid var(--aed-line);
+    background: var(--aed-surface);
+
+    &__label {
+      margin: 0;
+    }
+
+    .aed-actions {
+      margin: 0.75rem 0 0;
+    }
+
+    .btn {
+      white-space: normal;
+      text-align: left;
+    }
+  }
+}
+
+// Converter mapping table on a narrow screen (UI review A8): below 640 px each column of the file is one block –
+// its name, the field select and the sample values folded in <details>; nothing wider than the screen.
+.aed .aed-conv-map__narrow {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .aed .aed-conv-map {
+    overflow-x: visible;
+  }
+
+  .aed .aed-conv-map table,
+  .aed .aed-conv-map tbody,
+  .aed .aed-conv-map tr,
+  .aed .aed-conv-map th,
+  .aed .aed-conv-map td {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .aed .aed-conv-map thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .aed .aed-conv-map tr {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid currentcolor;
+  }
+
+  .aed .aed-conv-map th,
+  .aed .aed-conv-map td {
+    padding: 0.25rem 0;
+    overflow-wrap: anywhere;
+  }
+
+  .aed .aed-conv-map select {
+    max-width: 100%;
+  }
+
+  .aed .aed-conv-map__wide {
+    display: none;
+  }
+
+  .aed .aed-conv-map__narrow {
+    display: block;
+  }
+}
+
+// Converter: geocoding opt-in (GUGiK).
+.aed .aed-conv-geo {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  font-weight: 600;
+}
+
+.aed .aed-conv-geo input {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: 0.1rem;
+}
+
+// Messages quoting column names (szerokosc_geograficzna) widened the page at 320 px.
+.aed .aed-message {
+  overflow-wrap: anywhere;
+}
+
+// Duplicate comparison on a narrow screen (tester round, 22.11): below 640 px the four-column table squeezed
+// values into one-letter lines. Each field becomes a block: its name, then A, B and the verdict, each labelled.
+@media (max-width: 640px) {
+  .aed .aed-compare,
+  .aed .aed-compare tbody,
+  .aed .aed-compare tr,
+  .aed .aed-compare th[scope='row'],
+  .aed .aed-compare td {
+    display: block;
+    width: 100%;
+  }
+
+  .aed .aed-compare thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .aed .aed-compare caption,
+  .aed .aed-conv-map caption {
+    display: block;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  .aed .aed-compare tr {
+    padding: 0.5rem 0 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--aed-line);
+    border-left: 4px solid transparent;
+  }
+
+  .aed .aed-compare tr.aed-compare__differs {
+    border-left-color: var(--aed-warn);
+  }
+
+  .aed .aed-compare th[scope='row'] {
+    padding: 0 0 0.25rem;
+    border-left: 0;
+  }
+
+  .aed .aed-compare td {
+    padding: 0.125rem 0;
+    border: 0;
+  }
+
+  .aed .aed-compare td::before {
+    content: attr(data-label) ': ';
+    font-weight: 400;
+    color: var(--aed-muted);
   }
 }

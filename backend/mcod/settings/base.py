@@ -137,6 +137,7 @@ INSTALLED_APPS = [
     "mcod.articles",
     "mcod.datasets",
     "mcod.resources",
+    "mcod.aed",
     "mcod.users",
     "mcod.licenses",
     "mcod.counters",
@@ -289,6 +290,7 @@ HARVESTER_XML_VERSION_TO_SCHEMA_PATH = {
     "1.11": HARVESTER_DATA_DIR.path("xml_import_otwarte_dane_1_11.xsd").root,
     "1.12": HARVESTER_DATA_DIR.path("xml_import_otwarte_dane_1_12.xsd").root,
     "1.13": HARVESTER_DATA_DIR.path("xml_import_otwarte_dane_1_13.xsd").root,
+    "1.14": HARVESTER_DATA_DIR.path("xml_import_otwarte_dane_1_14.xsd").root,  # + containsAedList
 }
 
 HARVESTER_IMPORTERS = {
@@ -970,6 +972,7 @@ CELERY_TASK_ROUTES = {
     "mcod.submissions.tasks.generate_statistical_report_for_all_submissions_task": {"queue": "reports"},
     "mcod.resources.tasks.check_link_protocol": {"queue": "resources"},
     "mcod.resources.tasks.create_main_dga_resource_task": {"queue": "resources"},
+    "mcod.aed.tasks.create_main_aed_resource_task": {"queue": "resources"},
     "mcod.resources.tasks.delete_es_resource_tabular_data_index": {"queue": "indexing_data"},
     "mcod.resources.tasks.delete_es_resource_tabular_data_indexes_for_organization": {"queue": "indexing_data"},
     "mcod.resources.tasks.entrypoint_process_resource_file_validation_task": {"queue": "resources"},

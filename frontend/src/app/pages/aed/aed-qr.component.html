@@ -1,8 +1,18 @@
 <div class="aed-qr">
   @if (loadError()) {
-    <h1 class="aed-qr__title">Nie znaleźliśmy tego urządzenia</h1>
-    <p class="aed-message aed-message--error" role="alert">{{ loadError() }}</p>
-    <p>Sprawdź, czy adres z naklejki jest wpisany w całości, albo zeskanuj kod jeszcze raz.</p>
+    @if (badLink()) {
+      <h1 class="aed-qr__title">Ten link nie działa</h1>
+      <p class="aed-message aed-message--error" role="alert">{{ loadError() }}</p>
+      <p>
+        Każdy link dla dysponenta jest ważny 90 dni. Użyj najnowszego linku z wiadomości e-mail albo poczekaj na kolejną
+        prośbę o potwierdzenie danych.
+      </p>
+      <p><a [href]="publicPage()">Zobacz publiczną stronę urządzenia</a></p>
+    } @else {
+      <h1 class="aed-qr__title">Nie znaleźliśmy tego urządzenia</h1>
+      <p class="aed-message aed-message--error" role="alert">{{ loadError() }}</p>
+      <p>Sprawdź, czy adres z naklejki jest wpisany w całości, albo zeskanuj kod jeszcze raz.</p>
+    }
   }
 
   @if (record(); as record) {
@@ -15,6 +25,11 @@
         <p class="aed-device__place">{{ record['nazwa'] }}, {{ record['miejscowosc'] }}</p>
       }
       <app-aed-status [status]="record.status" />
+      @if (!done() && t()) {
+        @for (note of expiryNotes(); track note) {
+          <p class="aed-device__expiry"><span class="visually-hidden">Uwaga: </span>{{ note }}</p>
+        }
+      }
     </section>
 
     @if (done() === 'problem') {
@@ -30,7 +45,7 @@
         </svg>
         <h1 class="aed-qr__title" id="aed-done" tabindex="-1">Zgłoszenie problemu zapisane</h1>
         <p>
-          Zapisaliśmy dane urządzenia i opis problemu. Urządzenie nie jest teraz pokazywane jako aktywne – ma status „{{
+          Zapisaliśmy dane urządzenia i opis problemu. Urządzenie nie jest teraz pokazywane jako zweryfikowane – ma status „{{
             statusLabels[record.status]
           }}”.
         </p>
@@ -49,7 +64,7 @@
         @if (done() === 'potwierdzenie') {
           <h1 class="aed-qr__title" id="aed-done" tabindex="-1">Dane potwierdzone</h1>
           <p>
-            Urządzenie ma teraz status „aktywny”. Data potwierdzenia: {{ record['data_weryfikacji'] }}. Kompletność
+            Urządzenie ma teraz status „{{ statusLabels.aktywny }}”. Data weryfikacji: {{ record['data_weryfikacji'] }}. Kompletność
             danych: {{ record.kompletnosc }}%.
           </p>
           <p>Gdy zbliży się termin kolejnego potwierdzenia, wyślemy wiadomość na adres e-mail dysponenta.</p>
@@ -62,17 +77,21 @@
     } @else if (t()) {
       <h1 class="aed-qr__title">Potwierdź dane defibrylatora</h1>
       <p class="aed-qr__lede">Trzy kroki, około minuty. Najlepiej zrób to, stojąc przy urządzeniu.</p>
+      @if (takeover()) {
+        <p class="aed-message aed-message--warn">
+          Ten punkt znaleźliśmy w otwartej mapie (OpenStreetMap). Nie przepisujemy z niej danych: podaj nazwę miejsca,
+          położenie, adres, dostęp i godziny sam. Od potwierdzenia dane w rejestrze pochodzą od Ciebie.
+        </p>
+      }
 
-      <form [formGroup]="form" appScrollToFirstError novalidate (ngSubmit)="confirm()">
-        <!-- Battery and electrodes: at the top when a date is close or past (the manager came from a reminder). -->
+      <form [formGroup]="form" appScrollToFirstError novalidate (ngSubmit)="confirm()" #confirmForm>
+        <!-- Battery and electrodes: optional, so after the three required steps; a close date is flagged in the device card. -->
         <ng-template #expiryStep>
           <section class="aed-card" aria-labelledby="aed-step-expiry">
             <p class="aed-step">Nieobowiązkowe</p>
             <h2 class="aed-card__title" id="aed-step-expiry">Bateria i elektrody</h2>
-            @for (field of expiring(); track field.name) {
-              <p class="aed-message aed-message--warn">
-                {{ field.title }}: {{ record[field.name] }}. Termin minął albo mija w ciągu 60 dni.
-              </p>
+            @for (note of expiryNotes(); track note) {
+              <p class="aed-message aed-message--warn">{{ note }}</p>
             }
             <p>
               Po wymianie baterii lub elektrod wpisz tutaj nową datę ważności. Przypomnienia o starym terminie przestaną
@@ -83,10 +102,6 @@
             }
           </section>
         </ng-template>
-
-        @if (expiring().length) {
-          <ng-container [ngTemplateOutlet]="expiryStep" />
-        }
 
         <section class="aed-card" aria-labelledby="aed-step-1">
           <p class="aed-step">Krok 1 z 3</p>
@@ -127,6 +142,20 @@
           }
           <p class="aed-note">Nie podawaj danych osób ani kodów do szafek. Te informacje będą publiczne.</p>
         </section>
+
+        @if (needsContact()) {
+          <section class="aed-card" aria-labelledby="aed-step-owner">
+            <p class="aed-step">Nieobowiązkowe, ale potrzebne do przypomnień</p>
+            <h2 class="aed-card__title" id="aed-step-owner">Kontakt do dysponenta</h2>
+            <p>
+              Na ten adres wyślemy prośby o potwierdzenie i przypomnienia o terminach baterii oraz elektrod. Podaj
+              kontakt instytucji, nie osoby prywatnej. Kontakt nie trafia do zbioru otwartego.
+            </p>
+            @for (field of ownerFields; track field.name) {
+              <app-aed-field [field]="field" [control]="owner.controls[field.name]" />
+            }
+          </section>
+        }
 
         <section class="aed-card" aria-labelledby="aed-step-2">
           <p class="aed-step">Krok 2 z 3</p>
@@ -186,15 +215,18 @@
           }
         </section>
 
-        @if (!expiring().length) {
-          <ng-container [ngTemplateOutlet]="expiryStep" />
-        }
+        <ng-container [ngTemplateOutlet]="expiryStep" />
 
         @if (sendError()) {
           <p class="aed-message aed-message--error" role="alert">{{ sendError() }}</p>
         }
         <div class="aed-actionbar">
-          <button class="aed-button" type="submit">Potwierdź dane</button>
+          <button class="aed-button" type="submit">Potwierdź dane AED</button>
+          @if (missing(); as count) {
+            <button class="btn btn-link aed-actionbar__missing" type="button" (click)="showMissing(confirmForm)">
+              Do uzupełnienia: {{ count }} {{ plural(count, 'pole', 'pola', 'pól') }}
+            </button>
+          }
         </div>
       </form>
     } @else {

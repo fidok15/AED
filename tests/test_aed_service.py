@@ -3,12 +3,15 @@ import contextlib
 import csv
 import datetime
 import gc
+import hashlib
 import io
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 import warnings
+import xml.etree.ElementTree as ET
 from unittest import mock
 
 import aed_standard
@@ -40,10 +43,12 @@ def read_bytes(path):
         return f.read()
 
 
-def multipart(data, filename="zgloszenie.csv"):
+def multipart(data, filename="zgloszenie.csv", fields=None):
     b = "XXBOUNDARYXX"
-    body = ('--%s\r\nContent-Disposition: form-data; name="plik"; filename="%s"\r\nContent-Type: text/csv\r\n\r\n'
-            % (b, filename)).encode() + data + ("\r\n--%s--\r\n" % b).encode()
+    body = b"".join(('--%s\r\nContent-Disposition: form-data; name="%s"\r\n\r\n%s\r\n' % (b, k, v)).encode()
+                    for k, v in (fields or {}).items())
+    body += ('--%s\r\nContent-Disposition: form-data; name="plik"; filename="%s"\r\nContent-Type: text/csv\r\n\r\n'
+             % (b, filename)).encode() + data + ("\r\n--%s--\r\n" % b).encode()
     return {"body": body, "headers": {"Content-Type": "multipart/form-data; boundary=" + b}}
 
 
@@ -149,6 +154,60 @@ class ServiceTest(unittest.TestCase):
         again = self.submit(data).json["podsumowanie"]
         self.assertEqual(again["przyjete"], 0)
         self.assertEqual(again["duplikaty"], out["podsumowanie"]["przyjete"])
+
+    def test_converter_malformed_files_are_422_not_500(self):
+        from tests.test_formaty import MALFORMED
+        for data in MALFORMED:
+            with self.subTest(data=data[:40]):
+                r = self.client.simulate_post("/api/aed/konwerter/analiza", **multipart(data, "plik.json"))
+                self.assertEqual(r.status_code, 422, r.text)
+                self.assertEqual(r.json["blad"]["kod"], "plik_nieczytelny")
+
+    def test_converter_public_and_stateless(self):
+        c = self.client
+        krosno = read_bytes(os.path.join(ROOT, "datasets", "raw", "dane_gov_pl", "krosno", "resource_54632.csv"))
+        before = self.db.execute("SELECT COUNT(*) FROM devices").fetchone()[0]
+        mp = multipart(krosno, "krosno.csv")
+        a = c.simulate_post("/api/aed/konwerter/analiza", headers=mp["headers"], body=mp["body"])  # no login
+        self.assertEqual(a.status_code, 200, a.text)
+        mapping = {col["kolumna"]: col["pole"] for col in a.json["kolumny"]}
+        self.assertEqual(mapping["Adres"], "_adres")
+        mp = multipart(krosno, "krosno.csv", {"mapowanie": json.dumps(mapping), "stale": json.dumps({"dostep": "publiczny"})})
+        r = c.simulate_post("/api/aed/konwerter/konwersja", headers=mp["headers"], body=mp["body"])
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual((r.json["raport"]["status"], r.json["nazwa_pliku"]), ("przyjety", "krosno-wykaz-aed.csv"))
+        self.assertEqual(next(csv.reader(io.StringIO(r.json["plik_csv"]))), aed_standard.field_names())
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM devices").fetchone()[0], before)
+        self.assertIsNone(r.json["raport"]["geokodowanie"])   # geocoding only on request
+        self.assertTrue(a.json["geokodowanie_dostepne"])
+        os.environ["AED_GEOKODOWANIE"] = "0"   # server switch: no address leaves the server
+        try:
+            mp = multipart(krosno, "krosno.csv", {"mapowanie": json.dumps(mapping), "geokodowanie": "1"})
+            r = c.simulate_post("/api/aed/konwerter/konwersja", headers=mp["headers"], body=mp["body"])
+            self.assertTrue(r.json["raport"]["geokodowanie"]["wylaczone"])
+        finally:
+            del os.environ["AED_GEOKODOWANIE"]
+        mp = multipart(krosno, "krosno.csv", {"mapowanie": json.dumps({"Nazwa": "nazwa", "Lokalizacja": "nazwa"})})
+        bad = c.simulate_post("/api/aed/konwerter/konwersja", headers=mp["headers"], body=mp["body"])
+        self.assertEqual((bad.status_code, bad.json["blad"]["kod"]), (422, "zle_mapowanie"))
+        mp = multipart(b"x", "a.exe")
+        self.assertEqual(c.simulate_post("/api/aed/konwerter/analiza", headers=mp["headers"], body=mp["body"]).status_code, 415)
+        # Old XLS and PDF are accepted only to explain in Polish what to do; KML is read by content.
+        for data, name in ((b"\xd0\xcf\x11\xe0" + b"\0" * 60, "a.xls"), (b"%PDF-1.4", "a.pdf")):
+            bad = c.simulate_post("/api/aed/konwerter/analiza", **{k: v for k, v in multipart(data, name).items()})
+            self.assertEqual((bad.status_code, bad.json["blad"]["kod"]), (422, "plik_nieczytelny"))
+        kml = read_bytes(os.path.join(ROOT, "datasets", "probki-formatow", "koszalin-mymaps.kml"))
+        a = c.simulate_post("/api/aed/konwerter/analiza", **multipart(kml, "mapa.kml"))
+        self.assertEqual((a.status_code, a.json["format"], a.json["wiersze"]), (200, "kml", 35), a.text)
+        self.assertIn("KML", a.json["format_opis"])
+        # XLSX is accepted; a file that is not a zip is a readable Polish 422, not a crash.
+        mp = multipart(b"x", "a.xlsx")
+        bad = c.simulate_post("/api/aed/konwerter/analiza", headers=mp["headers"], body=mp["body"])
+        self.assertEqual((bad.status_code, bad.json["blad"]["kod"]), (422, "plik_nieczytelny"))
+        template = read_bytes(os.path.join(ROOT, "wzorzec", "wzorzec-aed.xlsx"))
+        mp = multipart(template, "wzorzec-aed.xlsx")
+        a = c.simulate_post("/api/aed/konwerter/analiza", headers=mp["headers"], body=mp["body"])
+        self.assertEqual((a.status_code, a.json["format"]), (200, "xlsx"), a.text)
 
     def test_sticker_text_fits_and_logo_placeholder(self):
         """Rule (rendering cannot be tested here): every text line needs chars * font-size * 0.75 <= width - 2 * 20,
@@ -289,6 +348,121 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual(self.client.simulate_get("/api/aed/urzadzenia/" + b["id_aed"]).json["nazwa"], "Punkt 2")
         self.assertEqual(self.client.simulate_get("/api/aed/duplikaty", headers=m).json["razem"], 0)
 
+    def test_open_now_filter(self):
+        def rec(i, hours, **kw):
+            base = {n: "" for n in aed_standard.field_names()}
+            base.update(id_aed="AED-OPENTEST%04d" % i, nazwa="Punkt %d" % i, szerokosc_geograficzna="50.1",
+                        dlugosc_geograficzna="20.1", miejscowosc="Kraków", status="niepotwierdzony", zrodlo="godziny",
+                        zrodlo_id=str(i), licencja="CC BY 4.0", dostep="publiczny", kompletnosc="40",
+                        godziny_dostepu=hours)
+            base.update(kw)
+            return base
+        recs = [rec(1, "24/7"), rec(2, "Mo-Fr 08:00-16:00"), rec(3, "Sa 09:00-13:00"), rec(4, ""),
+                rec(5, "sunrise-sunset"), rec(6, "24/7", dostep="prywatny")]
+        with mock.patch.object(aed_standard, "build_registry", return_value=(recs, [], {"polaczenia": {"razem": 0}})):
+            self.client.simulate_post("/api/aed/mapper/uruchom", headers=self.ministry())
+
+        def ids(at, path="/api/aed/urzadzenia?zrodlo=godziny&dostepny_teraz=1"):
+            with mock.patch.object(aed_standard, "warsaw_now", return_value=at):
+                return self.client.simulate_get(path).json
+        tuesday = ids(datetime.datetime(2026, 11, 24, 10, 0))
+        self.assertEqual([r["id_aed"] for r in tuesday["dane"]], ["AED-OPENTEST0001", "AED-OPENTEST0002"])
+        self.assertEqual((tuesday["razem"], tuesday["bez_godzin"]), (2, 2))
+        saturday = ids(datetime.datetime(2026, 11, 28, 10, 0))
+        self.assertEqual([r["id_aed"] for r in saturday["dane"]], ["AED-OPENTEST0001", "AED-OPENTEST0003"])
+        night = ids(datetime.datetime(2026, 11, 28, 23, 0), "/api/aed/urzadzenia?zrodlo=godziny&dostepny_teraz=1&na_stronie=1&strona=1")
+        self.assertEqual((night["razem"], len(night["dane"])), (1, 1))  # only 24/7, paged after the filter
+        plain = self.client.simulate_get("/api/aed/urzadzenia?zrodlo=godziny").json
+        self.assertEqual(plain["razem"], 5)  # without the parameter: no filter, no extra field
+        self.assertNotIn("bez_godzin", plain)
+        geo = ids(datetime.datetime(2026, 11, 24, 10, 0), "/api/aed/urzadzenia.geojson?dostepny_teraz=1&bbox=20,50,20.2,50.2")
+        self.assertEqual(sorted(f["properties"]["id_aed"] for f in geo["features"] if f["properties"]["zrodlo"] == "godziny"),
+                         ["AED-OPENTEST0001", "AED-OPENTEST0002"])
+
+    def test_list_sorted_by_distance_from_a_point(self):
+        def rec(i, lat, hours="24/7", **kw):
+            base = {n: "" for n in aed_standard.field_names()}
+            base.update(id_aed="AED-NEARTEST%04d" % i, nazwa="Punkt %d" % i, szerokosc_geograficzna=str(lat),
+                        dlugosc_geograficzna="21.0", miejscowosc="Warszawa", status="niepotwierdzony", zrodlo="blisko",
+                        zrodlo_id=str(i), licencja="CC BY 4.0", dostep="publiczny", kompletnosc="40",
+                        godziny_dostepu=hours)
+            base.update(kw)
+            return base
+        # 0.01 degree of latitude is ~1112 m
+        recs = [rec(1, 52.03), rec(2, 52.01, "Mo-Fr 08:00-16:00"), rec(3, 52.02), rec(4, ""),
+                rec(5, 52.0, dostep="prywatny")]
+        recs[3].update(szerokosc_geograficzna="", dlugosc_geograficzna="")  # no position, no distance
+        with mock.patch.object(aed_standard, "build_registry", return_value=(recs, [], {"polaczenia": {"razem": 0}})):
+            self.client.simulate_post("/api/aed/mapper/uruchom", headers=self.ministry())
+        base = "/api/aed/urzadzenia?zrodlo=blisko&lat=52.0&lon=21.0"
+        near = self.client.simulate_get(base).json
+        self.assertEqual([(r["id_aed"][-1], r["odleglosc_m"]) for r in near["dane"]],
+                         [("2", 1112), ("3", 2224), ("1", 3336)])
+        self.assertEqual(near["razem"], 3)
+        page2 = self.client.simulate_get(base + "&na_stronie=1&strona=2").json
+        self.assertEqual([r["id_aed"][-1] for r in page2["dane"]], ["3"])
+        with mock.patch.object(aed_standard, "warsaw_now", return_value=datetime.datetime(2026, 11, 28, 23, 0)):
+            night = self.client.simulate_get(base + "&dostepny_teraz=1").json
+        self.assertEqual([r["id_aed"][-1] for r in night["dane"]], ["3", "1"])
+        self.assertNotIn("odleglosc_m", self.client.simulate_get("/api/aed/urzadzenia?zrodlo=blisko").json["dane"][0])
+        for bad in ("lat=95&lon=21", "lat=52", "lat=abc&lon=21", "lat=nan&lon=21"):
+            self.assertEqual(self.client.simulate_get("/api/aed/urzadzenia?" + bad).status_code, 422, bad)
+        # the nearest device is withdrawn: it must not be offered
+        self.db.execute("UPDATE devices SET status='wycofany' WHERE id_aed='AED-NEARTEST0002'")
+        self.db.commit()
+        self.assertEqual([r["id_aed"][-1] for r in self.client.simulate_get(base).json["dane"]], ["3", "1"])
+        asked = self.client.simulate_get(base + "&status=wycofany").json
+        self.assertEqual([r["id_aed"][-1] for r in asked["dane"]], ["2"])
+        # the plain list (no position, no status) skips it too, like the map (which also drops device 4: no position)
+        plain = self.client.simulate_get("/api/aed/urzadzenia?zrodlo=blisko").json
+        self.assertEqual(([r["id_aed"][-1] for r in plain["dane"]], plain["razem"]), (["1", "3", "4"], 3))
+        shown = self.client.simulate_get("/api/aed/urzadzenia.geojson?zrodlo=blisko").json["features"]
+        self.assertEqual(sorted(f["properties"]["id_aed"][-1] for f in shown), ["1", "3"])
+        by_id = self.client.simulate_get("/api/aed/urzadzenia?q=aed-neartest0003").json
+        self.assertEqual([r["id_aed"] for r in by_id["dane"]], ["AED-NEARTEST0003"])
+
+    def test_extra_filters_shared_by_list_and_map(self):
+        def rec(i, **kw):
+            base = {n: "" for n in aed_standard.field_names()}
+            base.update(id_aed="AED-FILTTEST%04d" % i, nazwa="Punkt %d" % i, szerokosc_geograficzna="49.5",
+                        dlugosc_geograficzna="22.5", miejscowosc="Ustrzyki", status="niepotwierdzony", zrodlo="filtry",
+                        zrodlo_id=str(i), licencja="CC BY 4.0", dostep="publiczny", kompletnosc="40")
+            base.update(kw)
+            return base
+        recs = [rec(1, producent="Philips", model="FRx", godziny_dostepu="24/7", wewnatrz_budynku="tak"),
+                rec(2, producent="PHILIPS", model="HS1", godziny_dostepu="Mo-Fr 08:00-16:00", dostep="ograniczony"),
+                rec(3, producent="ZOLL", model="AED Plus", wewnatrz_budynku="nie", miejscowosc="Łódź"),
+                rec(4, producent="Philips", model="FRx", godziny_dostepu="24/7", dostep="prywatny"),
+                rec(5, producent="Zoll", model="AED 3", status="nieaktualny")]
+        with mock.patch.object(aed_standard, "build_registry", return_value=(recs, [], {"polaczenia": {"razem": 0}})):
+            self.client.simulate_post("/api/aed/mapper/uruchom", headers=self.ministry())
+
+        def both(query):
+            listed = self.client.simulate_get("/api/aed/urzadzenia?zrodlo=filtry&" + query).json
+            mapped = self.client.simulate_get("/api/aed/urzadzenia.geojson?zrodlo=filtry&" + query).json
+            ids = sorted(r["id_aed"][-1] for r in listed["dane"])
+            self.assertEqual(ids, sorted(f["properties"]["id_aed"][-1] for f in mapped["features"]), query)
+            return ids
+        self.assertEqual(both("producent=philips"), ["1", "2"])  # letter case ignored; a private device never
+        self.assertEqual(both("producent=Philips&model=frx"), ["1"])
+        self.assertEqual(both("calodobowo=1"), ["1"])
+        self.assertEqual(both("z_godzinami=1"), ["1", "2"])
+        self.assertEqual(both("dostep=ograniczony"), ["2"])
+        self.assertEqual(both("wewnatrz_budynku=nie"), ["3"])
+        self.assertEqual(both("miejscowosc=Łódź"), ["3"])
+        self.assertEqual(both("producent=philips&lat=49.5&lon=22.5"), ["1", "2"])
+        self.assertEqual(both("producent=philips&dostep=publiczny&calodobowo=1"), ["1"])
+        paged = self.client.simulate_get("/api/aed/urzadzenia?zrodlo=filtry&producent=philips&na_stronie=1&strona=2").json
+        self.assertEqual(([r["id_aed"][-1] for r in paged["dane"]], paged["razem"]), (["2"], 2))
+        self.assertEqual(both("status=nieaktualny&producent=zoll"), ["5"])
+        options = self.client.simulate_get("/api/aed/filtry").json
+        philips = [p for p in options["producent"] if p["wartosc"].lower() == "philips"]
+        self.assertEqual(len(philips), 1)  # one value for both spellings
+        self.assertGreaterEqual(philips[0]["liczba"], 2)
+        self.assertIn({"wartosc": "filtry", "etykieta": "filtry", "liczba": 4}, options["zrodlo"])
+        self.assertEqual(svc.source_labels()["openstreetmap"], "OpenStreetMap")  # names from sources.json
+        self.assertNotIn("numer_seryjny", options)  # serial numbers are not public: no filter for them
+
     def test_duplicate_decisions_survive_mapper_runs(self):
         def rec(i, **kw):
             base = {n: "" for n in aed_standard.field_names()}
@@ -349,6 +523,14 @@ class JobsAndDemoTest(unittest.TestCase):
     def ministry(self, c):
         r = c.simulate_post("/api/aed/sesja", json={"email": "ministerstwo@aed.example", "haslo": "ministerstwo-demo"})
         return {"Authorization": "Bearer " + r.json["token"]}
+
+    def test_stats_tell_whether_demo_passwords_are_the_default_ones(self):
+        self.assertTrue(self.client().simulate_get("/api/aed/statystyki").json["hasla_demo_domyslne"])
+        self.tmp.cleanup()
+        os.makedirs(self.tmp.name)
+        with mock.patch.dict(os.environ, {"AED_DEMO_PASSWORD": "inne-haslo-serwera"}):
+            c = self.client()
+        self.assertFalse(c.simulate_get("/api/aed/statystyki").json["hasla_demo_domyslne"])
 
     def test_job_history_and_failure_tolerance(self):
         c = self.client()
@@ -663,6 +845,109 @@ class JobsAndDemoTest(unittest.TestCase):
         self.assertEqual(c.simulate_post(url, json=self.confirm_body(item)).status_code, 200)  # decided: not re-queued
         self.assertEqual(c.simulate_get("/api/aed/duplikaty", headers=m).json["razem"], 0)
 
+    def test_new_import_next_to_confirmed_device_is_queued(self):
+        c = self.client()
+        m = self.ministry(c)
+        item = self.add_device(c, "IMP-1")
+        url = "/api/aed/urzadzenia/%s/potwierdzenie" % item["id_aed"]
+        self.assertEqual(c.simulate_post(url, json=self.confirm_body(item)).status_code, 200)
+        self.assertEqual(c.simulate_get("/api/aed/duplikaty", headers=m).json["razem"], 0)  # nothing imported yet
+        near = self.imported(1, nazwa="Punkt testowy", szerokosc_geograficzna="50.5001")  # ~11 m away
+        far = self.imported(2, szerokosc_geograficzna="50.6", dlugosc_geograficzna="19.6")
+        self.mapper(c, [near, far])
+        queue = c.simulate_get("/api/aed/duplikaty", headers=m).json["dane"]
+        self.assertEqual([(p["rekord_a"]["id_aed"], p["rekord_b"]["id_aed"]) for p in queue], [(item["id_aed"], near["id_aed"])])
+        self.assertAlmostEqual(queue[0]["odleglosc_m"], 11.1, delta=0.5)
+        self.mapper(c, [dict(near, nazwa="Punkt testowy (zmiana)"), far])  # changed record: no second pair
+        self.assertEqual(c.simulate_get("/api/aed/duplikaty", headers=m).json["razem"], 1)
+
+    def test_manager_takes_over_osm_only_record(self):
+        c = self.client()
+        m = self.ministry(c)
+        osm = self.imported(1, zrodlo="openstreetmap", zrodlo_id="node/42", licencja="ODbL 1.0", nazwa="Nazwa z OSM",
+                            opis_lokalizacji="Opis z OSM", producent="Z OSM", dysponent_email="z-osm@example.org",
+                            godziny_dostepu="24/7")
+        self.mapper(c, [osm])
+        export = lambda: c.simulate_get("/api/aed/eksport/dane-gov-pl.csv").text  # noqa: E731
+        self.assertNotIn(osm["id_aed"], export())
+        url = "/api/aed/urzadzenia/%s/link-aktywacyjny" % osm["id_aed"]
+        self.assertEqual(c.simulate_post(url, json={}, headers=self.seller(c)).status_code, 403)
+        self.assertEqual(c.simulate_post(url, json={"email": "nie-email"}, headers=m).status_code, 422)
+        r = c.simulate_post(url, json={"email": "aed@gmina.example.org"}, headers=m)
+        self.assertEqual(r.status_code, 201, r.text)
+        token = r.json["link_aktywacyjny"].split("t=")[1]
+        msgs = c.simulate_get("/api/aed/wiadomosci", headers=m).json["dane"]
+        self.assertEqual([(x["rodzaj"], x["odbiorca"]) for x in msgs], [("przejecie", "aed@gmina.example.org")])
+        confirm = "/api/aed/urzadzenia/%s/potwierdzenie" % osm["id_aed"]
+        # the manager must state name and place himself: nothing is carried over from OSM
+        r = c.simulate_post(confirm, json={"t": token, "dostep": "publiczny", "godziny_dostepu": "24/7", "stan": "sprawny"})
+        self.assertEqual(r.status_code, 422, r.text)
+        body = {"t": token, "nazwa": "Urząd Gminy", "szerokosc_geograficzna": 50.5, "dlugosc_geograficzna": 19.5,
+                "miejscowosc": "Kraków", "dostep": "publiczny", "godziny_dostepu": "Mo-Fr 08:00-16:00",
+                "dysponent_nazwa": "Gmina Test", "dysponent_email": "aed@gmina.example.org", "stan": "sprawny"}
+        r = c.simulate_post(confirm, json=body)
+        self.assertEqual(r.status_code, 200, r.text)
+        rec = r.json["rekord"]
+        self.assertEqual((rec["status"], rec["licencja"], rec["zrodlo"], rec["powiazane_zrodla"]),
+                         ("aktywny", "CC0 1.0", "zgloszenie", "openstreetmap:node/42"))
+        self.assertEqual((rec["opis_lokalizacji"], rec["producent"], rec["dysponent_email"]), ("", "", "aed@gmina.example.org"))
+        self.assertNotIn("OSM", json.dumps(rec))
+        self.assertIn(osm["id_aed"], export())
+        # the next mapper run brings the same OSM record again: the manager's record stays as it is
+        self.mapper(c, [osm])
+        again = c.simulate_get("/api/aed/urzadzenia/" + osm["id_aed"]).json
+        self.assertEqual((again["status"], again["licencja"], again["nazwa"]), ("aktywny", "CC0 1.0", "Urząd Gminy"))
+        self.assertEqual(c.simulate_get("/api/aed/statystyki").json["razem"], 1)
+
+    def test_old_link_cannot_confirm_withdrawn_record(self):
+        c = self.client()
+        recs = [self.imported(i) for i in range(1, 5)]
+        self.mapper(c, recs)
+        r = c.simulate_post("/api/aed/urzadzenia/%s/link-aktywacyjny" % recs[3]["id_aed"], json={}, headers=self.ministry(c))
+        token = r.json["link_aktywacyjny"].split("t=")[1]
+        self.assertEqual(self.mapper(c, recs[:3]).json["wycofano"], 1)   # withdrawn after the link was issued
+        r = c.simulate_post("/api/aed/urzadzenia/%s/potwierdzenie" % recs[3]["id_aed"], json=self.confirm_body({"t": token}))
+        self.assertEqual((r.status_code, r.json["blad"]["kod"]), (409, "wycofany"))
+        self.assertEqual(c.simulate_get("/api/aed/urzadzenia/" + recs[3]["id_aed"]).json["status"], "wycofany")
+
+    def test_manager_adds_contact_to_imported_record_without_one(self):
+        c = self.client()
+        rec = self.imported(1, nazwa="Szkoła z zbioru miejskiego", opis_lokalizacji="Hol")
+        self.mapper(c, [rec])
+        r = c.simulate_post("/api/aed/urzadzenia/%s/link-aktywacyjny" % rec["id_aed"], json={}, headers=self.ministry(c))
+        token = r.json["link_aktywacyjny"].split("t=")[1]
+        body = {"t": token, "dostep": "publiczny", "godziny_dostepu": "24/7", "stan": "sprawny",
+                "dysponent_nazwa": "Gmina Test", "dysponent_email": "aed@gmina.example.org", "dysponent_telefon": "+48 12 000 00 00"}
+        r = c.simulate_post("/api/aed/urzadzenia/%s/potwierdzenie" % rec["id_aed"], json=body)
+        self.assertEqual(r.status_code, 200, r.text)
+        out = r.json["rekord"]
+        self.assertEqual((out["status"], out["dysponent_email"], out["dysponent_nazwa"]), ("aktywny", "aed@gmina.example.org", "Gmina Test"))
+        self.assertEqual((out["nazwa"], out["opis_lokalizacji"], out["licencja"]), ("Szkoła z zbioru miejskiego", "Hol", "CC BY 4.0"))
+        # a record that already has a contact keeps it
+        item = self.add_device(c, "CON-1")
+        r = c.simulate_post("/api/aed/urzadzenia/%s/potwierdzenie" % item["id_aed"],
+                            json=self.confirm_body(item, dysponent_email="inny@example.org"))
+        self.assertEqual(r.json["rekord"]["dysponent_email"], "gmina@example.org")
+
+    def test_mapper_counts_review_entries_from_both_paths(self):
+        c = self.client()
+        item = self.add_device(c, "CNT-1")
+        self.assertEqual(c.simulate_post("/api/aed/urzadzenia/%s/potwierdzenie" % item["id_aed"],
+                                         json=self.confirm_body(item)).status_code, 200)
+        near = self.imported(1, nazwa="Punkt testowy", szerokosc_geograficzna="50.5001")
+        a, b = self.imported(2, szerokosc_geograficzna="50.6"), self.imported(3, zrodlo="inne", szerokosc_geograficzna="50.6002")
+        pair = {"id_aed_a": a["id_aed"], "id_aed_b": b["id_aed"], "odleglosc_m": 22, "podobienstwo": 0.5}
+        self.assertEqual(self.mapper(c, [near, a, b], [pair]).json["do_przegladu"], 2)   # one spatial match + one mapper pair
+        self.assertEqual(self.mapper(c, [dict(near, nazwa="Zmiana"), a, b], [pair]).json["do_przegladu"], 0)   # both known
+
+    def test_problem_report_lists_only_blocking_errors(self):
+        c = self.client()
+        item = self.add_device(c, "PRB-2")
+        r = c.simulate_post("/api/aed/urzadzenia/%s/potwierdzenie" % item["id_aed"],
+                            json={"t": item["t"], "stan": "problem", "uwagi": "Brak elektrod", "dostep": "PRIVATE"})
+        self.assertEqual(r.status_code, 422)
+        self.assertEqual([(p["pole"], p["kod"]) for p in r.json["blad"]["problemy"]], [("dostep", "spoza_slownika")])
+
     def test_mapper_retires_vanished_import_records_and_restores_them(self):
         c = self.client()
         recs = [self.imported(i) for i in range(1, 5)]
@@ -719,6 +1004,91 @@ class JobsAndDemoTest(unittest.TestCase):
         self.assertIsNotNone(job["przypomnienia"])
         self.assertTrue(any("przywrócić" in e or "odświeżyć" in e for e in job["bledy"]), job["bledy"])
         self.assertEqual(c.simulate_get("/api/aed/zadania", headers=self.ministry(c)).json["dane"][0]["id"], job["id"])
+
+
+XSD = os.path.join(ROOT, "backend", "data", "harvester", "xml_import_otwarte_dane_1_13.xsd")
+XMLLINT = "/usr/bin/xmllint"
+
+
+class HarvesterFeedTest(unittest.TestCase):
+    """XML feed for the dane.gov.pl harvester (backend/mcod/harvester/utils.py:validate_xml_url)."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.tmp = tmp.name
+        db = svc.open_db(os.path.join(tmp.name, "t.db"), with_registry=False)
+        self.addCleanup(db.close)
+        self.client = testing.TestClient(svc.build_app(db))
+        base = mock.patch.object(svc, "BASE_URL", "https://aed.example.gov.pl/")
+        base.start()
+        self.addCleanup(base.stop)
+
+    def run_mapper(self, recs):
+        r = self.client.simulate_post("/api/aed/sesja", json={"email": "ministerstwo@aed.example", "haslo": "ministerstwo-demo"})
+        with mock.patch.object(aed_standard, "build_registry", return_value=(recs, [], {"polaczenia": {"razem": 0}})):
+            out = self.client.simulate_post("/api/aed/mapper/uruchom", headers={"Authorization": "Bearer " + r.json["token"]})
+        self.assertEqual(out.status_code, 200, out.text)
+
+    def rec(self, i, **kw):
+        base = {n: "" for n in aed_standard.field_names()}
+        base.update(id_aed="AED-FEEDTEST%04d" % i, nazwa="Punkt %d" % i, szerokosc_geograficzna="52.1",
+                    dlugosc_geograficzna="21.0", miejscowosc="Warszawa", status="niepotwierdzony", zrodlo="test",
+                    zrodlo_id=str(i), licencja="CC BY 4.0", dostep="publiczny", kompletnosc="40",
+                    data_aktualizacji="2026-11-0%d" % i)
+        base.update(kw)
+        return base
+
+    def feed(self):
+        xml = self.client.simulate_get("/api/aed/eksport/dane-gov-pl.xml")
+        md5 = self.client.simulate_get("/api/aed/eksport/dane-gov-pl.md5")
+        self.assertEqual((xml.status_code, md5.status_code), (200, 200))
+        self.assertIn("application/xml", xml.headers["content-type"])
+        self.assertEqual(md5.text, hashlib.md5(xml.content).hexdigest())
+        return xml.content, md5.text
+
+    def test_feed_valid_stable_and_versioned(self):
+        osm = self.rec(3, licencja="ODbL 1.0", zrodlo="openstreetmap", nazwa="Tylko OSM")
+        self.run_mapper([self.rec(1), self.rec(2), osm, self.rec(4, dostep="prywatny", nazwa="Prywatny")])
+        head = self.client.simulate_head("/api/aed/eksport/dane-gov-pl.xml")
+        self.assertEqual(head.status_code, 200)  # the harvester checks headers with HEAD first
+        self.assertIn("application/xml", head.headers["content-type"])
+        xml, md5 = self.feed()
+        self.assertEqual(self.feed(), (xml, md5))  # unchanged registry -> identical bytes and sum
+
+        root = ET.fromstring(xml)
+        self.assertEqual(root.tag, "{urn:otwarte-dane:harvester:1.13}datasets")  # version read from the namespace
+        self.assertEqual([e.text for e in root.iter("extIdent")], ["aed-krajowy-rejestr", "aed-krajowy-rejestr-csv"])
+        self.assertEqual(root.find("dataset/lastUpdateDate").text, "2026-11-02T00:00:00")  # newest exported record
+        link = root.find("dataset/resources/resource/url").text
+        self.assertTrue(link.startswith("https://aed.example.gov.pl/api/aed/eksport/dane-gov-pl.csv?wersja="), link)
+        csv_text = self.client.simulate_get(link.split("gov.pl", 1)[1].split("?")[0]).text
+        self.assertIn("Punkt 1", csv_text)
+        self.assertNotIn("Tylko OSM", csv_text)  # ODbL and private records never reach the linked file
+        self.assertNotIn("Prywatny", csv_text)
+
+        if os.path.exists(XMLLINT) and os.path.exists(XSD):
+            path = os.path.join(self.tmp, "feed.xml")
+            with open(path, "wb") as f:
+                f.write(xml)
+            check = subprocess.run([XMLLINT, "--noout", "--schema", XSD, path], capture_output=True, text=True)
+            self.assertEqual(check.returncode, 0, check.stderr)
+
+        self.run_mapper([self.rec(1), self.rec(2, nazwa="Punkt 2 po zmianie"), osm])
+        xml2, md5_2 = self.feed()
+        self.assertNotEqual(md5_2, md5)
+        self.assertNotEqual(ET.fromstring(xml2).find("dataset/resources/resource/url").text, link)  # new link -> re-download
+
+    @unittest.skipUnless(os.path.exists(XMLLINT), "xmllint not available")
+    def test_xsd_rejects_http_resource_link(self):
+        """Why AED_BASE_URL must be https: XSD 1.13 restricts resource/url to https://.* (line 578-588)."""
+        self.run_mapper([self.rec(1)])
+        with mock.patch.object(svc, "BASE_URL", "http://localhost:8080"):
+            xml = self.client.simulate_get("/api/aed/eksport/dane-gov-pl.xml").content
+        path = os.path.join(self.tmp, "feed.xml")
+        with open(path, "wb") as f:
+            f.write(xml)
+        self.assertNotEqual(subprocess.run([XMLLINT, "--noout", "--schema", XSD, path], capture_output=True).returncode, 0)
 
 
 def sqlite_conn(test, path):

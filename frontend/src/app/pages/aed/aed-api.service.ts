@@ -4,7 +4,7 @@ import { Router, UrlTree } from '@angular/router';
 import { LocalizeRouterService } from '@gilsdav/ngx-translate-router';
 import { map, Observable, tap } from 'rxjs';
 
-import { AedValue } from './aed-schema';
+import { aedField, AedValue } from './aed-schema';
 
 // Client of the AED service. Paths, field names and JSON shapes follow docs/api-aed.md one to one.
 
@@ -26,7 +26,48 @@ export interface AedPage<T> {
   razem: number;
   strona: number;
   na_stronie: number;
+  /** Only with `dostepny_teraz=1`: matching devices whose hours are missing or cannot be read. */
+  bez_godzin?: number;
 }
+
+/**
+ * Filters of GET /urzadzenia and /urzadzenia.geojson: the list and the map get the same object,
+ * so they always show the same devices (`q`, `lat`/`lon` and paging are list-only).
+ */
+export interface AedFilters {
+  status?: AedStatus;
+  dostepny_teraz?: 1;
+  dostep?: string;
+  calodobowo?: 1;
+  z_godzinami?: 1;
+  wewnatrz_budynku?: string;
+  producent?: string;
+  model?: string;
+  miejscowosc?: string;
+  zrodlo?: string;
+}
+
+export interface AedCount {
+  wartosc: string;
+  liczba: number;
+}
+
+/** GET /filtry: values of the extra filters with counts of public devices that are not withdrawn. */
+export interface AedFilterOptions {
+  razem: number;
+  producent: AedCount[];
+  model: (AedCount & { producent: string })[];
+  miejscowosc: AedCount[];
+  zrodlo: (AedCount & { etykieta: string })[];
+  dostep: Record<string, number>;
+  wewnatrz_budynku: Record<string, number>;
+  z_godzinami: number;
+  calodobowo: number;
+}
+
+/** Request parameters without empty values. */
+const params = (values: object) =>
+  Object.fromEntries(Object.entries(values).filter(([, value]) => value != null && value !== ''));
 
 export interface AedStats {
   razem: number;
@@ -35,6 +76,8 @@ export interface AedStats {
   wg_zrodla: Record<string, number>;
   dostawcy: number;
   potwierdzone_90_dni: number;
+  /** False when the server's demo accounts use passwords handed over separately (AED_DEMO_PASSWORD). */
+  hasla_demo_domyslne?: boolean;
   /** ISO time of the last run of each cyclic job; null when it has not run yet. */
   ostatnie_uruchomienia?: { mapper: string | null; przypomnienia: string | null };
 }
@@ -89,7 +132,8 @@ export interface AedDuplicate {
   id: number;
   rekord_a: AedRecord;
   rekord_b: AedRecord;
-  odleglosc_m: number;
+  /** null: matched by manufacturer and serial number, the new submission has no position yet */
+  odleglosc_m: number | null;
   podobienstwo: number;
 }
 
@@ -106,6 +150,14 @@ export interface AedMessage {
   data: string;
 }
 
+/** Answer of POST /urzadzenia/{id_aed}/link-aktywacyjny. */
+export interface AedInvitation {
+  id_aed: string;
+  link_aktywacyjny: string;
+  waznosc_dni: number;
+  wyslano_na: string | null;
+}
+
 export interface AedRemindersRun {
   nieaktualne: number;
   prosby_o_potwierdzenie: number;
@@ -117,6 +169,8 @@ export interface AedMapperRun {
   zmieniono: number;
   polaczono: number;
   do_przegladu: number;
+  /** Imported records withdrawn because they are gone from the sources. */
+  wycofano: number;
 }
 
 /** One run of the cyclic jobs (GET /zadania): by the schedule or started from the ministry panel. */
@@ -176,15 +230,29 @@ export interface AedSignal {
   uwagi?: string;
 }
 
+/** Upload limit of the service (MAX_UPLOAD in aed_service/app.py). */
+export const AED_MAX_UPLOAD = 5 * 1024 * 1024;
+const AED_TOO_LARGE = 'Plik jest większy niż 5 MB. Podziel go na mniejsze części.';
+
+/** Checked before sending: a proxy may cut an oversized upload off before the service answers. */
+export const aedFileTooLarge = (file: File | null): string => (file && file.size > AED_MAX_UPLOAD ? AED_TOO_LARGE : '');
+
 /**
  * Message from the error body `{"blad": {"kod", "komunikat", "problemy"}}` (problems come with HTTP 422),
- * with a fallback for network failures.
+ * with a fallback for network failures. `keep` narrows the listed problems further.
  */
-export function aedErrorMessage(error: HttpErrorResponse): string {
+export function aedErrorMessage(error: HttpErrorResponse, keep: (problem: AedProblem) => boolean = () => true): string {
   const blad = error?.error?.blad;
+  if (!blad && error?.status === 413) return AED_TOO_LARGE; // limit of a proxy in front of the service
   if (!blad) return 'Nie udało się połączyć z rejestrem. Spróbuj ponownie za chwilę.';
-  const problems: AedProblem[] = blad.problemy ?? [];
-  return [blad.komunikat, ...problems.map((problem) => `${problem.pole}: ${problem.komunikat}`)].join(' ');
+  // Warnings never block a request; listing them in an error message only hides the real errors.
+  const problems: AedProblem[] = (blad.problemy ?? []).filter(
+    (problem: AedProblem) => problem.poziom === 'blad' && keep(problem),
+  );
+  return [
+    blad.komunikat,
+    ...problems.map((problem) => `${aedField(problem.pole)?.title ?? problem.pole}: ${problem.komunikat}`),
+  ].join(' ');
 }
 
 /**
@@ -234,14 +302,22 @@ export class AedApiService {
   }
 
   // GET /urzadzenia
-  devices(params: {
-    status?: AedStatus;
-    q?: string;
-    strona?: number;
-    na_stronie?: number;
-  }): Observable<AedPage<AedRecord>> {
-    const set = Object.fromEntries(Object.entries(params).filter(([, value]) => value != null && value !== ''));
-    return this.http.get<AedPage<AedRecord>>(`${API}/urzadzenia`, { params: set });
+  devices(
+    query: AedFilters & {
+      q?: string;
+      /** Both or none: sorts by distance from this point and adds `odleglosc_m` to every record. */
+      lat?: number;
+      lon?: number;
+      strona?: number;
+      na_stronie?: number;
+    },
+  ): Observable<AedPage<AedRecord>> {
+    return this.http.get<AedPage<AedRecord>>(`${API}/urzadzenia`, { params: params(query) });
+  }
+
+  // GET /filtry
+  filterOptions(): Observable<AedFilterOptions> {
+    return this.http.get<AedFilterOptions>(`${API}/filtry`);
   }
 
   // GET /statystyki
@@ -281,10 +357,10 @@ export class AedApiService {
     return this.http.post(`${API}/urzadzenia/${encodeURIComponent(id)}/sygnal`, body);
   }
 
-  // GET /urzadzenia.geojson?bbox=minLon,minLat,maxLon,maxLat
-  mapPoints(bbox: string): Observable<AedMapFeature[]> {
+  // GET /urzadzenia.geojson?bbox=minLon,minLat,maxLon,maxLat plus the filters of the list
+  mapPoints(bbox: string, filters: AedFilters = {}): Observable<AedMapFeature[]> {
     return this.http
-      .get<{ features: AedMapFeature[] }>(`${API}/urzadzenia.geojson`, { params: { bbox } })
+      .get<{ features: AedMapFeature[] }>(`${API}/urzadzenia.geojson`, { params: params({ ...filters, bbox }) })
       .pipe(map((collection) => collection.features));
   }
 
@@ -302,6 +378,9 @@ export class AedApiService {
 
   /** GET /eksport/dane-gov-pl.csv: public, so a plain link is enough. */
   readonly exportUrl = `${API}/eksport/dane-gov-pl.csv`;
+  /** GET /eksport/dane-gov-pl.xml and .md5: the XML feed for the portal harvester and its checksum. */
+  readonly feedUrl = `${API}/eksport/dane-gov-pl.xml`;
+  readonly feedMd5Url = `${API}/eksport/dane-gov-pl.md5`;
 
   // GET /duplikaty
   duplicates(): Observable<{ dane: AedDuplicate[]; razem: number }> {
@@ -311,6 +390,15 @@ export class AedApiService {
   // POST /duplikaty/{id}: `polacz` keeps record A and withdraws record B
   decideDuplicate(id: number, decyzja: 'polacz' | 'rozdziel'): Observable<unknown> {
     return this.http.post(`${API}/duplikaty/${id}`, { decyzja }, this.auth());
+  }
+
+  // POST /urzadzenia/{id_aed}/link-aktywacyjny: a manager link for a record already in the registry
+  inviteManager(id: string, email?: string): Observable<AedInvitation> {
+    return this.http.post<AedInvitation>(
+      `${API}/urzadzenia/${encodeURIComponent(id)}/link-aktywacyjny`,
+      email ? { email } : {},
+      this.auth(),
+    );
   }
 
   // GET /wiadomosci

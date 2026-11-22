@@ -3,12 +3,12 @@
 All validation and registry logic lives in aed_standard; this module only stores, authorises and routes.
 """
 import base64
-import csv
 import datetime
+import functools
 import hashlib
 import hmac
-import io
 import json
+import math
 import os
 import re
 import secrets
@@ -17,13 +17,17 @@ import subprocess
 import sys
 import threading
 import traceback
+import xml.etree.ElementTree as ET
 
 import falcon
 import segno
 
+from xml.sax.saxutils import escape as xml_escape  # noqa: E402
+
 import aed_standard
-from aed_standard.dedup import CANDIDATE_M, similarity
-from aed_standard.sources import haversine_m
+from aed_standard import geokod, konwerter, registry
+from aed_standard.sources import OSM_ROW_MESSAGE, WARSAW, from_osm, haversine_m
+from aed_standard.validate import ERROR, issue
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -48,10 +52,12 @@ RETIRE_MIN_SHARE = 0.5      # mapper output below this share of the current impo
 TOKEN_DAYS = 90           # every manager link stays valid this long; several links per device are valid at once
 RESEND_GAP_DAYS = 30       # do not repeat the same kind of message for a device within this gap
 
-HIDDEN_PUBLIC = ("dysponent_email", "dysponent_telefon", "numer_seryjny")
+HIDDEN_PUBLIC = aed_standard.build.HIDDEN_PUBLIC  # one rule for every public export
 CONFIRM_FIELDS = ("nazwa", "szerokosc_geograficzna", "dlugosc_geograficzna", "miejscowosc", "cecha_ulicy",
                   "nazwa_ulicy", "nr_budynku", "nr_lokalu", "kod_pocztowy", "opis_lokalizacji", "wewnatrz_budynku",
                   "dostep", "godziny_dostepu", "godziny_dostepu_opis", "data_waznosci_baterii", "data_waznosci_elektrod")
+OWNER_FIELDS = ("dysponent_nazwa", "dysponent_email", "dysponent_telefon")  # set by the manager when the record has no contact
+ODBL = "ODbL 1.0"
 REQUIRED_CODES = ("brak_wymaganego", "wymagane_dla_aktywnego")  # not an error in an incomplete problem report
 SIGNAL_TYPES = ("jest", "brak", "uszkodzony", "zamkniety")
 
@@ -94,6 +100,8 @@ def migrate(db):
         db.execute("ALTER TABLE devices ADD COLUMN demo INTEGER NOT NULL DEFAULT 0")
     if "powod" not in cols:  # reason a record was withdrawn by the mapper
         db.execute("ALTER TABLE devices ADD COLUMN powod TEXT")
+    # Seed devices of older versions got demo=1 only after the whole seed: repair flags left at 0 by an interrupted run.
+    db.execute("UPDATE devices SET demo=1 WHERE demo=0 AND zgloszenie_id IN (SELECT id FROM zgloszenia WHERE plik='demo')")
     # single-token era: move the one hash per device into the tokens table (once), then clear the old column
     exp = (datetime.datetime.now() + datetime.timedelta(days=TOKEN_DAYS)).replace(microsecond=0).isoformat()
     db.execute("INSERT OR IGNORE INTO tokens(hash,id_aed,utworzono,wygasa) SELECT token_hash,id_aed,?,? FROM devices"
@@ -242,13 +250,20 @@ def import_registry(db, result=None):
             changed += 1
     db.executemany(INSERT_SQL, inserts)
     db.executemany(IMPORT_UPDATE_SQL, updates)
+    # A new or changed import record next to a device a seller submitted or a manager confirmed goes to the review
+    # queue (the other direction is checked at confirmation time).
+    fresh = {r[0] for r in inserts} | {u[-1] for u in updates}
+    owned = [json.loads(r[0]) for r in db.execute("SELECT data FROM devices WHERE %s AND lat IS NOT NULL" % OWNED_SQL)]
+    queued = 0
+    if fresh and owned:
+        queued += queue_matches(db, owned, [clean(r) for r in records if r["id_aed"] in fresh])
     known = set(origins) | {r[0] for r in inserts}
     for p in pairs:
         a_id, b_id = p["id_aed_a"], p["id_aed_b"]
         if a_id in known and b_id in known:  # a decided pair never returns, whichever order it is listed in
-            queue_pair(db, a_id, b_id, p.get("odleglosc_m"), p.get("podobienstwo"))
+            queued += queue_pair(db, a_id, b_id, p.get("odleglosc_m"), p.get("podobienstwo"))
     merged = int(report["polaczenia"]["razem"])
-    out = {"dodano": added, "zmieniono": changed, "polaczono": merged, "do_przegladu": len(pairs), "wycofano": 0}
+    out = {"dodano": added, "zmieniono": changed, "polaczono": merged, "do_przegladu": queued, "wycofano": 0}
     if report.get("bledy_zrodel"):
         out["bledy_zrodel"] = list(report["bledy_zrodel"])
     # Retire imported records that are gone from the mapper output (merged elsewhere or removed at the source).
@@ -283,12 +298,39 @@ DEMO_ACCOUNTS = [  # email, password, name, role, type, city, lat, lon
 ]
 
 
+@functools.lru_cache(maxsize=8)
+def _is_default_password(password, salt, pass_hash):
+    return hmac.compare_digest(hash_password(password, salt), pass_hash)
+
+
+def demo_passwords_default(db):
+    """True when the demo accounts still use the passwords from DEMO_ACCOUNTS (the sign-in cards may show them)."""
+    email, pw = DEMO_ACCOUNTS[0][:2]
+    row = db.execute("SELECT salt, pass_hash FROM accounts WHERE email=?", (email,)).fetchone()
+    return bool(row) and _is_default_password(pw, bytes(row["salt"]), bytes(row["pass_hash"]))
+
+
+def demo_password(email, default):
+    """AED_MINISTRY_PASSWORD for the ministry account, else AED_DEMO_PASSWORD, else the well-known demo password."""
+    if email == DEMO_ACCOUNTS[0][0] and os.environ.get("AED_MINISTRY_PASSWORD"):
+        return os.environ["AED_MINISTRY_PASSWORD"]
+    return os.environ.get("AED_DEMO_PASSWORD") or default
+
+
 def seed(db, with_registry=True):
     if not db.execute("SELECT 1 FROM accounts LIMIT 1").fetchone():
         for email, pw, name, rola, typ, city, lat, lon in DEMO_ACCOUNTS:
             salt = secrets.token_bytes(16)
             db.execute("INSERT INTO accounts(email,nazwa,rola,typ_podmiotu,miejscowosc,lat,lon,salt,pass_hash)"
-                       " VALUES(?,?,?,?,?,?,?,?,?)", (email, name, rola, typ, city, lat, lon, salt, hash_password(pw, salt)))
+                       " VALUES(?,?,?,?,?,?,?,?,?)", (email, name, rola, typ, city, lat, lon, salt,
+                                                     hash_password(demo_password(email, pw), salt)))
+    elif os.environ.get("AED_RESET_PASSWORDS", "").lower() in ("1", "true", "yes"):
+        # Password change after the first start: new hashes from the variables above, every session signed out.
+        for email, pw, *_ in DEMO_ACCOUNTS:
+            salt = secrets.token_bytes(16)
+            db.execute("UPDATE accounts SET salt=?, pass_hash=? WHERE email=?",
+                       (salt, hash_password(demo_password(email, pw), salt), email))
+        db.execute("DELETE FROM sessions")
     if with_registry and not db.execute("SELECT 1 FROM devices LIMIT 1").fetchone():
         import_registry(db)
     db.commit()
@@ -312,7 +354,7 @@ def demo_seed(db):
     """Fictional devices created through the real submission and confirmation code (see README). Runs once."""
     if db.execute("SELECT 1 FROM devices WHERE demo=1 OR konto_id IS NOT NULL").fetchone():
         return
-    t, ids = today(), []
+    t = today()
     for email, brand, model, prefix, count, confirmed in DEMO_PLAN:
         account = db.execute("SELECT * FROM accounts WHERE email=?", (email,)).fetchone()
         records = []
@@ -329,9 +371,9 @@ def demo_seed(db):
                 "dysponent_email": "dysponent-%s-%d@demo.example" % (prefix.lower(), i + 1),
                 "_place": (place, city, lat + i * 0.004, lon + i * 0.004, zipcode)})
         clean_recs = [{k: v for k, v in r.items() if k != "_place"} for r in records]
-        out = process_submission(db, account, clean_recs, aed_standard.validate_records(clean_recs, "sprzedaz"), "demo", False)
+        out = process_submission(db, account, clean_recs, aed_standard.validate_records(clean_recs, "sprzedaz"), "demo", False,
+                                 demo=True)
         for i, item in enumerate(out["przyjete"]):
-            ids.append(item["id_aed"])
             if i >= confirmed:
                 continue  # stays "zgloszony": waiting activation link in the outbox
             place, city, lat, lon, zipcode = records[i]["_place"]
@@ -342,7 +384,6 @@ def demo_seed(db):
                 "wewnatrz_budynku": "tak", "dostep": "publiczny", "godziny_dostepu": "Mo-Fr 08:00-18:00",
                 "godziny_dostepu_opis": "Dni robocze, 8:00-18:00", "stan": "sprawny"},
                 on=t - datetime.timedelta(days=200) if (prefix == "PUL" and i == 5) else t)  # device 5: stale verification
-    db.executemany("UPDATE devices SET demo=1 WHERE id_aed=?", [(i,) for i in ids])
     db.commit()
 
 
@@ -373,48 +414,114 @@ def account_json(a):
     return {"id": a["id"], "nazwa": a["nazwa"], "rola": a["rola"], "typ_podmiotu": a["typ_podmiotu"]}
 
 
-def read_upload(req):
+def read_upload(req, exts=(".csv",), form=None):
+    """-> (filename, bytes) of the multipart field "plik". Text fields named in `form` (a dict) are filled in."""
     length = req.content_length
     if length is not None and length > MAX_UPLOAD + 4096:
         raise ApiError(413, "plik_za_duzy", "Plik jest większy niż %d MB." % (MAX_UPLOAD // 2 ** 20))
     ctype = req.content_type or ""
     if not ctype.startswith("multipart/form-data"):
         raise ApiError(415, "zly_typ", "Wyślij plik CSV jako multipart/form-data w polu „plik”.")
+    found = None
     try:
         for part in req.get_media():
-            if part.name == "plik":
+            if part.name == "plik" and found is None:
                 name = part.filename or ""
-                if not name.lower().endswith(".csv"):
-                    raise ApiError(415, "tylko_csv", "Przyjmujemy wyłącznie pliki CSV (UTF-8).")
+                if not name.lower().endswith(exts):
+                    raise ApiError(415, "tylko_csv", "Przyjmujemy wyłącznie pliki CSV (UTF-8)." if exts == (".csv",)
+                                   else "Przyjmujemy pliki: %s." % ", ".join(exts))
                 data = part.get_data()
                 if len(data) > MAX_UPLOAD:
                     raise ApiError(413, "plik_za_duzy", "Plik jest większy niż %d MB." % (MAX_UPLOAD // 2 ** 20))
-                return name, data
+                found = (name, data)
+                if form is None:
+                    return found
+            elif form is not None and part.name in form:
+                form[part.name] = part.get_text()
     except falcon.MediaMalformedError:
         raise ApiError(413, "plik_za_duzy", "Plik jest większy niż %d MB lub żądanie jest uszkodzone." % (MAX_UPLOAD // 2 ** 20))
-    raise ApiError(400, "brak_pliku", "Brakuje pola „plik” z plikiem CSV.")
+    if found is None:
+        raise ApiError(400, "brak_pliku", "Brakuje pola „plik” z plikiem CSV.")
+    return found
+
+
+# ---------- converter (public, nothing stored) ----------
+
+# The content decides the format (aed_standard/formaty.py); the extension only filters out obvious mistakes.
+# PDF, XLS, DOC and images are accepted so that the converter can explain in Polish what to do with them.
+CONVERTER_FILES = (".csv", ".txt", ".tsv", ".xlsx", ".ods", ".geojson", ".json", ".kml", ".kmz", ".gpx", ".gml", ".xml",
+                   ".html", ".htm", ".docx", ".zip", ".pdf", ".xls", ".doc", ".png", ".jpg", ".jpeg")
+
+
+def geocoding_enabled():
+    """Address -> position with the state service (GUGiK), on the user's request. AED_GEOKODOWANIE=0 turns it off,
+    e.g. for a deployment without internet access."""
+    return os.environ.get("AED_GEOKODOWANIE", "1").lower() not in ("0", "false", "no", "nie")
+
+
+def converter_analyze(req, resp):
+    name, data = read_upload(req, CONVERTER_FILES)
+    try:
+        resp.media = dict(konwerter.analyze(data, name), geokodowanie_dostepne=geocoding_enabled())
+    except konwerter.ConverterError as ex:
+        raise ApiError(422, "plik_nieczytelny", str(ex))
+
+
+def converter_convert(req, resp):
+    form = {"mapowanie": None, "stale": None, "geokodowanie": None}
+    name, data = read_upload(req, CONVERTER_FILES, form)
+    try:
+        mapping = json.loads(form["mapowanie"] or "null")
+        constants = json.loads(form["stale"] or "{}")
+    except ValueError:
+        raise ApiError(400, "zly_format", "Pola „mapowanie” i „stale” muszą zawierać obiekty JSON.")
+    if not isinstance(mapping, dict) or not isinstance(constants, dict) or not all(
+            isinstance(v, str) for v in list(mapping.values()) + list(constants.values())):
+        raise ApiError(400, "zly_format", "Pole „mapowanie” musi być obiektem {kolumna: pole}, a „stale” obiektem {pole: wartość}.")
+    asked = (form["geokodowanie"] or "").strip().lower() in ("1", "true", "tak")
+    try:
+        text, report = konwerter.convert(data, name, mapping, constants,
+                                         geocoder=geokod.Geocoder() if asked and geocoding_enabled() else None)
+    except konwerter.ConverterError as ex:
+        raise ApiError(422, "zle_mapowanie", str(ex))
+    if asked and not geocoding_enabled():
+        report["geokodowanie"] = {"wylaczone": True, "komunikat": "Uzupełnianie położenia z adresu jest wyłączone na "
+                                                                  "tym serwerze. Adresy nie zostały nigdzie wysłane."}
+    base = re.sub(r"[^A-Za-z0-9_-]+", "-", os.path.splitext(os.path.basename(name))[0]).strip("-") or "plik"
+    resp.media = {"nazwa_pliku": "%s-wykaz-aed.csv" % base, "plik_csv": text, "raport": report}
 
 
 # ---------- submissions ----------
 
-def process_submission(db, account, records, report, filename, dry_run):
-    problems = report["problemy"]
+def process_submission(db, account, records, report, filename, dry_run, demo=False):
+    problems = list(report["problemy"])
     good = set(report["poprawne_wiersze"])
     total = report["podsumowanie"]["wiersze"]
+    errors = report["podsumowanie"]["bledy"]
+    for n, rec in enumerate(records, start=1):
+        # Explicit OpenStreetMap / ODbL row: rejected before the system metadata (CC0) are set (CLAUDE.md, rule 3).
+        if n in good and from_osm(rec):
+            good.discard(n)
+            problems.append(issue(n, "zrodlo", ERROR, "dane_osm", OSM_ROW_MESSAGE))
+            errors += 1
     zg_id = None
     if not dry_run:
         zg_id = db.execute("INSERT INTO zgloszenia(konto_id,utworzono,plik,odpowiedz) VALUES(?,?,?,'')",
                            (account["id"], now(), filename)).lastrowid
-    accepted, duplicates, seen = [], 0, set()
+    accepted, duplicates, seen, foreign = [], 0, set(), {}
     for n, rec in enumerate(records, start=1):
         if n not in good:
             continue
         rec = clean(rec)
         key = norm_key(rec)
-        if key in seen or db.execute("SELECT 1 FROM devices WHERE klucz=?", (key,)).fetchone():
+        # Only the account's own devices count as duplicates: the answer must not tell whether another company's
+        # (or an imported) device with this serial exists. Such a match goes to the ministry's review queue.
+        if key in seen or db.execute("SELECT 1 FROM devices WHERE klucz=? AND konto_id=?", (key, account["id"])).fetchone():
             duplicates += 1
             continue
         seen.add(key)
+        other = db.execute("SELECT id_aed FROM devices WHERE klucz=? AND status!='wycofany' ORDER BY id_aed LIMIT 1",
+                           (key,)).fetchone()
         # Opaque random source id: nothing derived from the serial number may appear in public data.
         opaque = secrets.token_hex(6)
         rec_id = aed_standard.make_id("zgloszenie", opaque)
@@ -423,12 +530,19 @@ def process_submission(db, account, records, report, filename, dry_run):
                    data_aktualizacji=today().isoformat(), data_weryfikacji="", sposob_weryfikacji="")
         rec["kompletnosc"] = str(aed_standard.completeness(rec))
         accepted.append(rec)
+        if other:
+            foreign[rec_id] = other[0]
     przyjete = []
     for rec in accepted:
         item = {"id_aed": rec["id_aed"], "producent": rec["producent"], "model": rec["model"],
                 "numer_seryjny": rec["numer_seryjny"]}
         if not dry_run:
             db.execute(INSERT_SQL, device_row(rec, "zgloszenie", account["id"], zg_id))
+            if demo:  # in the same transaction as the insert: an interrupted seed never leaves demo=0
+                db.execute("UPDATE devices SET demo=1 WHERE id_aed=?", (rec["id_aed"],))
+            if rec["id_aed"] in foreign:
+                # The record already in the registry is A: "merge" keeps A, so a verified device survives.
+                queue_pair(db, foreign[rec["id_aed"]], rec["id_aed"], None, 1.0)
             token = new_token(db, rec["id_aed"])
             item["naklejka_url"] = "/api/aed/urzadzenia/%s/naklejka.svg" % rec["id_aed"]
             item["link_aktywacyjny"] = activation_link(rec["id_aed"], token)
@@ -436,13 +550,13 @@ def process_submission(db, account, records, report, filename, dry_run):
                           "Aktywuj urządzenie AED %s" % rec["id_aed"],
                           "Producent lub sprzedawca (%s) zgłosił do rejestru AED urządzenie %s %s, którym Państwo "
                           "zarządzają. Uzupełnij lokalizację i godziny dostępu, korzystając z linku. Link jest "
-                          "przeznaczony wyłącznie dla zarządcy urządzenia."
+                          "przeznaczony wyłącznie dla dysponenta urządzenia."
                           % (account["nazwa"], rec["producent"], rec["model"]), item["link_aktywacyjny"])
         przyjete.append(item)
     s = report["podsumowanie"]
     out = {"id": zg_id, "utworzono": now(), "sucha_proba": dry_run,
            "podsumowanie": {"wiersze": total, "przyjete": len(przyjete), "odrzucone": total - len(good),
-                            "bledy": s["bledy"], "ostrzezenia": s["ostrzezenia"], "duplikaty": duplicates},
+                            "bledy": errors, "ostrzezenia": s["ostrzezenia"], "duplikaty": duplicates},
            "problemy": problems, "przyjete": przyjete}
     if not dry_run:
         db.execute("UPDATE zgloszenia SET odpowiedz=? WHERE id=?", (json.dumps(out, ensure_ascii=False), zg_id))
@@ -505,7 +619,10 @@ def schema(req, resp):
 def device_get(req, resp, id_aed):
     row = get_device(req.context.db, id_aed)
     rec = json.loads(row["data"])
-    if manager_ok(req.context.db, id_aed, req.get_param("t")):
+    account = need_account(req) if (req.get_header("Authorization") or "").startswith("Bearer ") else None
+    if account and (account["rola"] == "ministerstwo" or account["id"] == row["konto_id"]):
+        resp.media = dict(rec, demo=bool(row["demo"]))  # full record: the ministry, or the company that submitted it
+    elif manager_ok(req.context.db, id_aed, req.get_param("t")):
         resp.media = dict(rec, demo=bool(row["demo"]))
     elif req.get_param("t"):
         raise ApiError(403, "zly_token", "Link jest niepoprawny lub wygasł. Poproś o nowy.")
@@ -525,6 +642,7 @@ FONT = 'font-family="Arial,sans-serif" text-anchor="middle"'
 
 def sticker(req, resp, id_aed):
     get_device(req.context.db, id_aed)
+    id_aed = xml_escape(id_aed, {'"': "&quot;"})  # the id goes into SVG text and an attribute
     qr = segno.make("%s/aed/qr/%s" % (BASE_URL.rstrip("/"), id_aed), error="m")
     scale = 7
     qr_w = qr.symbol_size(scale=scale, border=4)[0]  # border=4 modules is the quiet zone the QR spec requires
@@ -554,30 +672,63 @@ def sticker(req, resp, id_aed):
            '<text x="%s" y="%d" %s font-size="20" font-weight="700" fill="#000">%s</text>%s</svg>'
            % (w, h, w, h, id_aed, w - 6, h - 6, logo, cx, top + 30, FONT, inner, cx, id_y, FONT, id_aed, caption))
     resp.content_type = "image/svg+xml"
+    # Opened directly, an SVG is a document of this origin: no scripts, no external loads.
+    resp.set_header("Content-Security-Policy", "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:")
     resp.text = svg
 
 
 def queue_pair(db, a_id, b_id, distance, similarity):
     """Add a pair to the review queue unless the ministry (or the queue) already knows it, in either order."""
-    if not db.execute("SELECT 1 FROM duplicates WHERE (id_a=? AND id_b=?) OR (id_a=? AND id_b=?)",
-                      (a_id, b_id, b_id, a_id)).fetchone():
-        db.execute("INSERT INTO duplicates(id_a,id_b,odleglosc_m,podobienstwo) VALUES(?,?,?,?)",
-                   (a_id, b_id, distance, similarity))
+    """-> 1 when the pair was added, 0 when already known."""
+    if db.execute("SELECT 1 FROM duplicates WHERE (id_a=? AND id_b=?) OR (id_a=? AND id_b=?)",
+                  (a_id, b_id, b_id, a_id)).fetchone():
+        return 0
+    db.execute("INSERT INTO duplicates(id_a,id_b,odleglosc_m,podobienstwo) VALUES(?,?,?,?)",
+               (a_id, b_id, distance, similarity))
+    return 1
+
+
+OWNED_SQL = "origin IN ('zgloszenie','zarzadca') AND status!='wycofany'"  # submitted by a seller or confirmed by a manager
+
+
+def coords(rec):
+    lat, lon = to_float(rec.get("szerokosc_geograficzna")), to_float(rec.get("dlugosc_geograficzna"))
+    return None if lat is None or lon is None else (lat, lon)
+
+
+def nearby_box(lat, lon):
+    """(min_lat, max_lat, min_lon, max_lon) containing every point within aed_standard.CANDIDATE_M, with 10% margin."""
+    dlat = aed_standard.CANDIDATE_M * 1.1 / 111000.0
+    dlon = dlat / max(math.cos(math.radians(lat)), 0.1)
+    return lat - dlat, lat + dlat, lon - dlon, lon + dlon
+
+
+def queue_matches(db, owned, imported):
+    """Candidate duplicates (aed_standard.find_candidates) between submitted/confirmed devices and imported records
+    go to the review queue, the submitted device as record A (the one kept). Nothing is merged automatically.
+    -> number of pairs added to the queue."""
+    # ponytail: O(owned x imported) box filter, fine for thousands of owned devices; grid both sides if it grows
+    pts = [(p, r) for p, r in ((coords(r), r) for r in imported) if p]
+    added = 0
+    for rec in owned:
+        p = coords(rec)
+        if not p:
+            continue
+        y1, y2, x1, x2 = nearby_box(*p)
+        near = [r for (lat, lon), r in pts if y1 <= lat <= y2 and x1 <= lon <= x2]
+        for c in aed_standard.find_candidates(rec, near):
+            added += queue_pair(db, rec["id_aed"], c["id_aed"], c["odleglosc_m"], c["podobienstwo"])
+    return added
 
 
 def enqueue_matches(db, rec):
-    """A device that just got coordinates is compared with imported records nearby (aed_standard's candidate
-    distance and similarity). Each match goes to the review queue with the submitted record as the one to keep."""
-    lat, lon = to_float(rec.get("szerokosc_geograficzna")), to_float(rec.get("dlugosc_geograficzna"))
-    if lat is None or lon is None:
+    """A device that just got coordinates is compared with imported records nearby."""
+    p = coords(rec)
+    if not p:
         return
-    # 0.0006 deg lat ~ 67 m, 0.001 deg lon >= 57 m in Poland: a box that safely contains CANDIDATE_M
-    rows = db.execute("SELECT id_aed, data, lat, lon FROM devices WHERE origin='import' AND status!='wycofany'"
-                      " AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?", (lat - 0.0006, lat + 0.0006, lon - 0.001, lon + 0.001))
-    for other_id, data, olat, olon in rows.fetchall():
-        d = haversine_m(lat, lon, olat, olon)
-        if d <= CANDIDATE_M:
-            queue_pair(db, rec["id_aed"], other_id, round(d, 1), similarity(rec, json.loads(data)))
+    rows = db.execute("SELECT data FROM devices WHERE origin='import' AND status!='wycofany'"
+                      " AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?", nearby_box(*p)).fetchall()
+    queue_matches(db, [rec], [json.loads(r[0]) for r in rows])
 
 
 def apply_confirmation(db, id_aed, data, on=None):
@@ -586,6 +737,8 @@ def apply_confirmation(db, id_aed, data, on=None):
     row = get_device(db, id_aed)
     if not manager_ok(db, id_aed, data.get("t")):
         raise ApiError(403, "zly_token", "Link jest niepoprawny lub wygasł. Poproś o nowy na adres e-mail dysponenta.")
+    if row["status"] == "wycofany":  # a link issued before the withdrawal must not bring the record back
+        raise ApiError(409, "wycofany", "Urządzenie zostało wycofane z rejestru; nie można go potwierdzić.")
     stan = data.get("stan")
     if stan not in ("sprawny", "problem"):
         raise ApiError(422, "zly_stan", "Pole „stan” musi mieć wartość „sprawny” albo „problem”.")
@@ -593,7 +746,21 @@ def apply_confirmation(db, id_aed, data, on=None):
     if stan == "problem" and not uwagi:
         raise ApiError(422, "brak_uwag", "Przy stanie „problem” opisz problem w polu „uwagi”.")
     rec = json.loads(row["data"])
-    rec.update({k: v for k, v in clean(data).items() if k in CONFIRM_FIELDS and k in data})
+    fields = CONFIRM_FIELDS
+    if stan == "sprawny" and rec.get("licencja") == ODBL:
+        # Takeover of a record known only from OpenStreetMap (CLAUDE.md rule 3): the manager's record starts empty,
+        # so every published value (name and coordinates included) is the manager's own; only the link to OSM stays.
+        # The id is kept, so the mapper keeps skipping the OSM record (origin != import) and no duplicate appears.
+        linked = [x for x in rec.get("powiazane_zrodla", "").split(";") if x]
+        opaque = secrets.token_hex(6)
+        rec = dict({k: "" for k in aed_standard.field_names()}, id_aed=id_aed, zrodlo="zgloszenie", zrodlo_id=opaque,
+                   licencja="CC0 1.0", wprowadzajacy_typ="dysponent", status="niepotwierdzony",
+                   powiazane_zrodla=";".join(["%s:%s" % (rec["zrodlo"], rec["zrodlo_id"])] + linked))
+        fields = CONFIRM_FIELDS + OWNER_FIELDS
+    elif not rec.get("dysponent_email"):
+        # No contact yet (e.g. a city dataset): the manager may add one, otherwise reminders skip the device.
+        fields = CONFIRM_FIELDS + OWNER_FIELDS
+    rec.update({k: v for k, v in clean(data).items() if k in fields and k in data})
     rec["data_aktualizacji"] = on
     if stan == "sprawny":
         rec.update(status="aktywny", data_weryfikacji=on, sposob_weryfikacji="qr")
@@ -603,13 +770,14 @@ def apply_confirmation(db, id_aed, data, on=None):
     report = aed_standard.validate_records([rec], "publikacja")
     errors = [p for p in report["problemy"] if p["poziom"] == "blad"]
     if stan == "problem":  # incomplete is fine, invalid is not: only type/enum/range errors of the supplied fields count
-        supplied = {k for k in CONFIRM_FIELDS if k in data}
+        supplied = {k for k in fields if k in data}
         if supplied & {"szerokosc_geograficzna", "dlugosc_geograficzna"}:
             supplied |= {"szerokosc_geograficzna", "dlugosc_geograficzna"}
         errors = [p for p in errors if p["kod"] not in REQUIRED_CODES and p["pole"] in supplied]
     if errors:
         raise ApiError(422, "niepoprawne_dane", "Uzupełnij dane, zanim potwierdzisz urządzenie." if stan == "sprawny"
-                       else "Popraw błędne wartości w zgłoszeniu.", {"problemy": report["problemy"]})
+                       else "Popraw błędne wartości w zgłoszeniu.",
+                       {"problemy": report["problemy"] if stan == "sprawny" else errors})
     save_device(db, rec, origin="zarzadca", uwagi_zarzadcy=uwagi if stan == "problem" else None)
     enqueue_matches(db, rec)
     db.commit()
@@ -618,8 +786,8 @@ def apply_confirmation(db, id_aed, data, on=None):
 
 def confirm(req, resp, id_aed):
     rec = apply_confirmation(req.context.db, id_aed, body(req))
-    resp.media = {k: rec[k] for k in ("id_aed", "status", "data_weryfikacji", "sposob_weryfikacji", "kompletnosc")} | {
-        "rekord": rec}
+    resp.media = dict({k: rec[k] for k in ("id_aed", "status", "data_weryfikacji", "sposob_weryfikacji", "kompletnosc")},
+                      rekord=rec)
 
 
 def signal(req, resp, id_aed):
@@ -643,30 +811,139 @@ def signal(req, resp, id_aed):
     resp.media = {"przyjeto": True}
 
 
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def issue_link(req, resp, id_aed):
+    """Ministry: a manager link for a record already in the registry (e.g. known only from OSM or a city dataset),
+    so its manager can confirm it and take it over. The link goes to the e-mail the ministry gives (never to a contact
+    copied from the source) and is returned to the ministry as well."""
+    need_account(req, "ministerstwo")
+    db = req.context.db
+    row = get_device(db, id_aed)
+    if row["status"] == "wycofany":
+        raise ApiError(409, "wycofany", "Urządzenie zostało wycofane z rejestru; nie można wystawić linku.")
+    data = req.get_media(default_when_empty={})
+    email = str((data if isinstance(data, dict) else {}).get("email") or "").strip()
+    if email and not EMAIL_RE.match(email):
+        raise ApiError(422, "zly_email", "Pole „email” musi być adresem e-mail (instytucjonalnym) dysponenta.")
+    link = activation_link(id_aed, new_token(db, id_aed))
+    if email:
+        queue_message(db, "przejecie", id_aed, email, "Potwierdź urządzenie AED %s" % id_aed,
+                      "Urządzenie AED, którym Państwo zarządzają, jest w rejestrze krajowym, ale nikt odpowiedzialny go "
+                      "nie potwierdził. Podaj nazwę miejsca, położenie, godziny dostępu i kontakt, korzystając z linku. "
+                      "Link jest przeznaczony wyłącznie dla dysponenta urządzenia.", link)
+    db.commit()
+    resp.status = falcon.HTTP_201
+    resp.media = {"id_aed": id_aed, "link_aktywacyjny": link, "waznosc_dni": TOKEN_DAYS, "wyslano_na": email or None}
+
+
 # ---------- registry ----------
 
-def list_devices(req, resp):
+def origin_param(req):
+    """(`lat`, `lon`) the list is sorted from, or None. Never stored; __main__ logs requests without the query."""
+    lat, lon = req.get_param("lat"), req.get_param("lon")
+    if lat is None and lon is None:
+        return None
+    try:
+        point = float(lat), float(lon)
+    except (TypeError, ValueError):
+        point = None
+    if not point or not (-90 <= point[0] <= 90 and -180 <= point[1] <= 180):  # also rejects nan
+        raise ApiError(422, "zle_wspolrzedne", "Parametry „lat” i „lon” podaje się razem, jako liczby: szerokość "
+                                               "od -90 do 90, długość od -180 do 180 (WGS84, kropka dziesiętna).")
+    return point
+
+
+# Filters shared by the list and the map, so that both always show the same devices.
+EXACT_FILTERS = ("status", "zrodlo", "dostep")  # dictionary values, compared as they are
+TEXT_FILTERS = {"miejscowosc": "miejscowosc",   # free text: letter case ignored (SQLite lower(), as /filtry groups)
+                "producent": "json_extract(data, '$.producent')",
+                "model": "json_extract(data, '$.model')",
+                "wewnatrz_budynku": "json_extract(data, '$.wewnatrz_budynku')"}
+ALL_DAY = "24/7"
+
+
+def device_filters(req):
+    """-> (where, args) for GET /urzadzenia and /urzadzenia.geojson. Private devices are never listed,
+    withdrawn ones only when that status is asked for."""
     where, args = ["dostep != 'prywatny'"], []
-    for param in ("status", "zrodlo", "dostep"):
+    if not req.get_param("status"):
+        where.append("status != 'wycofany'")
+    for param in EXACT_FILTERS:
         if req.get_param(param):
-            where.append("%s=?" % param)
+            where.append("%s=?" % param)  # column names come from code, values are bound
             args.append(req.get_param(param))
+    for param, expr in TEXT_FILTERS.items():
+        if (req.get_param(param) or "").strip():
+            where.append("lower(%s) = lower(?)" % expr)
+            args.append(req.get_param(param).strip())
+    if req.get_param_as_bool("calodobowo"):
+        where.append("godziny = ?")
+        args.append(ALL_DAY)
+    if req.get_param_as_bool("z_godzinami"):
+        where.append("godziny != ''")
+    return where, args
+
+
+def list_devices(req, resp):
+    where, args = device_filters(req)
     q = (req.get_param("q") or "").strip().casefold()
     if q:
-        where.append("szukaj LIKE ? ESCAPE '\\'")
-        args.append("%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%")
+        # name or town; or the exact id, which the map's "Pokaż na liście" searches for
+        where.append("(szukaj LIKE ? ESCAPE '\\' OR lower(id_aed) = ?)")
+        args += ["%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%", q]
     page = max(req.get_param_as_int("strona") or 1, 1)
     size = min(max(req.get_param_as_int("na_stronie") or 50, 1), 200)
+    near = origin_param(req)
+    if near:
+        where.append("lat IS NOT NULL AND lon IS NOT NULL")  # a device without a position has no distance
     cond = " AND ".join(where)
     db = req.context.db
-    total = db.execute("SELECT COUNT(*) FROM devices WHERE " + cond, args).fetchone()[0]
-    rows = db.execute("SELECT data, demo FROM devices WHERE %s ORDER BY id_aed LIMIT ? OFFSET ?" % cond,
-                      args + [size, (page - 1) * size]).fetchall()
-    resp.media = {"dane": [dict(public(json.loads(r[0])), demo=bool(r[1])) for r in rows], "razem": total, "strona": page, "na_stronie": size}
+    extra, distance = {}, {}
+    open_only = req.get_param_as_bool("dostepny_teraz")
+    if open_only or near:
+        # Hours and distances can't be computed in SQL: check every matching row in Python, then page.
+        state = open_states()
+        ids, unknown = [], 0
+        for id_aed, hours, lat, lon in db.execute(
+                "SELECT id_aed, godziny, lat, lon FROM devices WHERE %s ORDER BY id_aed" % cond, args):
+            if open_only:
+                answer = state(hours)
+                unknown += answer == "nieznane"
+                if answer != "dostepny":
+                    continue
+            ids.append(id_aed)
+            if near:
+                distance[id_aed] = round(haversine_m(near[0], near[1], lat, lon))
+        if near:
+            ids.sort(key=distance.get)  # stable: equal distances keep the id order
+        if open_only:
+            extra["bez_godzin"] = unknown
+        total = len(ids)
+        chosen = ids[(page - 1) * size:page * size]
+        found = {r[0]: r[1:] for r in db.execute("SELECT id_aed, data, demo FROM devices WHERE id_aed IN (%s)"
+                                                 % ",".join("?" * len(chosen)), chosen)} if chosen else {}
+        rows = [found[i] for i in chosen]
+    else:
+        total = db.execute("SELECT COUNT(*) FROM devices WHERE " + cond, args).fetchone()[0]
+        rows = db.execute("SELECT data, demo FROM devices WHERE %s ORDER BY id_aed LIMIT ? OFFSET ?" % cond,
+                          args + [size, (page - 1) * size]).fetchall()
+    dane = [dict(public(json.loads(data)), demo=bool(demo)) for data, demo in rows]
+    for item in dane if near else []:
+        item["odleglosc_m"] = distance[item["id_aed"]]
+    resp.media = dict({"dane": dane, "razem": total, "strona": page, "na_stronie": size}, **extra)
+
+
+def open_states():
+    """`open_now` at the current minute in Poland, memoised per hours text (thousands of rows share a few values)."""
+    at, memo = aed_standard.warsaw_now(), {}
+    return lambda hours: memo[hours] if hours in memo else memo.setdefault(hours, aed_standard.open_now(hours, at))
 
 
 def geojson(req, resp):
-    where, args = ["dostep != 'prywatny'", "lat IS NOT NULL", "lon IS NOT NULL"], []
+    where, args = device_filters(req)
+    where.append("lat IS NOT NULL AND lon IS NOT NULL")
     bbox = req.get_param("bbox")
     if bbox:
         try:
@@ -677,6 +954,9 @@ def geojson(req, resp):
         args += [x1, x2, y1, y2]
     rows = req.context.db.execute(
         "SELECT id_aed,nazwa,status,dostep,godziny,kompletnosc,zrodlo,lon,lat,demo FROM devices WHERE " + " AND ".join(where), args)
+    if req.get_param_as_bool("dostepny_teraz"):
+        state = open_states()
+        rows = [r for r in rows if state(r[4]) == "dostepny"]
     feats = [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [r[7], r[8]]},
               "properties": {"id_aed": r[0], "nazwa": r[1], "status": r[2], "dostep": r[3], "godziny_dostepu": r[4],
                              "kompletnosc": r[5], "zrodlo": r[6], "demo": bool(r[9])}} for r in rows]
@@ -694,10 +974,57 @@ def stats(req, resp):
         "wg_statusu": dict(db.execute("SELECT status, COUNT(*) FROM devices WHERE %s GROUP BY status" % pub).fetchall()),
         "wg_zrodla": dict(db.execute("SELECT zrodlo, COUNT(*) FROM devices WHERE %s GROUP BY zrodlo" % pub).fetchall()),
         "dostawcy": db.execute("SELECT COUNT(DISTINCT konto_id) FROM devices WHERE konto_id IS NOT NULL").fetchone()[0],
+        "hasla_demo_domyslne": demo_passwords_default(db),
         "potwierdzone_90_dni": db.execute(
             "SELECT COUNT(*) FROM devices WHERE %s AND origin!='import' AND data_weryfikacji>=?" % pub, (since,)).fetchone()[0],
         "ostatnie_uruchomienia": {col: (db.execute("SELECT MAX(start) FROM jobs WHERE %s IS NOT NULL" % col).fetchone()[0])
                                   for col in ("mapper", "przypomnienia")}}
+
+
+def counted(db, exprs, cond):
+    """-> [(values, count)] of devices matching `cond`, most common first. Values that differ only in letter case
+    (SQLite lower(), as the filters compare them) are one, shown in their most common spelling."""
+    cols = ", ".join(exprs)
+    keys = ", ".join("lower(%s)" % e for e in exprs)
+    n, groups = len(exprs), {}
+    for row in db.execute("SELECT %s, %s, COUNT(*) FROM devices WHERE %s GROUP BY %s, %s" % (keys, cols, cond, keys, cols)):
+        row = tuple(row)
+        group = groups.setdefault(row[:n], [0, None, 0])  # total, best spelling, its count
+        group[0] += row[-1]
+        if row[-1] > group[2]:
+            group[1:] = [row[n:-1], row[-1]]
+    return sorted(((g[1], g[0]) for g in groups.values()), key=lambda item: (-item[1], item[0]))
+
+
+@functools.lru_cache(maxsize=1)
+def source_labels():
+    """zrodlo -> name shown to people, from aed_standard/sources.json."""
+    labels = {registry.SUBMISSION: "Zgłoszenia firm i dysponentów", WARSAW: "API Warszawy (um.warszawa.pl)"}
+    for e in registry.load_registry()[0]:
+        labels.setdefault(e["zrodlo"], "dane.gov.pl – " + e["label"] if e["zrodlo"].startswith("dane.gov.pl/") else e["label"])
+    return labels
+
+
+def filter_options(req, resp):
+    """Values offered by the extra filters of the registry, counted over public devices that are not withdrawn."""
+    db = req.context.db
+    pub = "dostep != 'prywatny' AND status != 'wycofany'"
+    t = TEXT_FILTERS
+    one = lambda sql, *args: db.execute("SELECT COUNT(*) FROM devices WHERE %s AND %s" % (pub, sql), args).fetchone()[0]
+    labels = source_labels()
+    resp.media = {
+        "razem": one("1"),
+        "producent": [{"wartosc": v[0], "liczba": n}
+                      for v, n in counted(db, [t["producent"]], "%s AND %s != ''" % (pub, t["producent"]))],
+        "model": [{"wartosc": v[1], "producent": v[0] or "", "liczba": n}
+                  for v, n in counted(db, [t["producent"], t["model"]], "%s AND %s != ''" % (pub, t["model"]))],
+        "miejscowosc": [{"wartosc": v[0], "liczba": n} for v, n in counted(db, ["miejscowosc"], pub + " AND miejscowosc != ''")],
+        "zrodlo": [{"wartosc": z, "etykieta": labels.get(z, z), "liczba": n} for z, n in db.execute(
+            "SELECT zrodlo, COUNT(*) n FROM devices WHERE %s GROUP BY zrodlo ORDER BY n DESC, zrodlo" % pub)],
+        "dostep": dict(db.execute("SELECT dostep, COUNT(*) FROM devices WHERE %s GROUP BY dostep" % pub).fetchall()),
+        "wewnatrz_budynku": {v: one("%s = ?" % t["wewnatrz_budynku"], v) for v in ("tak", "nie")},
+        "z_godzinami": one("godziny != ''"),
+        "calodobowo": one("godziny = ?", ALL_DAY)}
 
 
 def sellers(req, resp):
@@ -716,17 +1043,93 @@ def sellers(req, resp):
                                          "udzial_aktywnych": BADGE_MIN_ACTIVE_SHARE}}
 
 
-def export_csv(req, resp):
+def publication_csv(db):
+    """-> (CSV bytes, exported records). Deterministic: same registry, same bytes."""
     # Private and fictional demo devices are dropped here; ODbL, validation and the rest are aed_standard's job.
-    rows = req.context.db.execute("SELECT data FROM devices WHERE dostep != 'prywatny' AND demo=0 AND status != 'wycofany'")
-    exported = aed_standard.publication_export([json.loads(r[0]) for r in rows])
-    out = io.StringIO()
-    w = csv.DictWriter(out, fieldnames=aed_standard.field_names(), extrasaction="ignore", lineterminator="\r\n")
-    w.writeheader()
-    w.writerows(dict(r, **{k: "" for k in HIDDEN_PUBLIC}) for r in exported if r.get("dostep") != "prywatny")
+    rows = db.execute("SELECT data FROM devices WHERE dostep != 'prywatny' AND demo=0 AND status != 'wycofany' ORDER BY id_aed")
+    exported = [r for r in aed_standard.publication_export([json.loads(r[0]) for r in rows]) if r.get("dostep") != "prywatny"]
+    # contacts and serial numbers are already blanked by publication_export; formulas neutralised by to_csv
+    return aed_standard.build.to_csv(exported, "\r\n").encode("utf-8"), exported
+
+
+def export_csv(req, resp):
     resp.content_type = "text/csv; charset=utf-8"
     resp.set_header("Content-Disposition", 'attachment; filename="aed_dane_gov_pl.csv"')
-    resp.data = out.getvalue().encode("utf-8")
+    resp.data = publication_csv(req.context.db)[0]
+
+
+# ---------- harvester feed for dane.gov.pl (backend/mcod/harvester, XSD 1.13) ----------
+
+HARVESTER_NS = "urn:otwarte-dane:harvester:1.13"
+FEED_DESCRIPTION = (
+    "Ogólnopolski zbiór defibrylatorów AED prowadzony przez Ministerstwo Cyfryzacji. Rekordy pochodzą od producentów "
+    "i sprzedawców (konta firm), od dysponentów urządzeń (potwierdzenie przez kod QR na naklejce) oraz z otwartych zbiorów "
+    "samorządów, po ujednoliceniu do jednego standardu i deduplikacji. Jeden wiersz to jedno urządzenie; współrzędne "
+    "WGS84 w kolumnach szerokosc_geograficzna i dlugosc_geograficzna. Zbiór nie zawiera danych osobowych, numerów "
+    "seryjnych, urządzeń prywatnych ani rekordów znanych tylko z OpenStreetMap.")
+RESOURCE_DESCRIPTION = (
+    "Plik CSV (UTF-8, separator przecinek, daty RRRR-MM-DD) z rekordami spełniającymi profil publikacji standardu AED. "
+    "Kolumna status mówi, czy dysponent potwierdził urządzenie (wartość aktywny, w interfejsie „zweryfikowany”), a kompletnosc - jak pełny jest rekord (0-100).")
+
+
+def harvester_xml_bytes(db):
+    """XML for the portal's XML harvester. Its only input is the publication CSV, so it changes only when that does."""
+    data, exported = publication_csv(db)
+    base = BASE_URL.rstrip("/")
+    # The portal re-downloads a resource file only when its link changes (resources/models.py:1287-1295, 1966),
+    # so the link carries the content version.
+    link = "%s/api/aed/eksport/dane-gov-pl.csv?wersja=%s" % (base, hashlib.md5(data).hexdigest()[:12])
+    changed = max([max(r.get("data_aktualizacji") or "", r.get("data_weryfikacji") or "") for r in exported] or [""])
+
+    def sub(parent, tag, text=None, **attrs):
+        el = ET.SubElement(parent, tag, attrs)
+        el.text = text
+        return el
+
+    def texts(parent, tag, pl, en=None):
+        el = sub(parent, tag)
+        sub(el, "polish", pl)
+        if en:
+            sub(el, "english", en)
+
+    root = ET.Element("{%s}datasets" % HARVESTER_NS)
+    ds = sub(root, "dataset", status="published")
+    sub(ds, "extIdent", "aed-krajowy-rejestr")  # stable: an extIdent missing from the feed is deleted by the portal
+    texts(ds, "title", "Krajowy rejestr AED", "National register of AED defibrillators")
+    texts(ds, "description", FEED_DESCRIPTION)
+    sub(ds, "url", base + "/aed")
+    sub(ds, "updateFrequency", "daily")
+    sub(sub(ds, "categories"), "category", "HEAL")
+    cond = sub(ds, "conditions")  # source/modification = CC BY 4.0 in the portal (datasets/models.py:568-583)
+    sub(cond, "source", "true")
+    sub(cond, "modification", "true")
+    res = sub(sub(ds, "resources"), "resource", status="published")
+    sub(res, "extIdent", "aed-krajowy-rejestr-csv")
+    sub(res, "url", link)
+    texts(res, "title", "Defibrylatory AED - zbiór krajowy (CSV)", "AED defibrillators - national dataset (CSV)")
+    texts(res, "description", RESOURCE_DESCRIPTION)
+    sub(res, "availability", "local")
+    if changed:
+        sub(res, "dataDate", changed)
+        sub(res, "lastUpdateDate", changed + "T00:00:00")
+        sub(ds, "lastUpdateDate", changed + "T00:00:00")
+    tags = sub(ds, "tags")
+    for lang, name in (("pl", "AED"), ("pl", "defibrylator"), ("pl", "pierwsza pomoc"), ("pl", "zdrowie"),
+                       ("en", "AED"), ("en", "defibrillator")):
+        sub(tags, "tag", name, lang=lang)
+    ET.register_namespace("p", HARVESTER_NS)
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def export_xml(req, resp):
+    resp.content_type = "application/xml; charset=utf-8"  # harvester/utils.py:191-197 needs text/xml or application/xml
+    resp.data = harvester_xml_bytes(req.context.db)
+
+
+def export_xml_md5(req, resp):
+    # harvester/utils.py:168-179: the sum lives at the XML address with .xml replaced by .md5, body = 32 hex digits
+    resp.content_type = "text/plain; charset=utf-8"
+    resp.text = hashlib.md5(harvester_xml_bytes(req.context.db)).hexdigest()
 
 
 # ---------- ministry panel ----------
@@ -753,13 +1156,25 @@ def decide_duplicate(req, resp, dup_id):
         raise ApiError(404, "nie_znaleziono", "Nie ma takiej pary do przeglądu.")
     if d["decyzja"]:
         raise ApiError(409, "juz_rozstrzygniete", "Ta para została już rozstrzygnięta.")
+    row_a, row_b = get_device(db, d["id_a"]), get_device(db, d["id_b"])
+    if "wycofany" in (row_a["status"], row_b["status"]):
+        # The pair is stale (one record was merged or withdrawn since it was queued): never retire the other one.
+        db.execute("UPDATE duplicates SET decyzja='nieaktualna' WHERE id=?", (dup_id,))
+        db.commit()
+        raise ApiError(409, "para_nieaktualna", "Jeden z rekordów pary został już wycofany lub scalony; para jest nieaktualna.")
     if decision == "polacz":  # keep record A, retire B and remember the link
-        a = json.loads(get_device(db, d["id_a"])["data"])
-        b = json.loads(get_device(db, d["id_b"])["data"])
+        a, b = json.loads(row_a["data"]), json.loads(row_b["data"])
         a["powiazane_zrodla"] = ";".join(x for x in (a.get("powiazane_zrodla"), d["id_b"]) if x)
         b["status"] = "wycofany"
         save_device(db, a)
         save_device(db, b, origin="scalony")
+        # Other open pairs with B now ask about A: B's pair is closed, the same question is queued for A.
+        for o in db.execute("SELECT * FROM duplicates WHERE decyzja IS NULL AND id!=? AND (id_a=? OR id_b=?)",
+                            (dup_id, d["id_b"], d["id_b"])).fetchall():
+            db.execute("UPDATE duplicates SET decyzja='nieaktualna' WHERE id=?", (o["id"],))
+            other = o["id_b"] if o["id_a"] == d["id_b"] else o["id_a"]
+            if other != d["id_a"]:
+                queue_pair(db, d["id_a"], other, o["odleglosc_m"], o["podobienstwo"])
     db.execute("UPDATE duplicates SET decyzja=? WHERE id=?", (decision, dup_id))
     db.commit()
     resp.media = {"id": dup_id, "decyzja": decision}
@@ -795,7 +1210,8 @@ def reminders(db):
         if not email:
             continue
         last = rec.get("data_weryfikacji") or rec.get("data_aktualizacji") or ""
-        if row["status"] != "niepotwierdzony" and last and last < day(-REQUEST_AFTER_DAYS) \
+        # niepotwierdzony: only after a manager's problem report (an imported record waits for a takeover link)
+        if (row["status"] != "niepotwierdzony" or row["uwagi_zarzadcy"]) and last and last < day(-REQUEST_AFTER_DAYS) \
                 and not sent_recently("prosba", row["id_aed"]):
             link = activation_link(row["id_aed"], new_token(db, row["id_aed"]))
             queue_message(db, "prosba", row["id_aed"], email, "Potwierdź dane urządzenia AED %s" % row["id_aed"],
@@ -914,7 +1330,7 @@ def run_job(db, trigger, kind, blocking=True):
                 mapper, remind = (result, remind) if name == "mapper" else (mapper, result)
             except Exception as ex:
                 db.rollback()
-                traceback.print_exception(ex, file=sys.stderr)
+                traceback.print_exception(type(ex), ex, ex.__traceback__, file=sys.stderr)
                 errors.append("%s: nie udało się zakończyć zadania (%s)." % (label, type(ex).__name__))
         j = lambda v: None if v is None else json.dumps(v)  # noqa: E731
         job_id = db.execute("INSERT INTO jobs(start,koniec,wyzwalacz,rodzaj,odswiezono,mapper,przypomnienia,bledy)"
@@ -963,7 +1379,7 @@ def start_scheduler(db_path, hours):
             try:
                 run_job(db, "harmonogram", "cykl")
             except Exception as ex:  # keep the thread alive whatever happens
-                traceback.print_exception(ex, file=sys.stderr)
+                traceback.print_exception(type(ex), ex, ex.__traceback__, file=sys.stderr)
 
     t = threading.Thread(target=loop, name="aed-scheduler", daemon=True)
     t.start()
@@ -978,6 +1394,12 @@ class Db:
 
     def process_request(self, req, resp):
         req.context.db = self.conn
+
+    def process_response(self, req, resp, resource, req_succeeded):
+        resp.set_header("X-Content-Type-Options", "nosniff")
+        # One transaction per request: an error (500 included) never leaves a half-written one for the next request.
+        if self.conn.in_transaction:
+            self.conn.commit() if req_succeeded else self.conn.rollback()
 
 
 def route(app, path, **methods):
@@ -1020,7 +1442,7 @@ def build_app(conn):
         resp.media = {"blad": {"kod": "http_%d" % ex.status_code, "komunikat": ex.title or "Błąd żądania."}}
 
     def on_crash(req, resp, ex, params):
-        traceback.print_exception(ex, file=sys.stderr)  # details go to the log, never to the client
+        traceback.print_exception(type(ex), ex, ex.__traceback__, file=sys.stderr)  # details go to the log, never to the client
         resp.status = falcon.HTTP_500
         resp.media = {"blad": {"kod": "blad_serwera", "komunikat": "Wystąpił błąd serwera. Spróbuj ponownie później."}}
 
@@ -1038,13 +1460,19 @@ def build_app(conn):
     route(app, "/urzadzenia/{id_aed}/naklejka.svg", get=sticker)
     route(app, "/urzadzenia/{id_aed}/potwierdzenie", post=confirm)
     route(app, "/urzadzenia/{id_aed}/sygnal", post=signal)
+    route(app, "/urzadzenia/{id_aed}/link-aktywacyjny", post=issue_link)
     route(app, "/statystyki", get=stats)
+    route(app, "/filtry", get=filter_options)
     route(app, "/sprzedawcy", get=sellers)
-    route(app, "/eksport/dane-gov-pl.csv", get=export_csv)
+    route(app, "/eksport/dane-gov-pl.csv", get=export_csv, head=export_csv)
+    route(app, "/eksport/dane-gov-pl.xml", get=export_xml, head=export_xml)  # the harvester sends HEAD first
+    route(app, "/eksport/dane-gov-pl.md5", get=export_xml_md5, head=export_xml_md5)
     route(app, "/duplikaty", get=list_duplicates)
     route(app, "/duplikaty/{dup_id:int}", post=decide_duplicate)
     route(app, "/wiadomosci", get=list_messages)
     route(app, "/przypomnienia/uruchom", post=manual_job("przypomnienia"))
     route(app, "/mapper/uruchom", post=manual_job("mapper"))
     route(app, "/zadania", get=list_jobs)
+    route(app, "/konwerter/analiza", post=converter_analyze)
+    route(app, "/konwerter/konwersja", post=converter_convert)
     return app

@@ -76,6 +76,11 @@
       <p>
         <a [href]="api.exportUrl" download>Pobierz zbiór do publikacji na dane.gov.pl (CSV)</a>
       </p>
+      <p>
+        Zasilanie dla harvestera dane.gov.pl: <a [href]="api.feedUrl">plik XML</a> i
+        <a [href]="api.feedMd5Url">suma kontrolna MD5</a>. Portal pobiera je cyklicznie i aktualizuje zbiór ministerstwa
+        sam, gdy zmieni się zawartość eksportu.
+      </p>
       <p class="aed-note">
         Do zbioru trafiają tylko rekordy gotowe do publikacji. Rekordy znane wyłącznie z OpenStreetMap (licencja ODbL)
         oraz urządzenia z dostępem prywatnym zostają w rejestrze.
@@ -92,61 +97,151 @@
     </div>
     @if (pair(); as pair) {
       <p>
-        Para {{ position() + 1 }} z {{ number(duplicates().length) }}. Odległość między punktami:
-        <strong>{{ number(pair.odleglosc_m) }} m</strong>. Podobieństwo nazwy i adresu:
-        <strong>{{ number(pair.podobienstwo * 100) }}%</strong>.
+        Para {{ position() + 1 }} z {{ number(duplicates().length) }}.
+        @if (pair.odleglosc_m === null) {
+          Ten sam producent i numer seryjny; <strong>odległość nieznana</strong> (nowe zgłoszenie nie ma jeszcze
+          położenia).
+        } @else {
+          Odległość między punktami: <strong>{{ number(pair.odleglosc_m) }} m</strong>. Podobieństwo nazwy i adresu:
+          <strong>{{ number(pair.podobienstwo * 100) }}%</strong>.
+        }
       </p>
-      <div class="aed-scroll" tabindex="0" role="region" aria-labelledby="aed-pair-caption">
-        <table class="aed-table aed-compare">
-          <caption id="aed-pair-caption">
-            Porównanie rekordów
-            {{
-              pair.rekord_a.id_aed
-            }}
-            i
-            {{
-              pair.rekord_b.id_aed
-            }}
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">Pole</th>
-              <th scope="col">Rekord A</th>
-              <th scope="col">Rekord B</th>
-              <th scope="col">Zgodność</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (row of comparison(); track row.title) {
-              <tr [class.aed-compare__differs]="!row.same">
-                <th scope="row">{{ row.title }}</th>
-                <td>{{ row.a || 'brak' }}</td>
-                <td>{{ row.b || 'brak' }}</td>
-                <td>{{ row.same ? 'to samo' : 'różnica' }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-      <p class="aed-note">Po połączeniu zostaje rekord A, a rekord B dostaje status „wycofany”.</p>
-      <div class="aed-actions">
-        <button class="btn btn-primary" type="button" [attr.aria-disabled]="busy() || null" (click)="decide('polacz')">
-          To samo urządzenie – połącz
-        </button>
+      <div class="aed-compare__toolbar">
+        <p class="aed-compare__count">
+          Pola z różnicą: <strong>{{ number(differing().length) }}</strong> z {{ number(comparison().length) }}
+          wypełnionych (różne wartości: {{ number(conflicting()) }}, wypełnione tylko w jednym rekordzie:
+          {{ number(differing().length - conflicting()) }}).
+        </p>
         <button
           class="btn btn-outline-primary"
           type="button"
-          [attr.aria-disabled]="busy() || null"
-          (click)="decide('rozdziel')">
-          Różne urządzenia – zostaw oba
+          [attr.aria-pressed]="showAllFields()"
+          aria-controls="aed-pair-table"
+          (click)="showAllFields.set(!showAllFields())">
+          Pokaż wszystkie pola
         </button>
-        <button class="btn btn-link" type="button" [attr.aria-disabled]="busy() || null" (click)="skip()">
-          Pomiń tę parę
-        </button>
+      </div>
+      @if (shownRows().length) {
+        <div class="aed-scroll" tabindex="0" role="region" aria-labelledby="aed-pair-caption">
+          <table class="aed-table aed-compare" id="aed-pair-table">
+            <caption id="aed-pair-caption">
+              Porównanie rekordów
+              {{
+                pair.rekord_a.id_aed
+              }}
+              i
+              {{
+                pair.rekord_b.id_aed
+              }}{{
+                showAllFields() ? ' – wszystkie wypełnione pola' : ' – tylko pola z różnicą'
+              }}
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Pole</th>
+                <th scope="col">Rekord A</th>
+                <th scope="col">Rekord B</th>
+                <th scope="col">Zgodność</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of shownRows(); track row.title) {
+                <tr [class.aed-compare__differs]="!row.same">
+                  <th scope="row">{{ row.title }}</th>
+                  <td data-label="Rekord A">{{ row.a || 'brak' }}</td>
+                  <td data-label="Rekord B">{{ row.b || 'brak' }}</td>
+                  <td data-label="Zgodność">{{ row.verdict }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p class="aed-message" id="aed-pair-table">
+          Rekordy {{ pair.rekord_a.id_aed }} i {{ pair.rekord_b.id_aed }} mają te same wartości we wszystkich
+          wypełnionych polach. Wybierz „Pokaż wszystkie pola”, żeby je zobaczyć.
+        </p>
+      }
+      <div class="aed-decision" role="group" aria-labelledby="aed-decision-label">
+        <p class="aed-decision__label" id="aed-decision-label">
+          Decyzja dla pary {{ position() + 1 }}. Po połączeniu zostaje rekord A, a rekord B dostaje status „wycofany”.
+        </p>
+        <div class="aed-actions">
+          <button
+            class="btn btn-primary"
+            type="button"
+            [attr.aria-disabled]="busy() || null"
+            (click)="decide('polacz')">
+            To samo urządzenie – połącz
+          </button>
+          <button
+            class="btn btn-outline-primary"
+            type="button"
+            [attr.aria-disabled]="busy() || null"
+            (click)="decide('rozdziel')">
+            Różne urządzenia – zostaw oba
+          </button>
+          <button class="btn btn-link" type="button" [attr.aria-disabled]="busy() || null" (click)="skip()">
+            Pomiń tę parę
+          </button>
+        </div>
       </div>
     } @else {
       <p>Nie ma par do przeglądu. Nowe mogą pojawić się po uruchomieniu mappera źródeł.</p>
     }
+  </section>
+
+  <section aria-labelledby="aed-invite-heading">
+    <h2 class="aed-h2" id="aed-invite-heading">Zaproś dysponenta do przejęcia punktu</h2>
+    <p>
+      Dla urządzenia, którego nikt odpowiedzialny nie potwierdził (na przykład znanego tylko z OpenStreetMap), wystaw
+      link dysponenta. Dysponent poda dane sam; po potwierdzeniu rekord trafi do zbioru na dane.gov.pl.
+    </p>
+    <form class="aed-invite" novalidate (submit)="$event.preventDefault(); invite(inviteId.value, inviteEmail.value)">
+      <div class="aed-field form-field">
+        <label class="aed-field__label" for="aed-invite-id">
+          Identyfikator urządzenia <span class="aed-field__required">(wymagane)</span>
+        </label>
+        <input class="form-control" id="aed-invite-id" type="text" autocomplete="off" #inviteId />
+      </div>
+      <div class="aed-field form-field">
+        <label class="aed-field__label" for="aed-invite-email">E-mail dysponenta (nieobowiązkowe)</label>
+        <p class="aed-field__hint" id="aed-invite-email-hint">
+          Adres instytucji. Gdy go podasz, wiadomość z linkiem trafi do skrzynki nadawczej poniżej.
+        </p>
+        <input
+          class="form-control"
+          id="aed-invite-email"
+          type="email"
+          autocomplete="off"
+          aria-describedby="aed-invite-email-hint"
+          #inviteEmail />
+      </div>
+      <button class="btn btn-primary" type="submit" [attr.aria-disabled]="busy() || null">
+        Wystaw link dysponenta
+      </button>
+    </form>
+    <div aria-live="polite">
+      @if (inviteError()) {
+        <p class="aed-message aed-message--error">{{ inviteError() }}</p>
+      }
+      @if (invitation(); as invitation) {
+        <div class="aed-message aed-message--ok">
+          <p>
+            Link dla urządzenia {{ invitation.id_aed }} jest ważny {{ invitation.waznosc_dni }} dni.
+            {{ invitation.wyslano_na ? 'Wiadomość trafiła do skrzynki nadawczej: ' + invitation.wyslano_na + '.' : '' }}
+          </p>
+          <label class="aed-field__label" for="aed-invite-link">Link do skopiowania</label>
+          <input
+            class="form-control"
+            id="aed-invite-link"
+            type="text"
+            readonly
+            [value]="absolute(invitation.link_aktywacyjny)"
+            (focus)="$any($event.target).select()" />
+        </div>
+      }
+    </div>
   </section>
 
   <section aria-labelledby="aed-jobs-heading">
@@ -193,8 +288,15 @@
           @if (mapper(); as result) {
             <p class="aed-message aed-message--ok">
               Dodane rekordy: {{ result.dodano }}. Zmienione: {{ result.zmieniono }}. Połączone automatycznie:
-              {{ result.polaczono }}. Do ręcznego przeglądu: {{ result.do_przegladu }}.
+              {{ result.polaczono }}. Do ręcznego przeglądu: {{ result.do_przegladu }}. Wycofane, bo zniknęły ze źródeł:
+              {{ result.wycofano }}.
             </p>
+            @if (lastMapperProblems().length) {
+              <p class="aed-message aed-message--warn">
+                Pominięte źródła i błędy: {{ lastMapperProblems().join(' ') }} Rekordy pominiętych źródeł zostają w
+                rejestrze bez zmian.
+              </p>
+            }
           }
         </div>
       </div>
@@ -214,7 +316,7 @@
               <th scope="col">Uruchomienie</th>
               <th scope="col">Zadanie</th>
               <th scope="col">Wynik</th>
-              <th scope="col">Problemy</th>
+              <th scope="col">Pominięte źródła i błędy</th>
             </tr>
           </thead>
           <tbody>
@@ -231,7 +333,7 @@
                 <td>
                   @if (job.mapper; as mapper) {
                     Mapper: dodane {{ mapper.dodano }}, zmienione {{ mapper.zmieniono }}, połączone
-                    {{ mapper.polaczono }}, do przeglądu {{ mapper.do_przegladu }}.
+                    {{ mapper.polaczono }}, do przeglądu {{ mapper.do_przegladu }}, wycofane {{ mapper.wycofano ?? 0 }}.
                   }
                   @if (job.przypomnienia; as reminders) {
                     Przypomnienia: prośby o potwierdzenie {{ reminders.prosby_o_potwierdzenie }}, o terminach

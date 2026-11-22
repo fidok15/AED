@@ -406,6 +406,7 @@ class ResourceAdmin(HistoryMixin, ModelAdmin):  # MRO matters here for unescape
                             *has_high_value_data_from_ec_list,
                             *has_research_data,
                             *contains_protected_data,
+                            "contains_aed_list",
                             "status",
                             *special_signs,
                             "show_tabular_view",
@@ -536,6 +537,13 @@ class ResourceAdmin(HistoryMixin, ModelAdmin):  # MRO matters here for unescape
                         None,
                         {
                             "classes": ("suit-tab", "suit-tab-general"),
+                            "fields": ("contains_aed_list",),
+                        },
+                    ),
+                    (
+                        None,
+                        {
+                            "classes": ("suit-tab", "suit-tab-general"),
                             "fields": ("status", "from_resource"),
                         },
                     ),
@@ -559,7 +567,9 @@ class ResourceAdmin(HistoryMixin, ModelAdmin):  # MRO matters here for unescape
         defaults = dict(kwargs)
         if obj is None:
             defaults["form"] = self.add_form
-        return super().get_form(request, obj=obj, **defaults)
+        form = super().get_form(request, obj=obj, **defaults)
+        form.aed_user = request.user  # AED list only in the user's own institution (mcod/aed)
+        return form
 
     def get_history(self, obj: models.Model, request: HttpRequest | None = None):
         history = super().get_history(obj)

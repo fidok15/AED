@@ -12,7 +12,7 @@
   <p>
     Odznakę dostaje firma, której urządzenia mają średnią kompletność danych co najmniej
     <strong>{{ sellers.progi.srednia_kompletnosc }}%</strong> i z których co najmniej
-    <strong>{{ number(sellers.progi.udzial_aktywnych * 100) }}%</strong> jest potwierdzonych przez dysponenta.
+    <strong>{{ number(sellers.progi.udzial_aktywnych * 100) }}%</strong> jest zweryfikowanych – dysponent potwierdził ich miejsce, dostęp i godziny.
   </p>
 
   @if (ranked().length) {
@@ -27,7 +27,7 @@
             <th scope="col">Firma</th>
             <th scope="col" class="aed-table__number">Urządzenia</th>
             <th scope="col" class="aed-table__number">Średnia kompletność</th>
-            <th scope="col" class="aed-table__number">Potwierdzone</th>
+            <th scope="col" class="aed-table__number">Zweryfikowane</th>
             <th scope="col">Odznaka</th>
           </tr>
         </thead>
@@ -88,6 +88,6 @@
 
 <section class="aed-map" aria-labelledby="aed-sellers-map-heading">
   <h2 class="aed-h2" id="aed-sellers-map-heading">Siedziby firm na mapie</h2>
-  <p>Te same firmy co na liście powyżej. Znak ✓ na znaczniku oznacza firmę z odznaką.</p>
+  <p>Wybierz znacznik, aby zobaczyć nazwę firmy. Zielony znak ✓ oznacza firmę z odznaką.</p>
   <div class="aed-map__canvas aed-map__canvas--small" #canvas role="region" aria-label="Mapa siedzib firm"></div>
 </section>

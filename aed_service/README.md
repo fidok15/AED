@@ -39,7 +39,7 @@ Bez proxy też działa (CORS dla `localhost:4200`), wtedy wołaj `http://localho
 `odznaka = tak`, gdy firma ma co najmniej jedno urządzenie oraz jednocześnie:
 
 - średnia kompletność jej urządzeń >= `BADGE_MIN_COMPLETENESS` = 70,
-- udział urządzeń ze statusem `aktywny` >= `BADGE_MIN_ACTIVE_SHARE` = 0,5.
+- udział urządzeń zweryfikowanych (status `aktywny`) >= `BADGE_MIN_ACTIVE_SHARE` = 0,5.
 
 Stałe są na górze `aed_service/app.py`; progi zwraca też `GET /api/aed/sprzedawcy` w polu `progi`.
 
@@ -60,7 +60,7 @@ Każde uruchomienie (także ręczne przyciski ministerstwa) trafia do historii: 
 ```json
 {"dane": [{"id": 3, "start": "2026-11-21T18:00:00", "koniec": "2026-11-21T18:00:09",
   "wyzwalacz": "harmonogram", "rodzaj": "cykl", "odswiezono": "Pobrano źródła z sieci",
-  "mapper": {"dodano": 0, "zmieniono": 2, "polaczono": 266, "do_przegladu": 214},
+  "mapper": {"dodano": 0, "zmieniono": 2, "polaczono": 266, "do_przegladu": 195},
   "przypomnienia": {"nieaktualne": 0, "prosby_o_potwierdzenie": 1, "przypomnienia_terminow": 1},
   "bledy": ["Źródło niedostępne: ... Użyto zapisanej migawki."]}]}
 ```

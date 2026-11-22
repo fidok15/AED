@@ -1,5 +1,13 @@
+# Access log without query strings: the point of "najbliższy AED" (lat, lon) and QR tokens are not logged.
+log_format path_only '$remote_addr [$time_local] "$request_method $uri" $status $body_bytes_sent';
+
 server {
     listen 80;
+    access_log /var/log/nginx/access.log path_only;
+    # The map's country view is ~4.4 MB of GeoJSON; gzip brings it to a fraction of that.
+    gzip on;
+    gzip_types application/json application/geo+json text/css application/javascript image/svg+xml;
+    gzip_proxied any;
     root /usr/share/nginx/html;
     index index.html;
     client_max_body_size 6m;
@@ -31,6 +39,10 @@ server {
         proxy_pass https://dane.gov.pl/media/;
         proxy_set_header Host dane.gov.pl;
         proxy_ssl_server_name on;
+        # Files uploaded by portal providers (HTML, SVG) must not run as pages of this origin.
+        proxy_hide_header Content-Security-Policy;
+        add_header Content-Security-Policy "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:" always;
+        add_header X-Content-Type-Options nosniff always;
     }
     location /flags/ {
         proxy_pass https://dane.gov.pl/flags/;
