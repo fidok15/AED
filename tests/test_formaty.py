@@ -114,8 +114,8 @@ class FormatsTest(unittest.TestCase):
         self.assertEqual([c["kolumna"] for c in a["kolumny"]][:2], ["Nazwa", "Nazwa (2)"])   # name and address split
         rows = list(csv.DictReader(io.StringIO(text)))
         self.assertEqual((rows[1]["nazwa_ulicy"], rows[1]["kod_pocztowy"], rows[1]["miejscowosc"]), ("Totus Tuus", "30-610", "Kraków"))
-        self.assertEqual((rep["status"], rep["bez_wspolrzednych"]), ("odrzucony", 4))
-        self.assertIn("4 wierszy ma adres bez współrzędnych", rep["bez_wspolrzednych_komunikat"])
+        self.assertEqual((rep["status"], rep["bez_wspolrzednych"]), ("odrzucony", 5))  # incl. "ul. … 36 Kraków" (town at the end)
+        self.assertIn("5 wierszy ma adres bez współrzędnych", rep["bez_wspolrzednych_komunikat"])
         a, text, rep, _ = auto(read(P, "krakow-bip-impuls-zycia.docx"), "krakow.docx", {"miejscowosc": "Kraków"})
         self.assertIn("tytułowe", " ".join(a["uwagi"]))
         self.assertEqual((a["format"], a["wiersze"], rep["bez_wspolrzednych"]), ("docx", 31, 31))

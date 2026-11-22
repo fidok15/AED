@@ -3,6 +3,12 @@ import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { AED_MONTH_DATE_HINT, AedField, aedLabel, aedOptions, AedValue } from './aed-schema';
 
+const AUTOCOMPLETE: Record<string, string> = {
+  kod_pocztowy: 'postal-code',
+  miejscowosc: 'address-level2',
+  dysponent_nazwa: 'organization',
+};
+
 /**
  * One form field generated from aed_standard/schema.json: label from `title`, help from `description`,
  * example from `przyklad`, choices from the enum. Used by the seller form and by the QR page.
@@ -26,8 +32,17 @@ export class AedFieldComponent {
     const { type, format } = this.field();
     if (type === 'date') return 'date';
     if (type === 'number' || type === 'integer') return 'number';
+    if (this.field().name === 'dysponent_telefon') return 'tel';
     return format === 'email' ? 'email' : 'text';
   });
+  /**
+   * Phone keyboard hints. No `email`/`tel` autocomplete on the owner's contact: the published contact is
+   * institutional, and the browser would suggest the person's own address (CLAUDE.md, hard rule 6).
+   */
+  protected readonly inputMode = computed(() => (this.field().name === 'dysponent_regon' ? 'numeric' : null));
+  protected readonly autocomplete = computed(() =>
+    this.monthDate() ? 'off' : (AUTOCOMPLETE[this.field().name] ?? null),
+  );
 
   protected readonly label = (option: string) => aedLabel(this.field(), option);
 

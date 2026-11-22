@@ -107,7 +107,7 @@
     <div>
       <div id="concept-mark" style="width: 92mm; margin: 0 auto;"></div>
       <ul class="legend">
-        <li><span class="sw" style="background:var(--navy)"></span><b>aktywny</b><span>zarządca potwierdził miejsce i dostęp</span></li>
+        <li><span class="sw" style="background:var(--navy)"></span><b>zweryfikowany</b><span>dysponent potwierdził miejsce i dostęp</span></li>
         <li><span class="sw" style="background:var(--blue)"></span><b>zgłoszony</b><span>sprzedawca podał dane urządzenia</span></li>
         <li><span class="sw" style="background:var(--sky)"></span><b>niepotwierdzony</b><span>rekord z otwartych źródeł, bez potwierdzenia</span></li>
         <li><span class="sw" style="background:var(--amber)"></span><b>nieaktualny</b><span>minął termin potwierdzenia</span></li>
@@ -311,7 +311,7 @@
     <div><div class="tile bad" style="height: 30mm"><span id="mis-cells" style="width: 22mm"></span></div><p class="cap">Nie przestawiamy komórek i nie zmieniamy ich kolorów.</p></div>
   </div>
   <p class="small" style="margin-top: 5mm; columns: 2; column-gap: 10mm;">
-    Nie skalujemy poniżej minimalnej wielkości (s. 6). Nie łączymy znaku z godłem, flagą ani znakami państwowymi w jednym lockupie; znaki partnerów stoją obok, w odstępie 2X. Nie przerabiamy znaku ISO 7010 E010 i nie używamy go jako części logo akcji. Nie używamy znaku ani odznaki, by sugerować, że dane urządzenia są potwierdzone, jeśli rekord nie ma statusu „aktywny”. Nie umieszczamy przy znaku obietnic medycznych ani statystyk uratowanych osób.
+    Nie skalujemy poniżej minimalnej wielkości (s. 6). Nie łączymy znaku z godłem, flagą ani znakami państwowymi w jednym lockupie; znaki partnerów stoją obok, w odstępie 2X. Nie przerabiamy znaku ISO 7010 E010 i nie używamy go jako części logo akcji. Nie używamy znaku ani odznaki, by sugerować, że dane urządzenia są potwierdzone, jeśli rekord nie ma statusu „zweryfikowany”. Nie umieszczamy przy znaku obietnic medycznych ani statystyk uratowanych osób.
   </p>
   <div class="run"><b>Opiekun AED · Księga znaku</b><span>10</span></div>
 </section>
@@ -365,7 +365,7 @@
           <div class="st"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><rect width="10" height="10" rx="2.5" fill="#F28C28"/><path d="M5 2.3v3.4M5 7.2v.4" stroke="#14274E" stroke-width="1.4" stroke-linecap="round"/></svg> Do potwierdzenia</div>
         </div>
       </div>
-      <p class="small muted" style="margin-top: 2mm;">Stan odznaki zawsze ma nazwę i ikonę, nie tylko kolor (WCAG 1.4.1). Odznaka „Dane potwierdzone” tylko dla rekordów o statusie „aktywny”. Nazwy podmiotów na makiecie są przykładowe.</p>
+      <p class="small muted" style="margin-top: 2mm;">Stan odznaki zawsze ma nazwę i ikonę, nie tylko kolor (WCAG 1.4.1). Odznaka „Dane potwierdzone” tylko dla rekordów o statusie „zweryfikowany”. Nazwy podmiotów na makiecie są przykładowe.</p>
     </div>
   </div>
   <div class="run"><b>Opiekun AED · Księga znaku</b><span>11</span></div>
@@ -426,7 +426,7 @@
   document.getElementById("mis-cells").innerHTML = mark(["AZ.UA", "NAAAA", ".WAA.", "..A.."], { U: "#A9C8FF", A: "#C62828", Z: "#2456E6", N: "#F28C28" });
 
   const SW = [
-    ["Granat", "#14274E", "aktywny · logotyp · tekst"],
+    ["Granat", "#14274E", "zweryfikowany · logotyp · tekst"],
     ["Niebieski", "#2456E6", "zgłoszony · „AED”"],
     ["Jasnoniebieski", "#A9C8FF", "niepotwierdzony"],
     ["Bursztyn", "#F28C28", "nieaktualny · akcent"],
@@ -436,7 +436,7 @@
   const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   const cmyk = h => { const [r, g, b] = rgb(h).map(v => v / 255), k = 1 - Math.max(r, g, b); return [r, g, b].map(v => k === 1 ? 0 : Math.round((1 - v - k) / (1 - k) * 100)).concat(Math.round(k * 100)); };
   document.getElementById("swatches").innerHTML = SW.map(([n, h, role]) => `<div class="chip"><div class="c" style="background:${h}"></div><div class="t"><b>${n}</b>${role}<br><code>${h}</code><br>RGB ${rgb(h).join(", ")}<br>CMYK ${cmyk(h).join(", ")}</div></div>`).join("");
-  document.getElementById("neg").innerHTML = [["#FFFFFF", "aktywny"], ["#6E97FF", "zgłoszony"], ["#3E5C99", "niepotw."], ["#F28C28", "nieaktualny"], ["#8FA0C2", "wycofany"]]
+  document.getElementById("neg").innerHTML = [["#FFFFFF", "zweryfikowany"], ["#6E97FF", "zgłoszony"], ["#3E5C99", "niepotw."], ["#F28C28", "nieaktualny"], ["#8FA0C2", "wycofany"]]
     .map(([h, n]) => `<div style="flex:1; background:#14274E; color:#fff; border-radius:1.5mm; padding:2mm; font-size:7pt;"><div style="height:6mm; border-radius:1mm; background:${n === "wycofany" ? "transparent" : h}; border:${n === "wycofany" ? "1.5px solid " + h : "0"}"></div>${n}<br><code style="font-size:6.5pt">${h}</code></div>`).join("");
 
   // Placeholder QR pattern (not a real code): finder squares + deterministic noise.

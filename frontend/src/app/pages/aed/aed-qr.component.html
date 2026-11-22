@@ -49,10 +49,17 @@
         </svg>
         <h1 class="aed-qr__title" id="aed-done" tabindex="-1">Zgłoszenie problemu zapisane</h1>
         <p>
-          Zapisaliśmy dane urządzenia i opis problemu. Urządzenie jest teraz oznaczone jako
+          Zapisaliśmy {{ notSaved() ? 'stan urządzenia' : 'dane urządzenia' }} i opis problemu. Urządzenie jest teraz
+          oznaczone jako
           <strong>czasowo niedostępne</strong>. Nie pojawia się na liście „Dostępne teraz” ani wśród najbliższych
           defibrylatorów, więc nikt nie zostanie do niego skierowany.
         </p>
+        @if (notSaved()) {
+          <p class="aed-message aed-message--warn" id="aed-not-saved">
+            Pozostałych zmian, które wpisano w formularzu (miejsce, godziny, opis), nie zapisaliśmy. Zapiszesz je,
+            gdy po usunięciu problemu potwierdzisz urządzenie jako gotowe do użycia.
+          </p>
+        }
         <p>
           Dane miejsca zostają w rejestrze bez zmian (status danych: „{{ statusLabels[record.status] }}”). Gdy problem
           zostanie usunięty, otwórz ten link jeszcze raz i w kroku 3 wybierz „Jest na miejscu i jest gotowe do użycia”
@@ -126,7 +133,9 @@
           </button>
           <div aria-live="polite">
             @if (located()) {
-              <p class="aed-message aed-message--ok">{{ located() }}</p>
+              <p class="aed-message" [class.aed-message--ok]="!locatedWeak()" [class.aed-message--warn]="locatedWeak()">
+                {{ located() }}
+              </p>
             }
           </div>
           @if (locationError()) {
@@ -200,6 +209,14 @@
               </p>
             }
           </fieldset>
+
+          @if (stan.value === 'problem' && verified()) {
+            <p class="aed-message aed-message--warn" role="status" id="aed-problem-only">
+              Zgłoszenie problemu zapisze tylko stan urządzenia i Twoją uwagę. Zmiany miejsca, godzin i opisu
+              zapiszesz, potwierdzając urządzenie jako gotowe. Wyjątek: zmiana dostępu na „prywatny” zostanie zapisana
+              od razu.
+            </p>
+          }
 
           @if (stan.value === 'problem') {
             <div class="aed-field form-field">
@@ -291,7 +308,9 @@
           </button>
           <div aria-live="polite">
             @if (located()) {
-              <p class="aed-message aed-message--ok">{{ located() }}</p>
+              <p class="aed-message" [class.aed-message--ok]="!locatedWeak()" [class.aed-message--warn]="locatedWeak()">
+                {{ located() }}
+              </p>
             }
           </div>
           @if (locationError()) {

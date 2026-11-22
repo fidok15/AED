@@ -100,6 +100,35 @@ describe('AedQrComponent, manager view', () => {
     expect(page.querySelector('.aed-result__mark--problem')).not.toBeNull();
   });
 
+  it('says that a problem report on a verified record saves only the condition, and which edits were dropped', () => {
+    // The service drops edits sent with a problem report on a verified record: the answer keeps the old description.
+    open(record(), record({ stan_urzadzenia: 'czasowo_niedostepny', data_stanu: '2026-11-22' }));
+    type('#aed-opis_lokalizacji', 'Nowy opis');
+    choose('input[name="aed-stan"][value="problem"]');
+    const notice = page.querySelector('#aed-problem-only');
+    expect(notice.getAttribute('role')).toBe('status');
+    expect(notice.textContent).toContain('zapisze tylko stan urządzenia');
+    type('#aed-uwagi', 'Szafka zamknięta');
+    submit();
+
+    expect(page.querySelector('#aed-not-saved').textContent).toContain('nie zapisaliśmy');
+  });
+
+  it('shows no such notice for a record not verified yet, where a problem report saves the edits', () => {
+    open(
+      record({ status: 'zgloszony' }),
+      record({ status: 'zgloszony', opis_lokalizacji: 'Nowy opis', stan_urzadzenia: 'czasowo_niedostepny' }),
+    );
+    type('#aed-opis_lokalizacji', 'Nowy opis');
+    choose('input[name="aed-stan"][value="problem"]');
+    expect(page.querySelector('#aed-problem-only')).toBeNull();
+    type('#aed-uwagi', 'Szafka zamknięta');
+    submit();
+
+    expect(page.querySelector('#aed-done').textContent).toContain('Zgłoszenie problemu zapisane');
+    expect(page.querySelector('#aed-not-saved')).toBeNull();
+  });
+
   it('sends an emptied optional field as an empty string and leaves untouched empty fields out', () => {
     open(record(), record());
     type('#aed-opis_lokalizacji', '');

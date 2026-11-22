@@ -230,15 +230,15 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size:
 </section>
 
 <!-- 06 · KROK 2 ZARZĄDCA -->
-<section class="slide" data-scene="manager" aria-label="Krok 2: zarządca">
+<section class="slide" data-scene="manager" aria-label="Krok 2: dysponent">
   <div class="bg-diag"></div>
   <svg class="art"></svg>
-  <div class="phone in d5" style="left:1000px;top:150px;width:364px;height:780px"><img src="../frontend/aed-zrzuty/gif/zarzadca.gif" alt="Nagranie strony zarządcy: lokalizacja z telefonu, godziny dostępu, stan urządzenia, potwierdzenie danych"></div>
+  <div class="phone in d5" style="left:1000px;top:150px;width:364px;height:780px"><img src="../frontend/aed-zrzuty/gif/zarzadca.gif" alt="Nagranie strony dysponenta: lokalizacja z telefonu, godziny dostępu, stan urządzenia, potwierdzenie danych"></div>
   <div class="chip pop d11" style="left:1220px;top:770px"><span class="sq"></span><span>Status: zweryfikowany<small>rekord trafia do eksportu</small></span></div>
   <div class="text">
-    <p class="kicker in d1">Krok 2 · zarządca</p>
+    <p class="kicker in d1">Krok 2 · dysponent</p>
     <h1><span class="in d2">Zeskanuj naklejkę.</span><span class="accent in d3">Potwierdź dane.</span></h1>
-    <p class="lead in d4">Naklejka z kodem QR przychodzi razem z urządzeniem. Zarządca potwierdza miejsce i dostęp na swoim telefonie, bez instalowania aplikacji.</p>
+    <p class="lead in d4">Naklejka z kodem QR przychodzi razem z urządzeniem. Dysponent potwierdza miejsce i dostęp na swoim telefonie, bez instalowania aplikacji.</p>
     <ol class="steps">
       <li class="in d8"><span class="num">1</span><span><b>Lokalizacja z telefonu</b><small>współrzędne jednym dotknięciem</small></span></li>
       <li class="in d9"><span class="num">2</span><span><b>Godziny dostępu</b><small>np. całą dobę, we wszystkie dni</small></span></li>
@@ -283,7 +283,7 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size:
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:34px 40px;margin-top:48px">
       <div class="stat in d6"><b data-count="18814">18 814</b><span>rekordów w rejestrze</span></div>
       <div class="stat in d7"><b data-count="266">266</b><span>automatycznych połączeń</span></div>
-      <div class="stat in d8"><b data-count="214">214</b><span>par do ręcznego przeglądu</span></div>
+      <div class="stat in d8"><b data-count="195">195</b><span>par do ręcznego przeglądu</span></div>
       <div class="stat in d9"><b class="accent" data-count="781">781</b><span>rekordów do publikacji</span></div>
     </div>
   </div>
@@ -312,7 +312,7 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size:
     <p class="kicker in d1">Wzorcowy zakres danych</p>
     <h1><span class="in d2">Jedna struktura</span><span class="accent in d3">dla wszystkich źródeł.</span></h1>
     <ul class="bullets">
-      <li class="in d4"><span><b>38 pól</b>, jeden wiersz = jedno urządzenie; CSV w UTF-8, daty RRRR-MM-DD, współrzędne WGS84 w osobnych kolumnach.</span></li>
+      <li class="in d4"><span><b>42 pola</b>, jeden wiersz = jedno urządzenie; CSV w UTF-8, daty RRRR-MM-DD, współrzędne WGS84 w osobnych kolumnach.</span></li>
       <li class="in d5"><span>Dwa profile wymagalności: <b>sprzedaż</b> (dane urządzenia) i <b>publikacja</b> (rekord w zbiorze otwartym).</span></li>
       <li class="in d6"><span><b>wzorzec-aed.xlsx</b>, walidator i formularze powstają z jednego pliku <code>schema.json</code>.</span></li>
       <li class="in d7"><span>Nazwy kolumn adresu zgodne ze zbiorem Legionowa – istniejący plik jest poprawnym podzbiorem standardu.</span></li>
@@ -324,14 +324,14 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size:
 <section class="slide" data-scene="portal" aria-label="Zgodność z dane.gov.pl">
   <div class="bg-diag"></div>
   <svg class="art"></svg>
-  <div class="browser in d5" style="left:1000px;top:130px;width:780px;height:560px"><div class="bar"><i></i><i></i><i></i><span>/pl/aed/registry · rejestr</span></div><img src="../frontend/aed-zrzuty/01-rejestr-lista.jpg" alt="Rejestr AED: lista urządzeń z filtrem statusu i kompletnością"></div>
-  <div class="browser in d7" style="left:1180px;top:520px;width:600px;height:420px;transform:rotate(2deg)"><div class="bar"><i></i><i></i><i></i><span>mapa</span></div><img src="../frontend/aed-zrzuty/03-rejestr-mapa.jpg" alt="Rejestr AED: mapa urządzeń"></div>
+  <div class="browser in d5" style="left:1000px;top:130px;width:780px;height:560px"><div class="bar"><i></i><i></i><i></i><span>/pl/aed/registry · rejestr</span></div><img src="assets/10-mapa-kraj.jpg" alt="Rejestr AED: mapa kraju z grupami urządzeń"></div>
+  <div class="browser in d7" style="left:1180px;top:520px;width:600px;height:420px;transform:rotate(2deg)"><div class="bar"><i></i><i></i><i></i><span>mapa</span></div><img src="assets/11-mapa-miasto-legenda.jpg" alt="Rejestr AED: mapa miasta z legendą statusów"></div>
   <div class="text">
     <p class="kicker in d1">Zgodność z dane.gov.pl</p>
     <h2><span class="in d2">Publikuje Ministerstwo.</span><span class="in d3">Firmy raportują.</span><span class="accent in d4">Obywatel sygnalizuje.</span></h2>
     <ul class="bullets">
       <li class="in d6"><span>Dostawcą zbioru krajowego jest <b>Ministerstwo</b>; firmy raportują przez konta firmowe.</span></li>
-      <li class="in d7"><span>Zbiór do publikacji: <b>CSV, 781 rekordów, 38 kolumn</b>; licencje źródeł (CC0 1.0, CC BY 4.0) w kolumnie <code>licencja</code>.</span></li>
+      <li class="in d7"><span>Zbiór do publikacji: <b>CSV, 781 rekordów, 42 kolumny</b>; licencje źródeł (CC0 1.0, CC BY 4.0) w kolumnie <code>licencja</code>.</span></li>
       <li class="in d8"><span>Bez numeru seryjnego i kontaktu do dysponenta; prywatne AED i rekordy z OpenStreetMap (ODbL) zostają w rejestrze.</span></li>
       <li class="in d9"><span>Moduł AED działa w <b>forku frontendu portalu</b>: nagłówek, stopka i nawigacja dane.gov.pl.</span></li>
     </ul>
@@ -350,7 +350,7 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size:
     <p class="kicker" style="font-size:17px">Reguły łączenia</p>
     <ul class="bullets" style="margin-top:20px;gap:14px">
       <li style="font-size:21px"><span>Ten sam producent i numer seryjny – to samo urządzenie.</span></li>
-      <li style="font-size:21px"><span>Różne źródła do 15 m – łączymy automatycznie; do 50 m – <b>214 par</b> do przeglądu.</span></li>
+      <li style="font-size:21px"><span>Różne źródła do 15 m – łączymy automatycznie; do 50 m – <b>195 par</b> do przeglądu.</span></li>
       <li style="font-size:21px"><span>Dwóch rekordów z tego samego źródła <b>nigdy</b> nie łączymy automatycznie – w budynku bywa kilka urządzeń.</span></li>
     </ul>
     <p class="kicker" style="font-size:17px;margin-top:32px">Średnia kompletność (0–100)</p>
@@ -372,7 +372,7 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size:
     <h1><span class="in d2">Opiekun <span class="accent" style="display:inline">AED</span></span></h1>
     <p class="lead in d3" style="font:500 34px Lexend;color:var(--blue);margin-top:14px">Dbasz o AED? Pokaż to w danych.</p>
     <ul class="bullets">
-      <li class="in d4"><span><b>Jedno miejsce</b> raportowania dla producentów, sprzedawców, zarządców i gmin.</span></li>
+      <li class="in d4"><span><b>Jedno miejsce</b> raportowania dla producentów, sprzedawców, dysponentów i gmin.</span></li>
       <li class="in d5"><span><b>Odznaka</b> dla firmy z aktualnymi danymi: kompletność co najmniej 70 i co najmniej połowa urządzeń zweryfikowanych.</span></li>
       <li class="in d6"><span><b>Ranking</b> kompletności i darmowe <b>przypomnienia</b> o terminach baterii i elektrod.</span></li>
       <li class="in d7"><span>Punkt odniesienia: AED przy Paczkomatach InPost – widoczny znak w przestrzeni publicznej.</span></li>
@@ -391,13 +391,13 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size:
     <div style="display:grid;gap:30px;margin-top:46px">
       <div class="stat in d4"><b>0</b><span>naruszeń axe 4.10 w obszarze AED – 9 widoków, po poprawkach</span></div>
       <div class="stat in d5"><b style="font-size:60px">320 px</b><span>bez przewijania w poziomie; także powiększenie 200%</span></div>
-      <div class="stat in d6"><b style="font-size:60px">Tab · Enter</b><span>cała ścieżka firma → naklejka → zarządca samą klawiaturą</span></div>
+      <div class="stat in d6"><b style="font-size:60px">Tab · Enter</b><span>cała ścieżka firma → naklejka → dysponent samą klawiaturą</span></div>
     </div>
   </div>
   <div class="phone sm in d6" style="left:1000px;top:200px;width:200px;height:420px"><img src="../frontend/aed-zrzuty/320px-start.jpg" alt="Strona startowa w oknie 320 px"></div>
   <div class="phone sm in d7" style="left:1230px;top:170px;width:200px;height:420px"><img src="../frontend/aed-zrzuty/320px-panel-firmy.jpg" alt="Panel firmy w oknie 320 px"></div>
-  <div class="phone sm in d8" style="left:1460px;top:200px;width:200px;height:420px"><img src="../frontend/aed-zrzuty/320px-qr-dysponent.jpg" alt="Strona zarządcy w oknie 320 px"></div>
-  <div class="phone sm in d9" style="left:1690px;top:170px;width:200px;height:420px"><img src="../frontend/aed-zrzuty/320px-rejestr.jpg" alt="Rejestr w oknie 320 px"></div>
+  <div class="phone sm in d8" style="left:1460px;top:200px;width:200px;height:420px"><img src="../frontend/aed-zrzuty/320px-qr-dysponent.jpg" alt="Strona dysponenta w oknie 320 px"></div>
+  <div class="phone sm in d9" style="left:1690px;top:170px;width:200px;height:420px"><img src="assets/13-zakladki-320px.jpg" alt="Rejestr w oknie 320 px"></div>
   <p class="src fade d10">frontend/aed-zrzuty/DOSTEPNOSC.md · axe-4.10.2-po-poprawkach.json</p>
 </section>
 
@@ -416,7 +416,7 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size:
       <li class="n in d6"><span>Rekordy tylko z OpenStreetMap (ODbL) są <b>poza eksportem</b>; wymaga opinii prawnika.</span></li>
     </ul>
     <ul class="bullets" style="margin-top:0">
-      <li class="n in d7"><span>Żaden rekord ze źródeł <b>nie jest jeszcze potwierdzony</b> przez zarządcę.</span></li>
+      <li class="n in d7"><span>Żaden rekord ze źródeł <b>nie jest jeszcze potwierdzony</b> przez dysponenta.</span></li>
       <li class="n in d8"><span><b>Brak obowiązku prawnego</b> raportowania przez sprzedawców – dziś dobrowolność i zachęty.</span></li>
       <li class="n in d9"><span>Czy numer seryjny trafi do zbioru otwartego – <b>decyzja otwarta</b>.</span></li>
       <li class="n in d10"><span>Usługa demonstracyjna: jednowątkowa, bez limitu prób logowania.</span></li>
@@ -658,7 +658,7 @@ function buildNodes() {
     registry: `<svg viewBox="0 0 120 120" width="120"><g fill="${NAVY}"><rect x="20" y="16" width="80" height="24" rx="6"/><rect x="20" y="48" width="80" height="24" rx="6"/><rect x="20" y="80" width="80" height="24" rx="6"/></g><circle cx="34" cy="28" r="4" fill="${SKY}"/><circle cx="34" cy="60" r="4" fill="${AMBER}"/><circle cx="34" cy="92" r="4" fill="${SKY}"/></svg>`,
     portal: `<svg viewBox="0 0 120 120" width="120"><rect x="10" y="18" width="100" height="80" rx="10" fill="#fff" stroke="${NAVY}" stroke-width="4"/><path d="M10 38h100" stroke="${NAVY}" stroke-width="4"/><circle cx="22" cy="28" r="3.5" fill="${AMBER}"/><circle cx="33" cy="28" r="3.5" fill="${SKY}"/><path d="M24 54h40M24 66h60M24 78h30" stroke="${SKY}" stroke-width="6" stroke-linecap="round"/><text x="60" y="114" text-anchor="middle" font-family="Lexend" font-weight="700" font-size="15" fill="${NAVY}">dane.gov.pl</text></svg>`,
   };
-  const N = [["seller", "Sprzedawca", "zgłasza urządzenia plikiem CSV lub formularzem"], ["sticker", "Naklejka QR", "trafia z urządzeniem do zarządcy"], ["phone", "Zarządca", "potwierdza miejsce, godziny i stan"], ["registry", "Ministerstwo", "rejestr, deduplikacja, przypomnienia"], ["portal", "dane.gov.pl", "jeden otwarty zbiór; dostawca: Ministerstwo"]];
+  const N = [["seller", "Sprzedawca", "zgłasza urządzenia plikiem CSV lub formularzem"], ["sticker", "Naklejka QR", "trafia z urządzeniem do dysponenta"], ["phone", "Dysponent", "potwierdza miejsce, godziny i stan"], ["registry", "Ministerstwo", "rejestr, deduplikacja, przypomnienia"], ["portal", "dane.gov.pl", "jeden otwarty zbiór; dostawca: Ministerstwo"]];
   const cx = i => 230 + i * 365;
   let h = "";
   N.forEach(([k, t, d], i) => {
@@ -676,7 +676,7 @@ function buildNodes() {
   svg.innerHTML = lines;
 }
 function buildStates() {
-  const S = [["Z", "zgłoszony", "sprzedawca podał dane urządzenia"], ["✓", "zweryfikowany", "dysponent potwierdził miejsce i dostęp"], ["N", "nieaktualny", "brak potwierdzenia przez 365 dni"], ["W", "wycofany", "urządzenie wycofane z użycia"]];
+  const S = [["Z", "zgłoszony", "sprzedawca podał dane urządzenia"], ["A", "zweryfikowany", "dysponent potwierdził miejsce i dostęp"], ["N", "nieaktualny", "brak potwierdzenia przez 365 dni"], ["W", "wycofany", "urządzenie wycofane z użycia"]];
   const cx = i => 300 + i * 420, Y = 520;
   let h = "", svg = "";
   S.forEach(([k, name, d], i) => {
@@ -689,7 +689,7 @@ function buildStates() {
   svg += `<g class="pop d10"><circle cx="${(cx(1) + cx(2)) / 2}" cy="${Y}" r="16" fill="${AMBER}"/></g>
     <text class="fade d10" x="${(cx(1) + cx(2)) / 2}" y="${Y + 48}" text-anchor="middle" font-family="Lexend" font-weight="600" font-size="20" fill="${NAVY}"><tspan>183 dni:</tspan><tspan x="${(cx(1) + cx(2)) / 2}" dy="24">prośba o potwierdzenie</tspan></text>
     <path class="draw d11" d="M${cx(2)} ${Y - 80} C${cx(2)} ${Y - 200} ${cx(1)} ${Y - 200} ${cx(1)} ${Y - 80}" fill="none" stroke="${BLUE}" stroke-width="5" stroke-dasharray="3000"/>
-    <text class="fade d11" x="${(cx(1) + cx(2)) / 2}" y="${Y - 190}" text-anchor="middle" font-family="Atkinson Hyperlegible" font-size="21" fill="${BLUE}">zarządca potwierdza ponownie</text>`;
+    <text class="fade d11" x="${(cx(1) + cx(2)) / 2}" y="${Y - 190}" text-anchor="middle" font-family="Atkinson Hyperlegible" font-size="21" fill="${BLUE}">dysponent potwierdza ponownie</text>`;
   h += `<div class="chip pop d12" style="left:${cx(0) - 130}px;top:840px"><span class="sq u"></span><span>niepotwierdzony<small>rekord z mappera, nikt go nie potwierdził – poza eksportem</small></span></div>`;
   svg += `<path class="draw d12" d="M${cx(0) + 380} 880 C${cx(1)} 880 ${cx(1)} 760 ${cx(1)} 730" fill="none" stroke="${GREY}" stroke-width="4" stroke-dasharray="3000"/>
     <text class="fade d13" x="${cx(1) + 30}" y="830" font-family="Atkinson Hyperlegible" font-size="20" fill="${NAVY}">właściciel potwierdza</text>`;
