@@ -99,7 +99,7 @@ describe('AedConverterComponent', () => {
       },
     });
     fixture.detectChanges();
-    expect(page.textContent).toContain('1 wierszy ma adres bez współrzędnych');
+    expect(page.textContent).toContain('1 wiersz ma adres bez współrzędnych – nie trafi do wykazu');
     const link = page.querySelector<HTMLAnchorElement>('a[download]');
     expect(link.textContent).toContain('Pobierz wykaz w standardzie (CSV)');
     expect(link.getAttribute('download')).toBe('krosno-wykaz-aed.csv');

@@ -14,12 +14,12 @@
   <p class="aed-step">Krok 1 z 3</p>
   <h2 class="aed-h2" id="aed-conv-step1">Wgraj swój plik</h2>
   <div class="aed-field">
-    <label class="aed-field__label" for="aed-conv-plik">Plik z defibrylatorami – dowolny format z danymi</label>
+    <label class="aed-field__label" for="aed-conv-plik">Plik z defibrylatorami</label>
     <p class="aed-field__hint" id="aed-conv-plik-hint">
       Przyjmowane formaty: CSV, XLSX, ODS, JSON i GeoJSON (także z usług ArcGIS), KML i KMZ (np. Google Moje Mapy),
       GPX, GML, tabela na stronie HTML albo w dokumencie DOCX. Format rozpoznajemy po treści. Położenie może być w
       dwóch kolumnach, w jednej („52.2297, 21.0122”), w stopniach i minutach albo w układzie PUWG 1992 / 2000. Dowolny
-      układ kolumn, najwyżej 5 MB.
+      układ kolumn, najwyżej 5 MB. PDF oraz stare pliki XLS i DOC trzeba najpierw zapisać jako CSV albo XLSX.
     </p>
     <input
       class="form-control"
@@ -123,7 +123,7 @@
                 </select>
                 @if (column.powod) {
                   <p class="aed-field__hint" [id]="'aed-conv-why-' + i">
-                    Propozycja: {{ targetTitle(column.pole) }} ({{ column.powod }})
+                    Propozycja: {{ targetTitle(column.pole) }} – {{ column.powod }}
                   </p>
                 }
                 @if (repeated().includes(mapping()[column.kolumna])) {
@@ -216,8 +216,16 @@
         {{ result.raport.poza_wykazem_krajowym }}.
       </p>
     }
-    @if (result.raport.bez_wspolrzednych_komunikat) {
-      <p class="aed-message aed-message--warn"><strong>Brak położenia:</strong> {{ result.raport.bez_wspolrzednych_komunikat }}</p>
+    @if (noPosition()) {
+      <p class="aed-message aed-message--warn"><strong>Brak położenia:</strong> {{ noPosition() }}</p>
+      @if (!result.raport.poprawne) {
+        <!-- Nothing passed, but the file is still the way forward: it has the rows, only the positions are missing. -->
+        <p>
+          <a class="btn btn-primary" [href]="downloadHref()" [download]="result.nazwa_pliku"
+            >Pobierz plik do uzupełnienia współrzędnych (CSV)</a
+          >
+        </p>
+      }
     }
     @if (result.raport.ukryte_komunikat) {
       <p class="aed-message aed-message--warn"><strong>Uwaga:</strong> {{ result.raport.ukryte_komunikat }}</p>
@@ -294,7 +302,7 @@
         <li>Opublikuj pobrany plik jako zasób w swoim zbiorze i zaznacz „Wykaz AED: TAK”.</li>
         <li>Portal sprawdzi plik tym samym standardem i dołączy go do krajowego wykazu AED.</li>
       </ol>
-    } @else {
+    } @else if (!result.raport.bez_wspolrzednych) {
       <p class="aed-message">
         Żaden wiersz nie spełnia standardu. Sprawdź przypisanie kolumn (zwłaszcza współrzędnych i nazwy miejsca) albo
         uzupełnij wartości wspólne.
