@@ -25,8 +25,8 @@ import segno
 from xml.sax.saxutils import escape as xml_escape  # noqa: E402
 
 import aed_standard
-from aed_standard import konwerter
-from aed_standard.sources import OSM_ROW_MESSAGE, from_osm, haversine_m
+from aed_standard import konwerter, registry
+from aed_standard.sources import OSM_ROW_MESSAGE, WARSAW, from_osm, haversine_m
 from aed_standard.validate import ERROR, issue
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -841,12 +841,36 @@ def origin_param(req):
     return point
 
 
-def list_devices(req, resp):
+# Filters shared by the list and the map, so that both always show the same devices.
+EXACT_FILTERS = ("status", "zrodlo", "dostep")  # dictionary values, compared as they are
+TEXT_FILTERS = {"miejscowosc": "miejscowosc",   # free text: letter case ignored (SQLite lower(), as /filtry groups)
+                "producent": "json_extract(data, '$.producent')",
+                "model": "json_extract(data, '$.model')",
+                "wewnatrz_budynku": "json_extract(data, '$.wewnatrz_budynku')"}
+ALL_DAY = "24/7"
+
+
+def device_filters(req):
+    """-> (where, args) for GET /urzadzenia and /urzadzenia.geojson. Private devices are never listed."""
     where, args = ["dostep != 'prywatny'"], []
-    for param in ("status", "zrodlo", "dostep"):
+    for param in EXACT_FILTERS:
         if req.get_param(param):
-            where.append("%s=?" % param)
+            where.append("%s=?" % param)  # column names come from code, values are bound
             args.append(req.get_param(param))
+    for param, expr in TEXT_FILTERS.items():
+        if (req.get_param(param) or "").strip():
+            where.append("lower(%s) = lower(?)" % expr)
+            args.append(req.get_param(param).strip())
+    if req.get_param_as_bool("calodobowo"):
+        where.append("godziny = ?")
+        args.append(ALL_DAY)
+    if req.get_param_as_bool("z_godzinami"):
+        where.append("godziny != ''")
+    return where, args
+
+
+def list_devices(req, resp):
+    where, args = device_filters(req)
     q = (req.get_param("q") or "").strip().casefold()
     if q:
         # name or town; or the exact id, which the map's "Pokaż na liście" searches for
@@ -903,11 +927,9 @@ def open_states():
 
 
 def geojson(req, resp):
-    where, args = ["dostep != 'prywatny'", "lat IS NOT NULL", "lon IS NOT NULL"], []
-    if req.get_param("status"):
-        where.append("status=?")
-        args.append(req.get_param("status"))
-    else:
+    where, args = device_filters(req)
+    where.append("lat IS NOT NULL AND lon IS NOT NULL")
+    if not req.get_param("status"):
         where.append("status != 'wycofany'")  # as the list: never show a withdrawn device unless asked for it
     bbox = req.get_param("bbox")
     if bbox:
@@ -944,6 +966,52 @@ def stats(req, resp):
             "SELECT COUNT(*) FROM devices WHERE %s AND origin!='import' AND data_weryfikacji>=?" % pub, (since,)).fetchone()[0],
         "ostatnie_uruchomienia": {col: (db.execute("SELECT MAX(start) FROM jobs WHERE %s IS NOT NULL" % col).fetchone()[0])
                                   for col in ("mapper", "przypomnienia")}}
+
+
+def counted(db, exprs, cond):
+    """-> [(values, count)] of devices matching `cond`, most common first. Values that differ only in letter case
+    (SQLite lower(), as the filters compare them) are one, shown in their most common spelling."""
+    cols = ", ".join(exprs)
+    keys = ", ".join("lower(%s)" % e for e in exprs)
+    n, groups = len(exprs), {}
+    for row in db.execute("SELECT %s, %s, COUNT(*) FROM devices WHERE %s GROUP BY %s, %s" % (keys, cols, cond, keys, cols)):
+        row = tuple(row)
+        group = groups.setdefault(row[:n], [0, None, 0])  # total, best spelling, its count
+        group[0] += row[-1]
+        if row[-1] > group[2]:
+            group[1:] = [row[n:-1], row[-1]]
+    return sorted(((g[1], g[0]) for g in groups.values()), key=lambda item: (-item[1], item[0]))
+
+
+@functools.lru_cache(maxsize=1)
+def source_labels():
+    """zrodlo -> name shown to people, from aed_standard/sources.json."""
+    labels = {registry.SUBMISSION: "Zgłoszenia firm i dysponentów", WARSAW: "API Warszawy (um.warszawa.pl)"}
+    for e in registry.load_registry()[0]:
+        labels.setdefault(e["zrodlo"], "dane.gov.pl – " + e["label"] if e["zrodlo"].startswith("dane.gov.pl/") else e["label"])
+    return labels
+
+
+def filter_options(req, resp):
+    """Values offered by the extra filters of the registry, counted over public devices that are not withdrawn."""
+    db = req.context.db
+    pub = "dostep != 'prywatny' AND status != 'wycofany'"
+    t = TEXT_FILTERS
+    one = lambda sql, *args: db.execute("SELECT COUNT(*) FROM devices WHERE %s AND %s" % (pub, sql), args).fetchone()[0]
+    labels = source_labels()
+    resp.media = {
+        "razem": one("1"),
+        "producent": [{"wartosc": v[0], "liczba": n}
+                      for v, n in counted(db, [t["producent"]], "%s AND %s != ''" % (pub, t["producent"]))],
+        "model": [{"wartosc": v[1], "producent": v[0] or "", "liczba": n}
+                  for v, n in counted(db, [t["producent"], t["model"]], "%s AND %s != ''" % (pub, t["model"]))],
+        "miejscowosc": [{"wartosc": v[0], "liczba": n} for v, n in counted(db, ["miejscowosc"], pub + " AND miejscowosc != ''")],
+        "zrodlo": [{"wartosc": z, "etykieta": labels.get(z, z), "liczba": n} for z, n in db.execute(
+            "SELECT zrodlo, COUNT(*) n FROM devices WHERE %s GROUP BY zrodlo ORDER BY n DESC, zrodlo" % pub)],
+        "dostep": dict(db.execute("SELECT dostep, COUNT(*) FROM devices WHERE %s GROUP BY dostep" % pub).fetchall()),
+        "wewnatrz_budynku": {v: one("%s = ?" % t["wewnatrz_budynku"], v) for v in ("tak", "nie")},
+        "z_godzinami": one("godziny != ''"),
+        "calodobowo": one("godziny = ?", ALL_DAY)}
 
 
 def sellers(req, resp):
@@ -988,7 +1056,7 @@ FEED_DESCRIPTION = (
     "seryjnych, urządzeń prywatnych ani rekordów znanych tylko z OpenStreetMap.")
 RESOURCE_DESCRIPTION = (
     "Plik CSV (UTF-8, separator przecinek, daty RRRR-MM-DD) z rekordami spełniającymi profil publikacji standardu AED. "
-    "Kolumna status mówi, czy zarządca potwierdził urządzenie (aktywny), a kompletnosc - jak pełny jest rekord (0-100).")
+    "Kolumna status mówi, czy zarządca potwierdził urządzenie (wartość aktywny, w interfejsie „zweryfikowany”), a kompletnosc - jak pełny jest rekord (0-100).")
 
 
 def harvester_xml_bytes(db):
@@ -1381,6 +1449,7 @@ def build_app(conn):
     route(app, "/urzadzenia/{id_aed}/sygnal", post=signal)
     route(app, "/urzadzenia/{id_aed}/link-aktywacyjny", post=issue_link)
     route(app, "/statystyki", get=stats)
+    route(app, "/filtry", get=filter_options)
     route(app, "/sprzedawcy", get=sellers)
     route(app, "/eksport/dane-gov-pl.csv", get=export_csv, head=export_csv)
     route(app, "/eksport/dane-gov-pl.xml", get=export_xml, head=export_xml)  # the harvester sends HEAD first

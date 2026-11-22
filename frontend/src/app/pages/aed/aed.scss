@@ -558,6 +558,71 @@
     }
   }
 
+  // "Dodatkowe filtry": folded; groups side by side on a wide screen, one column on a phone.
+  details.aed-more {
+    margin: 0 0 1rem;
+    padding: 0 1rem;
+    border: 1px solid var(--aed-line);
+
+    summary {
+      min-height: 2.75rem;
+      font-weight: 700;
+    }
+
+    &[open] {
+      padding-bottom: 1rem;
+    }
+  }
+
+  .aed-more {
+    &__count {
+      font-weight: 400;
+    }
+
+    &__grid {
+      display: grid;
+      // at most three columns: five groups make two even rows
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, max(16rem, calc((100% - 4rem) / 3))), 1fr));
+      gap: 1rem 2rem;
+      margin: 0.5rem 0 1rem;
+    }
+
+    &__group {
+      min-width: 0;
+      margin: 0;
+      padding: 0;
+      border: 0;
+
+      .form-control {
+        max-width: 100%;
+      }
+
+      .aed-note {
+        margin: 0.375rem 0 0;
+      }
+    }
+
+    &__next {
+      margin-top: 0.75rem;
+    }
+
+    &__choice {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-height: 2.25rem;
+      margin: 0;
+      cursor: pointer;
+
+      input {
+        flex: none;
+        width: 1.125rem;
+        height: 1.125rem;
+        accent-color: var(--aed-blue);
+      }
+    }
+  }
+
   .aed-search {
     margin: 1.5rem 0 0;
 
@@ -662,13 +727,70 @@
     }
   }
 
+  // "Przejdź do listy urządzeń" right under the title, before the map.
+  .aed-skip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    margin: -0.75rem 0 0.25rem;
+  }
+
   .aed-map {
-    margin-top: 3rem;
+    margin-top: 0.5rem;
 
     &__canvas {
-      height: min(34rem, 75vh);
+      height: min(34rem, 70vh);
       border: 1px solid var(--aed-control);
       font: inherit;
+
+      @media (max-width: 575.98px) {
+        height: min(26rem, 58vh);
+      }
+    }
+
+    // "Moja lokalizacja" in the bar of + and −: same size and look as the zoom buttons.
+    &__locate {
+      display: grid;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      place-items: center;
+      border: 0;
+      border-top: 1px solid #ccc;
+      border-radius: 0 0 2px 2px;
+      background: #fff;
+      color: var(--aed-ink);
+      cursor: pointer;
+
+      &:hover {
+        background: #f4f4f4;
+      }
+
+      svg {
+        fill: none;
+        stroke: currentcolor;
+        stroke-width: 2;
+        stroke-linecap: round;
+      }
+
+      .aed-map__locate-dot {
+        fill: currentcolor;
+        stroke: none;
+      }
+    }
+
+    // The zoom-out button is no longer the last one in the bar.
+    .leaflet-control-zoom-out {
+      border-bottom: 0;
+      border-radius: 0;
+    }
+
+    .leaflet-bar a:focus-visible,
+    .leaflet-bar button:focus-visible {
+      position: relative;
+      z-index: 1;
+      outline: 3px solid var(--aed-blue);
+      outline-offset: 0;
     }
 
     &__canvas--small {
@@ -935,7 +1057,7 @@
   }
 
   details.aed-legend {
-    margin: 0 0 0.75rem;
+    margin: 0.75rem 0 0;
     padding: 0.5rem 1rem 0.75rem;
     border: 1px solid var(--aed-line);
     background: var(--aed-paper);
@@ -985,10 +1107,24 @@
   .aed-near {
     margin: 1.5rem 0;
 
-    &__locate {
-      display: block;
-      min-height: 3rem;
+    &__row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 0.75rem;
       margin-bottom: 0.75rem;
+
+      .btn {
+        min-height: 2.75rem;
+      }
+
+      .btn-link {
+        padding-inline: 0;
+      }
+    }
+
+    &__locate {
+      min-height: 3rem;
 
       @media (max-width: 575.98px) {
         width: 100%;
@@ -1006,17 +1142,6 @@
 
     &__how {
       margin: 0.5rem 0 0;
-    }
-
-    &__actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem 0.75rem;
-      margin: 0.75rem 0 1.5rem;
-
-      .btn-link {
-        padding-inline: 0;
-      }
     }
   }
 
@@ -1647,6 +1772,129 @@ html:has(.aed--app) {
       padding: 3mm;
       border: 0.3mm dashed #000;
       color: #000;
+    }
+  }
+}
+
+// ---- Narrow-screen tables: CSV validation report (company panel) and duplicate review (ministry panel) ----
+// Kept in one block at the end of the file (review notes A6, A7).
+.aed {
+  .aed-problems__label {
+    display: none;
+  }
+
+  // A6: below 640 px each problem is a card – row number and kind on top, column and fix below.
+  // The table keeps explicit ARIA roles in the markup, so changing `display` here does not drop its semantics.
+  @media (max-width: 639.98px) {
+    .aed-problems {
+      &,
+      tbody,
+      caption {
+        display: block;
+      }
+
+      thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+
+      tr {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas:
+          'no level'
+          'field field'
+          'fix fix';
+        gap: 0.25rem 0.75rem;
+        margin-top: 0.75rem;
+        padding: 0.75rem;
+        border: 1px solid var(--aed-line);
+        border-left: 4px solid var(--aed-warn);
+        border-radius: 0.25rem;
+        background: var(--aed-paper);
+      }
+
+      .aed-problems__row--error {
+        border-left-color: var(--aed-error);
+      }
+
+      td {
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .aed-problems__row-no {
+        grid-area: no;
+        font-weight: 700;
+      }
+
+      .aed-problems__level {
+        grid-area: level;
+        justify-self: end;
+        font-weight: 700;
+      }
+
+      .aed-problems__field {
+        grid-area: field;
+      }
+
+      .aed-problems__fix {
+        grid-area: fix;
+      }
+
+      .aed-problems__label {
+        display: inline;
+        color: var(--aed-muted);
+      }
+
+      .aed-problems__row-no .aed-problems__label {
+        color: inherit;
+      }
+    }
+  }
+
+  // A7: differing fields by default, a toggle for all of them, and the decision right under the comparison.
+  .aed-compare__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    margin-top: 1rem;
+  }
+
+  .aed-compare__count {
+    margin: 0;
+  }
+
+  .aed-compare td {
+    overflow-wrap: anywhere;
+  }
+
+  .aed-decision {
+    margin: 1rem 0;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--aed-line);
+    border-bottom: 1px solid var(--aed-line);
+    background: var(--aed-surface);
+
+    &__label {
+      margin: 0;
+    }
+
+    .aed-actions {
+      margin: 0.75rem 0 0;
+    }
+
+    .btn {
+      white-space: normal;
+      text-align: left;
     }
   }
 }

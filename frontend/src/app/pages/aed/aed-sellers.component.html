@@ -12,7 +12,7 @@
   <p>
     Odznakę dostaje firma, której urządzenia mają średnią kompletność danych co najmniej
     <strong>{{ sellers.progi.srednia_kompletnosc }}%</strong> i z których co najmniej
-    <strong>{{ number(sellers.progi.udzial_aktywnych * 100) }}%</strong> jest potwierdzonych przez dysponenta.
+    <strong>{{ number(sellers.progi.udzial_aktywnych * 100) }}%</strong> jest zweryfikowanych – dysponent potwierdził ich miejsce, dostęp i godziny.
   </p>
 
   @if (ranked().length) {
@@ -27,7 +27,7 @@
             <th scope="col">Firma</th>
             <th scope="col" class="aed-table__number">Urządzenia</th>
             <th scope="col" class="aed-table__number">Średnia kompletność</th>
-            <th scope="col" class="aed-table__number">Potwierdzone</th>
+            <th scope="col" class="aed-table__number">Zweryfikowane</th>
             <th scope="col">Odznaka</th>
           </tr>
         </thead>

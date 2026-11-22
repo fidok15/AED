@@ -314,6 +314,19 @@ class BuildTest(unittest.TestCase):
         _, pub = A.validate_csv(read(os.path.join(ROOT, "wzorzec", "przyklad-publikacja.csv")), "publikacja")
         self.assertTrue(pub["poprawny"], pub["problemy"])
 
+    def test_template_public_view(self):
+        """The open-data view has exactly the published columns, a valid example and its own XLSX sheet."""
+        import re
+        import zipfile
+        from aed_standard.build import HIDDEN_PUBLIC
+        text = read(os.path.join(ROOT, "wzorzec", "przyklad-dane-otwarte.csv"))
+        self.assertEqual(text.splitlines()[0].decode("utf-8").split(","), [n for n in S.FIELD_NAMES if n not in HIDDEN_PUBLIC])
+        _, rep = A.validate_csv(text, "publikacja")
+        self.assertTrue(rep["poprawny"], rep["problemy"])
+        with zipfile.ZipFile(os.path.join(ROOT, "wzorzec", "wzorzec-aed.xlsx")) as z:
+            sheets = re.findall(r'<sheet [^>]*name="([^"]+)"', z.read("xl/workbook.xml").decode("utf-8"))
+        self.assertEqual(sheets[:2], ["Dane", "Dane otwarte (publikacja)"])  # "Dane" stays first: the converter reads it
+
     def test_malformed_files_are_file_level_problems(self):
         cases = {
             b",,\n": "pusty_plik",
