@@ -53,6 +53,26 @@ Dostawca (samorząd, instytucja, firma) publikuje w swoim zbiorze zasób CSV w s
 7. Mapa zasobu zbiorczego.
 8. Ocena otwartości i API zasobu (`/resources/<id>/data`).
 
+## Powiadomienie dostawcy o wyniku scalania
+
+Wykaz XLSX i wykaz z linku portal sprawdza dopiero przy scalaniu, a wykaz zapisany wcześniej może przestać przechodzić (np. minął termin baterii). Dlatego po każdym scalaniu portal pisze do dostawcy (`backend/mcod/aed/notifications.py`, szablony `backend/mcod/aed/templates/mails/aed-list-result.{txt,html}` w stylu powiadomień portalu):
+
+- **kiedy:** wykaz ma status `odrzucony` albo `czesciowo`, a wynik różni się od poprzedniego scalania (status, liczba odrzuconych wierszy, liczba lub treść problemów; porównanie z `AggregatedAEDInfo.report`). Gdy wykaz wcześniej odrzucony przechodzi w całości – jedna wiadomość „Wykaz AED przyjęty w całości”. Ten sam wynik przy codziennym scalaniu nie daje kolejnej wiadomości;
+- **treść:** zasób i zbiór, ile wierszy przyjęto i odrzucono, do 10 pierwszych problemów (najpierw błędy; wiersz, pole, komunikat), link do zasobu w panelu, link do zbioru i raportu `/aed-aggregated`; przy `czesciowo` zdanie, że poprawne wiersze trafiły do wykazu krajowego; link do wzorca i konwertera, jeśli ustawiono `MAIN_AED_LIST_HELP_URL` (np. `https://<domena>/pl/aed/!konwerter`), inaczej bez linku;
+- **adresat:** wyłącznie kontakt instytucjonalny – „E-mail do powiadomień” zbioru (`update_notification_recipient_email`, to samo pole, którego portal używa do przypomnień o aktualizacji), a gdy go brak – adres e-mail instytucji. W odróżnieniu od przypomnienia portalu nie ma powrotu do adresu redaktora (`modified_by`). Bez żadnego adresu: wpis w logu, bez wysyłki;
+- **błędy:** wysyłka idzie po zapisaniu wyniku scalania; wyjątek przy wysyłce jest logowany i nie cofa scalania ani nie blokuje wiadomości do innych dostawców;
+- **przełącznik:** `MAIN_AED_NOTIFY_PROVIDERS` (domyślnie włączone; `false` wyłącza), stała w `mcod/aed/constants.py`.
+
+Pierwsze scalanie po wdrożeniu nie wyśle wiadomości o wykazach, które już były odrzucone w poprzednim raporcie (wynik się nie zmienił).
+
+Sprawdzone 22.11 ok. 02:30 na lokalnym stosie: raport w `AggregatedAEDInfo` wyczyszczony w `manage.py shell` (stan „pierwsze scalanie”), `create_main_aed_resource` przez Celery → log „AED list notifications sent: 1 of 1.”, wiadomość „Wykaz AED odrzucony: Wykaz AED – Gmina Krosno” do `admin@mcod.local` w MailHog (`http://localhost:8025`, zrzut `docs/zrzuty/portal-12-mail-odrzucony-wykaz.png` – prawdziwy ekran skrzynki, część HTML). Drugie scalanie bez zmian → „sent: 0 of 0”. Zasób zbiorczy po teście: 781 rekordów. Testy: `mcod/aed/tests/test_notifications.py` (wysyłka przy odrzuceniu, brak powtórki, wiadomość po naprawie, błąd SMTP nie przerywa, przełącznik).
+
+## Harvester XML: schemat 1.14 z `containsAedList`
+
+Zasób z harvestera XML oznacza się jako wykaz AED sam, bez panelu: nowa wersja schematu `backend/data/harvester/xml_import_otwarte_dane_1_14.xsd` (kopia 1.13, przestrzeń nazw `urn:otwarte-dane:harvester:1.14` i jeden opcjonalny element zasobu `containsAedList` typu `xs:boolean`, bez wartości domyślnej). Importer wybiera wersję XSD z przestrzeni nazw korzenia (`mcod/harvester/utils.py`, `get_xml_schema_version`), więc nowa wersja to jeden wpis w `HARVESTER_XML_VERSION_TO_SCHEMA_PATH` (`mcod/settings/base.py`) i jedno pole `contains_aed_list = Bool(data_key="containsAedList")` w `XMLResourceSchema` (`mcod/harvester/serializers.py`). Importer zapisuje do zasobu wszystkie pola z serializera, więc bez migracji. Pole nie ma wartości domyślnej: plik 1.13 albo 1.14 bez elementu nie zmienia flagi ustawionej ręcznie w panelu. Wykaz z harvestera nie przechodzi walidacji formularza – sprawdza go scalanie (jak wykaz z linku), a o odrzuceniu dostawca dowie się e-mailem. Test: `mcod/aed/tests/test_harvester.py` (przykład 1.13 z testów harvestera przeniesiony do 1.14). Pełnego importu harvesterem w działającym stosie nie uruchamiano.
+
+Usługa `aed_service` wystawia zasilanie w wersji 1.13 (`/api/aed/eksport/dane-gov-pl.xml`). Żeby jej zasób oznaczał się jako wykaz, trzeba zmienić przestrzeń nazw na `urn:otwarte-dane:harvester:1.14` i dopisać w elemencie `resource` jedną linię `<containsAedList>true</containsAedList>`.
+
 ## Co sprawdzono, a czego nie
 
 Stan na 22.11, ok. 01:55. Portal uruchomiony na Macu (Apple Silicon, Docker Desktop 8 GB), w katalogu `backend/`.
@@ -155,7 +175,7 @@ Zrzuty (`docs/zrzuty/`): `portal-01`, `-02`, `-03`, `-06`, `-07`, `-08`, `-10`, 
 ### Nadal niesprawdzone
 
 - harmonogram Celery beat o 03:45 (zadanie uruchamiano ręcznie; wpis w harmonogramie sprawdza tylko `test_celery.py`);
-- pliki XLSX jako wykazy, harvester XML; zasób-link przeszedł tylko `--dry-run`, nie scalanie właściwe;
+- pliki XLSX jako wykazy, pełny import harvesterem XML (sprawdzono tylko parser i serializer testem); zasób-link przeszedł tylko `--dry-run`, nie scalanie właściwe;
 - mapa w buildzie produkcyjnym frontendu (`build:aed`) – sprawdzono tylko `ng serve --no-prebundle`;
 - przy dwóch scaleniach w jednym dniu plik dostaje dopisek Django (`..._TiO6y0n.csv`), bo nazwa zawiera tylko datę; działa, ale nazwa jest mniej czytelna.
 
@@ -165,5 +185,5 @@ Obrazy: usługi ok. 8 min, obraz testowy ok. 10 min (emulacja amd64, pobieranie 
 
 Znane ograniczenia:
 
-- harvester XML i CKAN nie przenoszą flagi wykazu AED. Zasób z harvestera redaktor oznacza ręcznie w panelu; przy kolejnych importach harvester nadpisuje tylko pola ze swojego serializera, więc flaga powinna zostać (wniosek, nie sprawdzono);
+- harvester CKAN nie przenosi flagi wykazu AED (XML – od schematu 1.14, sekcja wyżej). Zasób z CKAN albo z XML 1.13 redaktor oznacza ręcznie w panelu; przy kolejnych importach harvester nadpisuje tylko pola ze swojego serializera, więc flaga powinna zostać (wniosek, nie sprawdzono);
 - plik XLSX jest sprawdzany dopiero przy scalaniu (na kopii CSV portalu), a nie w formularzu.
