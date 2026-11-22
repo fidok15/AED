@@ -210,10 +210,14 @@ def read_table(data, filename=""):
         raise ConverterError("Pliku nie da się odczytać – ma uszkodzoną albo nietypową budowę. Zapisz go ponownie "
                              "jako CSV albo XLSX.")
     # A file exported from OpenStreetMap as a whole (CLAUDE.md, rule 3): every row gets the OSM mark in convert().
-    t["osm"] = formaty.osm_origin(t["format"], raw.get("text"), t["columns"], t["rows"])
+    t["osm"], t["osm_rows"] = formaty.osm_origin(t["format"], raw.get("text"), t["columns"], t["rows"])
     if t["osm"]:
         t["notes"].append("Plik rozpoznano jako eksport z OpenStreetMap (%s) – wszystkie wiersze mają licencję ODbL "
                           "i nie trafią do wykazu." % t["osm"])
+    elif t["osm_rows"]:
+        n, reason = next(iter(t["osm_rows"].items()))
+        t["notes"].append("%d obiektów ma znaczniki OpenStreetMap (np. wiersz %d: %s) – tylko te wiersze nie trafią do "
+                          "wykazu, pozostałe są sprawdzane normalnie." % (len(t["osm_rows"]), n, reason))
     return t
 
 
@@ -338,8 +342,10 @@ def _positions(columns, rows, notes):
         found = [c for c in cells if c]
         if len(found) < 0.8 * len(vals):
             continue
-        srid = re.match(r"\s*SRID=(\d+);", vals[0])
-        system = uklady.EPSG.get(int(srid.group(1))) if srid else None
+        # Each point keeps its own SRID (a GML file may mix EPSG:4326 and EPSG:2180); unmarked points share the
+        # system that fits most of them.
+        srids = [re.match(r"\s*SRID=(\d+);", str(row.get(col) or "")) for _, row, _ in rows]
+        own = [uklady.EPSG.get(int(m.group(1))) if m else None for m in srids]
         if found[0][2] == "latlon":
             points = [(c[0], c[1]) if c else None for c in cells]
             label = "stopnie, minuty i sekundy"
@@ -347,14 +353,23 @@ def _positions(columns, rows, notes):
             # WKT and ArcGIS give x (easting) first; a plain pair is usually written latitude first (and so is a GML
             # pos in EPSG:2180, whose axis order is northing, easting).
             x_first = found[0][2] == "xy"
-            best = (system, not x_first) if system is not None else uklady.best_system([c[:2] for c in found], x_first)
-            if best is None:
+            unmarked = [c[:2] for c, s in zip(cells, own) if c and s is None]
+            best = uklady.best_system(unmarked, x_first) if unmarked else None
+            if best is None and not any(s is not None for c, s in zip(cells, own) if c):
                 continue
-            system, swapped = best
-            # a single row written the other way round (as in Krosno) is turned back, like swap_lat_lon_outside_pl
-            points = [(uklady.convert(system, *((c[1], c[0]) if swapped else c[:2]))
-                       or uklady.convert(system, *(c[:2] if swapped else (c[1], c[0])))) if c else None for c in cells]
-            label = uklady.SYSTEMS[system][0]
+            used = set()
+
+            def to_wgs84(c, system):
+                # WKT/ArcGIS: x (easting) first; a GML pos or a plain pair: the system's axis order (northing first)
+                system, swapped = (system, c[2] != "xy") if system is not None else best or (None, False)
+                if system is None:
+                    return None
+                used.add(system)
+                # a single row written the other way round (as in Krosno) is turned back, like swap_lat_lon_outside_pl
+                return (uklady.convert(system, *((c[1], c[0]) if swapped else c[:2]))
+                        or uklady.convert(system, *(c[:2] if swapped else (c[1], c[0]))))
+            points = [to_wgs84(c, s) if c else None for c, s in zip(cells, own)]
+            label = ", ".join(uklady.SYSTEMS[s][0] for s in sorted(used))
         notes.append("Kolumna „%s” zawiera całe położenie (%s) – współrzędne odczytano z niej (%d z %d wierszy)."
                      % (col, label, sum(1 for p in points if p), len(rows)))
         return _with_points(rows, points)
@@ -487,7 +502,9 @@ def analyze(data, filename=""):
         "pola": [{"pole": t_, "tytul": TARGET_TITLES[t_]} for t_ in TARGETS],
         "pola_stale": [{"pole": t_, "tytul": TARGET_TITLES[t_], "wartosci": S.enum(t_) or None} for t_ in CONSTANT_TARGETS],
         "uwagi": t["notes"],
-        "ostrzezenia": ([OSM_ROW_MESSAGE + " Rozpoznano po: %s." % t["osm"]] if t["osm"] else [])
+        "ostrzezenia": ([OSM_ROW_MESSAGE + " Rozpoznano po: %s." % t["osm"]] if t["osm"] else
+                        ["%d wierszy ma znaczniki OpenStreetMap – nie trafią do wykazu." % len(t["osm_rows"])]
+                        if t["osm_rows"] else [])
         + privacy_warnings(columns, rows, {c: p[0] for c, p in proposal.items()}),
     }
 
@@ -708,7 +725,7 @@ def convert(data, filename, mapping, constants=None, today=None, geocoder=None):
     for col in (c for c, target in mapping.items() if target == ADDRESS):   # "ul. Jasna 12 38-400 Krosno": comma
         for _, row, _ in t["rows"]:                                         # before the postcode, as parse_address needs
             row[col] = re.sub(r"(\S)\s+(\d{2}-\d{3}\s)", r"\1, \2", _cell(row.get(col)))
-    osm = {n for n, _, _ in t["rows"]} if t["osm"] else _osm_rows(t["columns"], t["rows"])
+    osm = {n for n, _, _ in t["rows"]} if t["osm"] else _osm_rows(t["columns"], t["rows"]) | set(t["osm_rows"])
     records, notes = map_rows(t["rows"], t["columns"], {"resource_id": "plik"}, entry, "")
     # Mapped columns and constants both count: a constant must not put a hidden value back into the public file.
     hidden = [f for f in HIDDEN_PUBLIC if constants.get(f) or any(r[f] for r in records)]

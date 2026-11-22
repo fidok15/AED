@@ -15,13 +15,13 @@
 (public_media) {
 	# Two disjoint matchers, so the order Caddy sorts the handle blocks in does not matter.
 	@public_media {
-		path /media/resources/* /media/images/* /media/showcases/* /media/academy/* /media/newsletter/* /media/lab_reports/* /media/datasets/* /media/dcat/* /media/original_images/* /media/documents/*
+		path /media/resources/* /media/images/* /media/showcases/* /media/academy/* /media/newsletter/* /media/lab_reports/* /media/datasets/* /media/dcat/* /media/original_images/*
 		not path /media/resources/waiting/*
 	}
 	@private_media {
 		path /media/*
 		not {
-			path /media/resources/* /media/images/* /media/showcases/* /media/academy/* /media/newsletter/* /media/lab_reports/* /media/datasets/* /media/dcat/* /media/original_images/* /media/documents/*
+			path /media/resources/* /media/images/* /media/showcases/* /media/academy/* /media/newsletter/* /media/lab_reports/* /media/datasets/* /media/dcat/* /media/original_images/*
 			not path /media/resources/waiting/*
 		}
 	}

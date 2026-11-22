@@ -31,34 +31,62 @@ class FormatError(ValueError):
     """Polish message for the provider."""
 
 
-# A whole file exported from OpenStreetMap (CLAUDE.md, rule 3): -> reason shown in the report. Text marks are read
-# from the formats whose metadata sit outside the rows (JSON, KML, GPX, GML); CSV and sheets carry the licence in
-# cells, which the row rule (konwerter._osm_rows) handles, so a mixed list keeps its own rows.
-OSM_TEXT_MARKS = (
+# OpenStreetMap data (CLAUDE.md, rule 3) on two levels:
+#   document - metadata outside the list of objects (Overpass "osm3s"/"generator", a licence or attribution of the
+#              collection, <copyright> or a Document description in KML/GPX/GML): every row is OSM;
+#   object   - marks in one object (@id: node/..., osm_id, osm_type, ODbL or "(c) OpenStreetMap" in its values):
+#              only that row is OSM, so a municipal list with one copied OSM point keeps its own devices.
+DOCUMENT_MARKS = (
     (re.compile(r'"osm3s"\s*:'), "metadane eksportu Overpass („osm3s”)"),
     (re.compile(r'"generator"\s*:\s*"overpass', re.I), "generator Overpass"),
     (re.compile(r"openstreetmap\s+contributors|(?:©|&copy;|\(c\))\s*openstreetmap", re.I), "atrybucja „© OpenStreetMap”"),
     (re.compile(r"\bodbl\b", re.I), "licencja ODbL"),
-    (re.compile(r'"@id"\s*:\s*"(?:node|way|relation)/\d+'), "identyfikatory obiektów OSM („@id”: node/…)"),
-    (re.compile(r'"@?osm_(?:id|type)"\s*:'), "pola osm_id / osm_type"),
 )
+OBJECT_VALUE_RE = re.compile(r"\bodbl\b|openstreetmap\s+contributors|(?:©|&copy;|\(c\))\s*openstreetmap", re.I)
 OSM_ID_RE = re.compile(r"^(?:node|way|relation)/\d+$")
+OBJECTS_RE = re.compile(r"<((?:[\w-]+:)?(?:Placemark|wpt|rte|trk|featureMember|featureMembers|member))\b.*?</\1\s*>", re.S)
+
+
+def _document_text(fmt, text):
+    """The file without its list of objects: what is said about the whole file."""
+    if fmt in ("json", "geojson", "arcgis"):
+        try:
+            doc = json.loads(text or "")
+        except (ValueError, RecursionError):
+            return ""
+        if not isinstance(doc, dict):
+            return ""   # a bare array of objects has no document level
+        return json.dumps({k: v for k, v in doc.items() if not (isinstance(v, list) and v and isinstance(v[0], dict))},
+                          ensure_ascii=False)
+    if fmt in ("kml", "kmz", "gpx", "gml"):
+        return OBJECTS_RE.sub("", text or "")
+    return ""   # CSV and sheets: the licence sits in cells, i.e. on the object level
 
 
 def osm_origin(fmt, text, columns, rows):
-    """-> Polish reason when the whole file comes from OpenStreetMap, else ''."""
-    if fmt in ("json", "geojson", "arcgis", "kml", "kmz", "gpx", "gml"):
-        for pattern, reason in OSM_TEXT_MARKS:
-            if pattern.search(text or ""):
-                return reason
-    for col in columns:
-        key = re.sub(r"[^a-z]+", " ", col.casefold()).strip()
-        if key in ("osm id", "osm type"):
-            return "kolumna „%s”" % col
-        values = [str(row.get(col) or "") for _, row, _ in rows if row.get(col)]
-        if key in ("id", "osm") and values and all(OSM_ID_RE.match(v) for v in values):
-            return "identyfikatory obiektów OSM w kolumnie „%s” (node/…)" % col
-    return ""
+    """-> (reason for the whole file or '', {row_number: reason} for single objects)."""
+    doc = _document_text(fmt, text)
+    for pattern, reason in DOCUMENT_MARKS:
+        if pattern.search(doc):
+            return reason, {}
+    keys = {c: re.sub(r"[^a-z]+", " ", c.casefold()).strip() for c in columns}
+    marked = {}
+    for n, row, _ in rows:
+        for col, key in keys.items():
+            value = str(row.get(col) or "").strip()
+            if not value:
+                continue
+            if key in ("osm id", "osm type"):
+                marked[n] = "pole „%s”" % col
+            elif OSM_ID_RE.match(value) and key in ("id", "osm", "osm id", "ref"):
+                marked[n] = "identyfikator obiektu OSM „%s”" % value
+            elif OBJECT_VALUE_RE.search(value):
+                marked[n] = "licencja lub atrybucja OpenStreetMap w polu „%s”" % col
+            if n in marked:
+                break
+    if rows and len(marked) == len(rows):
+        return "wszystkie obiekty mają znaczniki OpenStreetMap (np. %s)" % next(iter(marked.values())), {}
+    return "", marked
 
 
 def local(tag):

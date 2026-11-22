@@ -20,6 +20,7 @@ from mcod.aed.aed_utils import (
 from mcod.aed.models import AggregatedAEDInfo
 from mcod.core.tests.helpers.tasks import run_on_commit_events
 from mcod.datasets.factories import DatasetFactory
+from mcod.datasets.models import Dataset
 from mcod.organizations.factories import OrganizationFactory
 from mcod.resources.dga_utils import check_all_resource_validations_status
 from mcod.resources.factories import ResourceFactory
@@ -173,3 +174,28 @@ def test_form_messages_point_to_the_converter():
     with patch("mcod.aed.constants.LIST_HELP_URL", "https://example.org/pl/aed/!konwerter"):
         messages = validate_aed_list_file(BAD_LIST, resource, resource.dataset)
     assert messages[-1] == "Plik można przekształcić do standardu AED w konwerterze: https://example.org/pl/aed/!konwerter"
+
+
+def test_repeated_list_keeps_the_accepted_copy_not_the_lower_id():
+    """Same file in two datasets of one institution: the lower-id copy is in a CC BY-NC dataset (rejected by licence),
+    so the CC0 copy is kept and the rejected one is the repeat. With no accepted copy nothing is "powtorzony"."""
+    legionowo = (Path(__file__).parent / "data" / "legionowo_resource_2625221.csv").read_bytes()
+    organization = OrganizationFactory.create()
+    nc = DatasetFactory.create(organization=organization, license_chosen=Dataset.LICENSE_CC_BY_NC,
+                               license_condition_source=False, license_condition_modification=False)
+    cc0 = DatasetFactory.create(organization=organization, license_chosen=None, license_condition_source=False,
+                                license_condition_modification=False, license_condition_responsibilities=False,
+                                license_condition_cc40_responsibilities=False, license_condition_default_cc40=False,
+                                license_condition_custom_description=None)
+    rejected = ResourceFactory.create(contains_aed_list=True, status="published", dataset=nc)
+    accepted = ResourceFactory.create(contains_aed_list=True, status="published", dataset=cc0)
+    assert rejected.pk < accepted.pk and nc.license_name == "CC BY-NC 4.0" and cc0.license_name == "CC0 1.0"
+
+    with patch("mcod.aed.aed_utils.read_resource_bytes", return_value=(legionowo, None)):
+        _, report = build_main_aed_list([rejected, accepted])
+        _, only_rejected = build_main_aed_list([rejected, ResourceFactory.create(dataset=nc)])
+
+    statuses = {w["zasob"]: (w["status"], w.get("powtorzenie_zasobu")) for w in report["wykazy"]}
+    assert statuses == {accepted.pk: ("przyjety", None), rejected.pk: ("powtorzony", accepted.pk)}
+    assert report["rekordy_w_wykazie_krajowym"] == 24
+    assert {w["status"] for w in only_rejected["wykazy"]} == {"odrzucony"} and only_rejected["wykazy_powtorzone"] == 0

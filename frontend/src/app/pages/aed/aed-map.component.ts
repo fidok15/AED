@@ -87,10 +87,12 @@ const latLng = (feature: AedMapFeature) => L.latLng(feature.geometry.coordinates
   // Escape closes the details from anywhere in the map (the panel, a marker, the map itself).
   host: { '(keydown.escape)': 'selected() && close()' },
   template: `
+    <!-- A failed load replaces the summary, so "Wczytuję…" never stays next to the error. -->
     @if (error()) {
       <p class="aed-message aed-message--error" role="alert">{{ error() }}</p>
+    } @else {
+      <p class="aed-count">{{ summary() }}</p>
     }
-    <p class="aed-count">{{ summary() }}</p>
     @if (picking()) {
       <p class="aed-message" role="status">
         Kliknij miejsce na mapie albo przesuń mapę strzałkami i naciśnij Enter, aby wybrać punkt pod krzyżykiem.
@@ -266,6 +268,7 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
         this.groupOf.clear();
         this.selected.set(null);
         this.detail.set(null);
+        this.error.set('');
         if (this.map) this.summary.set('Wczytuję urządzenia dla wybranych filtrów…');
         if (this.map) this.load();
       });
@@ -421,7 +424,9 @@ export class AedMapComponent implements AfterViewInit, OnDestroy {
       },
       error: (error) => {
         if (request !== this.request) return;
-        this.error.set(`Nie udało się wczytać urządzeń na mapę dla wybranych filtrów. ${aedErrorMessage(error)}`);
+        this.error.set(
+          `Nie udało się wczytać urządzeń na mapę dla wybranych filtrów (${aedErrorMessage(error).replace(/\.$/, '')}).`,
+        );
       },
     });
   }

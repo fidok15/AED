@@ -251,21 +251,31 @@ def repeated_list_entry(source: Dict[str, Any], first_resource_pk: int) -> Dict[
 def build_main_aed_list(resources) -> Tuple[str, Dict[str, Any]]:
     """-> (CSV text of the national list, report). No database writes. The full report (with aed_standard's
     messages) stays in the database for the provider e-mail; the API shows public_report()."""
-    items, used, repeated, first_by_content = [], {}, [], {}
+    read, used, canonical = [], {}, {}
     unreadable = 0
     for resource in resources:
         data, error = read_resource_bytes(resource)
         unreadable += isinstance(error, TransientError)  # rejections by rule do not count
         source = source_for_resource(resource)
         used[resource.pk] = resource
+        key = None
         if data is not None:
             # The same file published twice by one institution would double every device (rows of one source are
             # never merged automatically). Lists that only overlap stay: several devices in one building are fine.
-            first = first_by_content.setdefault((resource.dataset.organization_id, list_digest(data)), resource.pk)
-            if first != resource.pk:
-                repeated.append(repeated_list_entry(source, first))
-                continue
-        items.append((source, data, error))
+            # The kept copy is the first one that passes read_wykaz (licence, structure), so a copy rejected for
+            # its dataset's licence never hides an accepted one; if no copy passes, all are reported as rejected.
+            # ponytail: such lists are parsed twice (here and in merge_wykazy); fine at MAX_LIST_ROWS.
+            key = (resource.dataset.organization_id, list_digest(data))
+            if key not in canonical and read_wykaz(data, source)[1]["status"] != "odrzucony":
+                canonical[key] = resource.pk
+        read.append((key, source, data, error))
+    items, repeated = [], []
+    for key, source, data, error in read:
+        first = canonical.get(key)
+        if first is not None and first != source["zasob"]:
+            repeated.append(repeated_list_entry(source, first))
+        else:
+            items.append((source, data, error))
     national, pairs, report = merge_wykazy(items)
     report["wykazy"] += repeated
     report["wykazy_razem"] += len(repeated)

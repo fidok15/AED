@@ -206,6 +206,32 @@ class ReviewFixesTest(unittest.TestCase):
                '<coordinates>21.0,52.2</coordinates></Point></Placemark></kml>').encode()
         self.assertEqual(auto(own, "a.kml", {"miejscowosc": "Warszawa"})[2]["poprawne"], 1)
 
+    def test_one_osm_object_in_an_own_list_rejects_only_that_row(self):
+        mixed = ('{"type": "FeatureCollection", "features": ['
+                 '{"type": "Feature", "properties": {"@id": "node/7", "name": "Z mapy"}, '
+                 '"geometry": {"type": "Point", "coordinates": [21.0, 52.2]}}, '
+                 '{"type": "Feature", "properties": {"name": "Urząd Gminy"}, '
+                 '"geometry": {"type": "Point", "coordinates": [21.1, 52.3]}}]}').encode()
+        a, text, rep, (records, report) = auto(mixed, "aed.geojson", {"miejscowosc": "Warszawa"})
+        self.assertEqual([r["nazwa"] for r in records], ["Urząd Gminy"])
+        self.assertEqual({p["wiersz"] for p in rep["problemy"] if p["kod"] == "dane_osm"}, {1})
+        self.assertIn("tylko te wiersze", " ".join(a["uwagi"]))
+        licence = mixed.replace(b'"@id": "node/7"', b'"licencja_danych": "ODbL 1.0"')
+        self.assertEqual([r["nazwa"] for r in auto(licence, "aed.geojson", {"miejscowosc": "Warszawa"})[3][0]], ["Urząd Gminy"])
+        # A licence of the collection itself still marks the whole file.
+        whole = mixed.replace(b'"type": "FeatureCollection",', b'"type": "FeatureCollection", "license": "ODbL",')
+        self.assertEqual(auto(whole, "aed.geojson", {"miejscowosc": "Warszawa"})[2]["poprawne"], 0)
+
+    def test_gml_points_in_two_systems(self):
+        gml = ('<gml:FeatureCollection xmlns:gml="http://www.opengis.net/gml">'
+               '<gml:featureMember><gml:name>A</gml:name><gml:Point srsName="EPSG:4326"><gml:pos>52.2086 21.0149</gml:pos>'
+               '</gml:Point></gml:featureMember><gml:featureMember><gml:name>B</gml:name><gml:Point srsName="EPSG:2180">'
+               '<gml:pos>256872.23 491913.10</gml:pos></gml:Point></gml:featureMember></gml:FeatureCollection>').encode()
+        records = auto(gml, "a.gml", {"miejscowosc": "Warszawa"})[3][0]
+        got = {r["nazwa"]: (float(r["szerokosc_geograficzna"]), float(r["dlugosc_geograficzna"])) for r in records}
+        self.assertLess(haversine_m(*got["A"], 52.2086, 21.0149), 1)
+        self.assertLess(haversine_m(*got["B"], 50.179011, 18.886705), 1)
+
     def test_lines_and_areas_have_no_position(self):
         kml = ('<kml xmlns="http://www.opengis.net/kml/2.2"><Placemark><name>Trasa</name><LineString><coordinates>'
                '21.0,52.2 21.1,52.3</coordinates></LineString></Placemark><Placemark><name>Punkt</name><Point>'
