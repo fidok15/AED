@@ -39,7 +39,7 @@ Bez proxy też działa (CORS dla `localhost:4200`), wtedy wołaj `http://localho
 `odznaka = tak`, gdy firma ma co najmniej jedno urządzenie oraz jednocześnie:
 
 - średnia kompletność jej urządzeń >= `BADGE_MIN_COMPLETENESS` = 70,
-- udział urządzeń ze statusem `aktywny` >= `BADGE_MIN_ACTIVE_SHARE` = 0,5.
+- udział urządzeń zweryfikowanych (status `aktywny`) >= `BADGE_MIN_ACTIVE_SHARE` = 0,5.
 
 Stałe są na górze `aed_service/app.py`; progi zwraca też `GET /api/aed/sprzedawcy` w polu `progi`.
 

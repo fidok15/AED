@@ -1038,7 +1038,9 @@
     border: 3px solid var(--aed-paper);
     border-radius: 50%;
     background: #1a73e8;
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.4);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.35),
+      0 1px 3px rgba(0, 0, 0, 0.4);
   }
 
   .aed-here--sample {
@@ -1899,7 +1901,6 @@ html:has(.aed--app) {
   }
 }
 
-
 // Converter mapping table on a narrow screen (UI review A8): below 640 px each column of the file is one block –
 // its name, the field select and the sample values folded in <details>; nothing wider than the screen.
 .aed .aed-conv-map__narrow {
@@ -1966,4 +1967,63 @@ html:has(.aed--app) {
   width: 1.5rem;
   height: 1.5rem;
   margin-top: 0.1rem;
+}
+
+// Messages quoting column names (szerokosc_geograficzna) widened the page at 320 px.
+.aed .aed-message {
+  overflow-wrap: anywhere;
+}
+
+// Duplicate comparison on a narrow screen (tester round, 22.11): below 640 px the four-column table squeezed
+// values into one-letter lines. Each field becomes a block: its name, then A, B and the verdict, each labelled.
+@media (max-width: 640px) {
+  .aed .aed-compare,
+  .aed .aed-compare tbody,
+  .aed .aed-compare tr,
+  .aed .aed-compare th[scope='row'],
+  .aed .aed-compare td {
+    display: block;
+    width: 100%;
+  }
+
+  .aed .aed-compare thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .aed .aed-compare caption,
+  .aed .aed-conv-map caption {
+    display: block;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  .aed .aed-compare tr {
+    padding: 0.5rem 0 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--aed-line);
+    border-left: 4px solid transparent;
+  }
+
+  .aed .aed-compare tr.aed-compare__differs {
+    border-left-color: var(--aed-warn);
+  }
+
+  .aed .aed-compare th[scope='row'] {
+    padding: 0 0 0.25rem;
+    border-left: 0;
+  }
+
+  .aed .aed-compare td {
+    padding: 0.125rem 0;
+    border: 0;
+  }
+
+  .aed .aed-compare td::before {
+    content: attr(data-label) ': ';
+    font-weight: 400;
+    color: var(--aed-muted);
+  }
 }

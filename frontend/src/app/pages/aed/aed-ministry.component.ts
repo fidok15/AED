@@ -62,15 +62,21 @@ export class AedMinistryComponent implements OnInit {
   protected readonly comparison = computed(() => {
     const pair = this.pair();
     if (!pair) return [];
-    return AED_FIELDS.map((field) => {
-      const a = aedLabel(field, pair.rekord_a[field.name]);
-      const b = aedLabel(field, pair.rekord_b[field.name]);
-      return { title: field.title, a, b, same: a === b };
-    }).filter((row) => row.a || row.b);
+    // The ids always differ and are already in the caption, so they are not a row.
+    return AED_FIELDS.filter((field) => field.name !== 'id_aed')
+      .map((field) => {
+        const a = aedLabel(field, pair.rekord_a[field.name]);
+        const b = aedLabel(field, pair.rekord_b[field.name]);
+        const verdict = a === b ? 'to samo' : !b ? 'tylko w A' : !a ? 'tylko w B' : 'różne wartości';
+        return { title: field.title, a, b, same: a === b, verdict };
+      })
+      .filter((row) => row.a || row.b);
   });
   /** By default only the fields in which the two records differ; the toggle shows every filled field. */
   protected readonly showAllFields = signal(false);
   protected readonly differing = computed(() => this.comparison().filter((row) => !row.same));
+  /** Fields filled in both records with different values: the real conflicts, unlike a value missing on one side. */
+  protected readonly conflicting = computed(() => this.differing().filter((row) => row.a && row.b).length);
   protected readonly shownRows = computed(() => (this.showAllFields() ? this.comparison() : this.differing()));
 
   protected readonly messages = signal<AedMessage[]>([]);

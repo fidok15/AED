@@ -104,7 +104,8 @@
     <label class="aed-filter__option">
       <input type="radio" name="aed-status" value="" [checked]="status() === ''" (change)="filter({ status: '' })" />
       <span>Wszystkie</span>
-      <span class="aed-filter__count">{{ stats.razem }}</span>
+      <!-- "All" lists every status except withdrawn (as the API without `status`); "Wycofany" shows those. -->
+      <span class="aed-filter__count">{{ stats.razem - (stats.wg_statusu.wycofany ?? 0) }}</span>
     </label>
     @for (item of statuses; track item) {
       <label class="aed-filter__option">

@@ -56,7 +56,7 @@ mapper: zbiory z dane.gov.pl, API Warszawy, OSM ──────────�
                                                                    (termin baterii i elektrod, brak weryfikacji)
 ```
 
-Cykl życia rekordu: `zgloszony` (sprzedawca podał dane urządzenia) → `aktywny` (zarządca potwierdził miejsce i dostęp) → `nieaktualny` (brak potwierdzenia w terminie) → `wycofany`. Rekord z mappera, którego nikt odpowiedzialny nie potwierdził, ma status `niepotwierdzony`.
+Cykl życia rekordu: `zgloszony` (sprzedawca podał dane urządzenia) → `aktywny`, w interfejsie „Zweryfikowany” (zarządca potwierdził miejsce i dostęp) → `nieaktualny` (brak potwierdzenia w terminie) → `wycofany`. Rekord z mappera, którego nikt odpowiedzialny nie potwierdził, ma status `niepotwierdzony`.
 
 ## Punktacja
 

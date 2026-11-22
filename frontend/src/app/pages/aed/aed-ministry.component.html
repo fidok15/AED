@@ -109,7 +109,8 @@
       <div class="aed-compare__toolbar">
         <p class="aed-compare__count">
           Pola z różnicą: <strong>{{ number(differing().length) }}</strong> z {{ number(comparison().length) }}
-          wypełnionych.
+          wypełnionych (różne wartości: {{ number(conflicting()) }}, wypełnione tylko w jednym rekordzie:
+          {{ number(differing().length - conflicting()) }}).
         </p>
         <button
           class="btn btn-outline-primary"
@@ -147,9 +148,9 @@
               @for (row of shownRows(); track row.title) {
                 <tr [class.aed-compare__differs]="!row.same">
                   <th scope="row">{{ row.title }}</th>
-                  <td>{{ row.a || 'brak' }}</td>
-                  <td>{{ row.b || 'brak' }}</td>
-                  <td>{{ row.same ? 'to samo' : 'różnica' }}</td>
+                  <td data-label="Rekord A">{{ row.a || 'brak' }}</td>
+                  <td data-label="Rekord B">{{ row.b || 'brak' }}</td>
+                  <td data-label="Zgodność">{{ row.verdict }}</td>
                 </tr>
               }
             </tbody>
