@@ -1,0 +1,15 @@
+# Full portal fork behind a TLS-terminating tunnel (Cloudflare Tunnel on the Proxmox demo host, docs/wdrozenie-pve.md).
+# Third file after docker-compose.local.yml and docker-compose.aed-domain.yml (COMPOSE_FILE in backend/.env).
+#
+# Changes against docker-compose.aed-domain.yml: Caddy serves plain HTTP on 127.0.0.1:8080 only (cloudflared on the
+# same host connects there; nothing listens on the LAN or the internet), takes the client's X-Forwarded-Proto
+# from the tunnel (so Django sees HTTPS and sets Secure cookies) and does not ask Let's Encrypt for certificates.
+services:
+  caddy:
+    environment:
+      AED_SITE_SCHEME: "http://"
+    ports: !override
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./aed-domain/Caddyfile.tunnel:/etc/caddy/Caddyfile:ro
+      - ./aed-domain/Caddyfile:/etc/caddy/Caddyfile.sites:ro

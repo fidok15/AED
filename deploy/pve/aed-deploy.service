@@ -1,0 +1,11 @@
+[Unit]
+Description=AED: deploy origin/main of the portal fork (deploy/pve/aed-deploy.sh)
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/aed/deploy/pve/aed-deploy.sh
+# The first build of the portal images takes tens of minutes.
+TimeoutStartSec=3600
