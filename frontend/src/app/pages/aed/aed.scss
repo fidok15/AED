@@ -392,22 +392,40 @@
       padding: 0;
       list-style: none;
 
-      // Narrow screens: one row that scrolls sideways instead of three rows above the title.
+      // Narrow screens: the disclosure below replaces the row.
       @media (max-width: 479.98px) {
-        flex-wrap: nowrap;
-        gap: 0 1.25rem;
-        max-width: 100%;
-        padding-inline: 0.25rem;
-        overflow-x: auto;
-        scrollbar-width: thin;
+        display: none;
+      }
+    }
 
-        li {
-          flex: none;
-        }
+    &__menu {
+      width: 100%;
 
-        // the scrolling row clips anything drawn outside it, so the focus ring goes inside the link
-        .aed-nav__link:focus-visible {
-          outline-offset: -3px;
+      @media (min-width: 480px) {
+        display: none;
+      }
+
+      summary {
+        min-height: 2.75rem;
+        padding: 0.625rem 0;
+        color: var(--aed-blue);
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      ul {
+        margin: 0 0 0.5rem;
+        padding: 0;
+        list-style: none;
+      }
+
+      .aed-nav__link {
+        padding: 0.625rem 0.75rem;
+        border-bottom: 0;
+        border-left: 4px solid transparent;
+
+        &.aed-nav__link--active {
+          border-left-color: var(--aed-blue);
         }
       }
     }
@@ -1050,6 +1068,18 @@
     font-weight: 700;
   }
 
+  // id and completeness are reference data: folded, smaller, after the action
+  .aed-row__details {
+    font-size: 0.875rem;
+
+    summary {
+      padding: 0.5rem 0;
+      color: var(--aed-blue);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+  }
+
   .aed-row__map {
     padding: 0;
     text-align: left;
@@ -1522,6 +1552,13 @@
 
     .aed-button {
       margin: 0;
+    }
+
+    &__missing {
+      display: block;
+      min-height: 2.75rem;
+      margin: 0.25rem auto 0;
+      padding: 0 0.5rem;
     }
   }
 

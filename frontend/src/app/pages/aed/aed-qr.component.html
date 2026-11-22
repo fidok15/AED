@@ -26,10 +26,8 @@
       }
       <app-aed-status [status]="record.status" />
       @if (!done() && t()) {
-        @for (field of expiring(); track field.name) {
-          <p class="aed-device__expiry">
-            <span class="visually-hidden">Uwaga: </span>{{ field.title }}: {{ record[field.name] }} – termin minął albo mija w ciągu 60 dni.
-          </p>
+        @for (note of expiryNotes(); track note) {
+          <p class="aed-device__expiry"><span class="visually-hidden">Uwaga: </span>{{ note }}</p>
         }
       }
     </section>
@@ -86,16 +84,14 @@
         </p>
       }
 
-      <form [formGroup]="form" appScrollToFirstError novalidate (ngSubmit)="confirm()">
+      <form [formGroup]="form" appScrollToFirstError novalidate (ngSubmit)="confirm()" #confirmForm>
         <!-- Battery and electrodes: optional, so after the three required steps; a close date is flagged in the device card. -->
         <ng-template #expiryStep>
           <section class="aed-card" aria-labelledby="aed-step-expiry">
             <p class="aed-step">Nieobowiązkowe</p>
             <h2 class="aed-card__title" id="aed-step-expiry">Bateria i elektrody</h2>
-            @for (field of expiring(); track field.name) {
-              <p class="aed-message aed-message--warn">
-                {{ field.title }}: {{ record[field.name] }}. Termin minął albo mija w ciągu 60 dni.
-              </p>
+            @for (note of expiryNotes(); track note) {
+              <p class="aed-message aed-message--warn">{{ note }}</p>
             }
             <p>
               Po wymianie baterii lub elektrod wpisz tutaj nową datę ważności. Przypomnienia o starym terminie przestaną
@@ -225,7 +221,12 @@
           <p class="aed-message aed-message--error" role="alert">{{ sendError() }}</p>
         }
         <div class="aed-actionbar">
-          <button class="aed-button" type="submit">Potwierdź dane</button>
+          <button class="aed-button" type="submit">Potwierdź dane AED</button>
+          @if (missing(); as count) {
+            <button class="btn btn-link aed-actionbar__missing" type="button" (click)="showMissing(confirmForm)">
+              Do uzupełnienia: {{ count }} {{ plural(count, 'pole', 'pola', 'pól') }}
+            </button>
+          }
         </div>
       </form>
     } @else {

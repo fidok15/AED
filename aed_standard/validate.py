@@ -71,6 +71,29 @@ def parse_date(value):
         return None
 
 
+MONTHS_GEN = ("stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca", "lipca", "sierpnia", "września",
+              "października", "listopada", "grudnia")
+
+
+def _date_message(label, example, value):
+    """Message for a date not in RRRR-MM-DD; a D.M.Y / M/D/Y value gets a hint only when it has one reading."""
+    m = PL_DATE_RE.match(value)
+    if m:
+        a, b, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if a <= 12 and b <= 12 and a != b:
+            return ("Pole %s: data „%s” jest niejednoznaczna. Sprawdź w danych źródłowych, czy chodzi o %d %s czy %d %s "
+                    "%d r., i wpisz datę w formacie RRRR-MM-DD." % (label, value, a, MONTHS_GEN[b - 1], b,
+                                                                     MONTHS_GEN[a - 1], year))
+        for day, month in ((a, b), (b, a)):
+            try:
+                hint = datetime.date(year, month, day).isoformat()
+            except ValueError:
+                continue
+            return ("Pole %s: wpisz datę w formacie RRRR-MM-DD. Otrzymano: „%s”. Zamień na %s."
+                    % (label, value, hint))
+    return "Pole %s: wpisz istniejącą datę w formacie RRRR-MM-DD, np. %s. Otrzymano: „%s”." % (label, example, value)
+
+
 def to_float(value):
     try:
         return float(value)
@@ -107,10 +130,7 @@ def check_value(name, value):
                      % (_label(name), example, value))]
     elif t == "date":
         if parse_date(value) is None:
-            m = PL_DATE_RE.match(value)
-            hint = " Zamień na %s-%02d-%02d." % (m.group(3), int(m.group(2)), int(m.group(1))) if m else ""
-            return [("format_daty", "Pole %s: wpisz istniejącą datę w formacie RRRR-MM-DD, np. %s. Otrzymano: „%s”.%s"
-                     % (_label(name), example, value, hint))]
+            return [("format_daty", _date_message(_label(name), example, value))]
     elif t == "boolean":
         allowed = f.get("trueValues", [S.TRUE_VALUE]) + f.get("falseValues", [S.FALSE_VALUE])
         if value not in allowed:

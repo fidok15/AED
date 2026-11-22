@@ -10,6 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Subscription } from 'rxjs';
 
@@ -32,6 +33,7 @@ export class AedRegistryComponent implements OnInit {
   private readonly api = inject(AedApiService);
   private readonly seo = inject(SeoService);
   private readonly injector = inject(Injector);
+  private readonly route = inject(ActivatedRoute);
   private readonly map = viewChild(AedMapComponent);
   private readonly search = viewChild<ElementRef<HTMLInputElement>>('search');
 
@@ -81,6 +83,10 @@ export class AedRegistryComponent implements OnInit {
   ngOnInit(): void {
     this.seo.setPageTitle('Rejestr AED');
     this.load();
+    // "Znajdź najbliższy AED" on the start page lands on the location button, ready for Enter.
+    if (this.route.snapshot.fragment === 'aed-near') {
+      afterNextRender(() => document.getElementById('aed-locate')?.focus(), { injector: this.injector });
+    }
   }
 
   /** Any change of filter or search goes back to the first page. */
