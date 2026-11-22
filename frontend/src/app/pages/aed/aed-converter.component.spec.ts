@@ -90,6 +90,9 @@ describe('AedConverterComponent', () => {
             komunikat: 'Kolumna „Dostęp” (Dostęp): ujednolicono zapis 1 z 2 wartości, np. „Publiczny” → „publiczny”.',
           },
         ],
+        ukryte_pola: ['dysponent_email'],
+        ukryte_komunikat:
+          'Kolumny E-mail dysponenta są w pobranym pliku puste: kontakt i numer seryjny nie trafiają do pliku publicznego.',
       },
     });
     fixture.detectChanges();
@@ -98,6 +101,23 @@ describe('AedConverterComponent', () => {
     expect(link.getAttribute('download')).toBe('krosno-wykaz-aed.csv');
     expect(page.textContent).toContain('Wykaz AED: TAK');
     expect(page.textContent).toContain('„Publiczny” → „publiczny”');
+    expect(page.textContent).toContain('nie trafiają do pliku publicznego');
+  });
+
+  it('drops the answer for a file replaced before the analysis came back', () => {
+    const input = page.querySelector<HTMLInputElement>('#aed-conv-plik');
+    let files = [new File(['a\n1\n'], 'a.csv')];
+    Object.defineProperty(input, 'files', { get: () => files });
+    input.dispatchEvent(new Event('change'));
+    const first = http.expectOne('/api/aed/konwerter/analiza');
+    files = [new File(['b\n2\n'], 'b.csv')];
+    input.dispatchEvent(new Event('change'));
+    const second = http.expectOne('/api/aed/konwerter/analiza');
+    expect(first.cancelled).toBe(true);
+    expect((second.request.body as FormData).get('plik')).toEqual(files[0]);
+    second.flush({ ...analysis, plik: 'b.csv' });
+    fixture.detectChanges();
+    expect(page.textContent).toContain('b.csv');
   });
 
   it('does not send a mapping with one field for two columns', () => {

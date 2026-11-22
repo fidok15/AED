@@ -11,15 +11,17 @@ import calendar
 import codecs
 import csv
 import datetime
+import io
+import itertools
 import json
 import re
 from collections import Counter
 
 from . import schema as S
 from . import xlsx
-from .build import publication_reasons, to_csv
+from .build import HIDDEN_PUBLIC, publication_reasons, to_csv
 from .registry import REGISTRY_PATH, load_registry
-from .sources import _clean, map_rows, parse_csv, parse_geojson
+from .sources import ODBL, OSM, _clean, map_rows, parse_csv, parse_geojson
 from .validate import EMAIL_RE, EXPIRY_DATES, LAT, LON, WARNING, issue
 from .wykaz import read_wykaz
 
@@ -107,7 +109,11 @@ def _aliases():
 
 def _decode(data):
     if data.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
-        return data.decode("utf-16"), "UTF-16"
+        try:
+            return data.decode("utf-16"), "UTF-16"
+        except UnicodeDecodeError:
+            raise ConverterError("Plik ma znacznik kodowania UTF-16, ale jego treść jest uszkodzona lub ucięta. "
+                                 "Zapisz go ponownie jako „CSV UTF-8”.")
     try:
         return data.decode("utf-8-sig"), "UTF-8"
     except UnicodeDecodeError:
@@ -123,6 +129,24 @@ def _point(value):
     except ValueError:
         return None
     return g if isinstance(g, dict) and g.get("type") == "Point" else None
+
+
+def _separator(text):
+    """Separator giving the widest header with the same width in the first rows, quotes respected
+    ("Nazwa, opis";lat;lon -> ';'). When every candidate yields one column, count the characters of the first line."""
+    def score(sep):
+        try:
+            sample = [r for r in itertools.islice(csv.reader(io.StringIO(text, newline=""), delimiter=sep), 20) if any(r)]
+        except csv.Error:
+            return (False, 0)
+        return (bool(sample) and all(len(r) == len(sample[0]) for r in sample), len(sample[0]) if sample else 0)
+
+    candidates = (",", ";", "\t")
+    best = max(candidates, key=score)
+    if score(best)[1] > 1:
+        return best
+    first = text.splitlines()[0] if text else ""
+    return max(candidates, key=first.count)
 
 
 def _xlsx(data, notes):
@@ -168,8 +192,7 @@ def read_table(data, filename=""):
             raise ConverterError("Pliku nie da się odczytać jako GeoJSON (FeatureCollection z listą „features”).")
         fmt, sep = "geojson", None
     else:
-        first = stripped.splitlines()[0] if stripped else ""
-        sep = max((",", ";", "\t"), key=first.count)
+        sep = _separator(stripped)
         source = {"label": "Plik", "fixes": []}
         try:
             rows, columns = parse_csv(text, source, notes, sep)
@@ -438,6 +461,18 @@ def _entry(columns, mapping):
     return entry
 
 
+def _osm_rows(columns, rows):
+    """Numbers of rows whose own source or licence column says OpenStreetMap / ODbL (a list exported from OSM)."""
+    marks = {_key(S.BY_NAME[f]["name"]): f for f in ("zrodlo", "licencja")}
+    marks.update({_key(S.BY_NAME[f]["title"]): f for f in ("zrodlo", "licencja")})
+    marks.update({"source": "zrodlo", "license": "licencja", "licence": "licencja"})
+    cols = [c for c in columns if _key(c) in marks]
+    def marked(value):
+        value = _key(value)
+        return value == "osm" or _key(OSM) in value or "odbl" in value
+    return {n for n, row, _ in rows if any(marked(_cell(row.get(c))) for c in cols)}
+
+
 def convert(data, filename, mapping, constants=None, today=None):
     """-> (csv_text, report). mapping: {column: target or ""}; constants: {field: value} filled into empty cells."""
     t = read_table(data, filename)
@@ -448,10 +483,16 @@ def convert(data, filename, mapping, constants=None, today=None):
         raise ConverterError("Wartości stałej nie można ustawić dla pól: %s." % ", ".join(bad))
     constants = {k: normalize_value(k, v) for k, v in constants.items()}
     normalized = normalize_rows(t["rows"], mapping)
+    osm = _osm_rows(t["columns"], t["rows"])
     records, notes = map_rows(t["rows"], t["columns"], {"resource_id": "plik"}, entry, "")
-    for rec in records:
-        # System columns stay empty: the portal fills them from the dataset when it reads the list.
-        rec.update(zrodlo="", licencja="", status="", wprowadzajacy_typ="", data_aktualizacji="")
+    hidden = [f for f in HIDDEN_PUBLIC if any(r[f] for r in records)]
+    for (n, _, _), rec in zip(t["rows"], records):
+        # System columns stay empty: the portal fills them from the dataset when it reads the list. A row the file
+        # itself marks as OpenStreetMap / ODbL keeps the mark, so the list check rejects it (CLAUDE.md, rule 3).
+        rec.update(zrodlo=OSM if n in osm else "", licencja=ODBL if n in osm else "", status="", wprowadzajacy_typ="",
+                   data_aktualizacji="")
+        # The file is meant for dane.gov.pl: the same columns stay empty as in every public export.
+        rec.update({f: "" for f in HIDDEN_PUBLIC})
         if "row_number" in entry["record_id"]:
             rec["zrodlo_id"] = ""
         for k, v in constants.items():
@@ -472,5 +513,9 @@ def convert(data, filename, mapping, constants=None, today=None):
         "problemy_razem": rep["problemy_razem"] + len(warnings),
         "poprawki": t["notes"] + notes,
         "normalizacje": normalized,
+        "ukryte_pola": hidden,
+        "ukryte_komunikat": ("Kolumny %s są w pobranym pliku puste: kontakt i numer seryjny nie trafiają do pliku "
+                             "publicznego. Przekaż je ministerstwu kanałem rejestru (konto firmy albo potwierdzenie "
+                             "z naklejki QR)." % ", ".join(TARGET_TITLES[f] for f in hidden)) if hidden else "",
     }
     return text, report

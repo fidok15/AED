@@ -204,7 +204,10 @@ def map_rows(rows, columns, entry, source, licence):
         else:
             values = {field: row.get(col) for field, col in source["fields"].items()}
         if source.get("address_text"):
-            values.update(parse_address(row.get(source["address_text"])))
+            # The parsed address only fills fields without an explicit value of their own.
+            for k, v in parse_address(row.get(source["address_text"])).items():
+                if not _clean(values.get(k)):
+                    values[k] = v
         rec = _record(source["zrodlo"], zrodlo_id, licence, entry.get("data_date"), **values)
         if coords:
             if coords == "geometry":
