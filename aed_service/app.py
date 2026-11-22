@@ -817,6 +817,8 @@ def list_devices(req, resp):
     near = origin_param(req)
     if near:
         where.append("lat IS NOT NULL AND lon IS NOT NULL")  # a device without a position has no distance
+    if (near or req.get_param_as_bool("dostepny_teraz")) and not req.get_param("status"):
+        where.append("status != 'wycofany'")  # never send anyone to a withdrawn device unless asked for that status
     cond = " AND ".join(where)
     db = req.context.db
     extra, distance = {}, {}
