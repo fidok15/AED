@@ -100,7 +100,7 @@ def _aliases():
         add(k, v, 1, "nazwa kolumny (synonim)")
     sources, _, _ = load_registry(REGISTRY_PATH)
     for s in sources:
-        label = "nazwa kolumny jak w pliku: %s" % s["label"]
+        label = "tak nazywa się ta kolumna w zbiorze: %s" % s["label"]
         for field, col in (s.get("fields") or {}).items() if isinstance(s.get("fields"), dict) else ():
             add(col, field, 2, label)
         if isinstance(s.get("coordinates"), dict):

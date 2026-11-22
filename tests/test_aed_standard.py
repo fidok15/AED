@@ -430,7 +430,7 @@ class AuditTest(unittest.TestCase):
     def test_submitted_record_waits_for_the_manager(self):  # finding 8
         r = self.published(status="zgloszony")
         self.assertEqual(publication_export([r]), [])
-        self.assertIn("status zgloszony – zarządca jeszcze nie potwierdził miejsca i dostępu",
+        self.assertIn("status zgloszony – dysponent jeszcze nie potwierdził miejsca i dostępu",
                       A.build.publication_reasons(r))
         self.assertEqual(len(publication_export([self.published()])), 1)  # import record (niepotwierdzony) unchanged
 

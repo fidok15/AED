@@ -22,7 +22,7 @@ TITLES = {
     "gml": "GML / WFS", "html": "tabela HTML (strona WWW)", "docx": "tabela w dokumencie Word (DOCX)",
 }
 NOT_MACHINE_READABLE = (
-    "%s nie jest formatem odczytywalnym maszynowo – zadanie wymaga danych w CSV, XLSX, JSON, GeoJSON albo XML. "
+    "%s nie jest formatem odczytywalnym maszynowo – portal danych przyjmuje dane w formatach takich jak CSV, XLSX, JSON, GeoJSON albo XML. "
     "Wyeksportuj tabelę z programu, w którym powstał dokument (arkusz → „Zapisz jako” CSV albo XLSX). Jeśli masz "
     "tylko wydruk lub skan, przepisz dane do wzorca wzorzec-aed.xlsx.")
 

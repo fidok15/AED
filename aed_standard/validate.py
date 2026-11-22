@@ -51,6 +51,9 @@ LOCK_CODE_RE = re.compile(r"\b(?:kod(?:u|em|y)?|pin(?:u|em)?|szyfr(?:u|em)?)\b(?
 LOCK_CODE_FIELDS = ("nazwa", "opis_lokalizacji", "godziny_dostepu_opis")
 
 
+# Profile names are technical; messages say what the profile is for.
+PROFILE_PHRASE = {"sprzedaz": "przy zgłoszeniu sprzedaży urządzenia", "publikacja": "do publikacji w zbiorze otwartym"}
+
 def issue(row, field, level, code, message):
     return {"wiersz": row, "pole": field, "poziom": level, "kod": code, "komunikat": message}
 
@@ -163,7 +166,7 @@ def check_record(record, profile, row=None, today=None, columns=None):
     for name in S.required(profile):
         if not val[name] and (columns is None or name in columns):
             out.append(issue(row, name, ERROR, "brak_wymaganego",
-                             "Pole %s jest wymagane w profilu %s. Uzupełnij je." % (_label(name), profile)))
+                             "Pole %s jest wymagane %s. Uzupełnij je." % (_label(name), PROFILE_PHRASE.get(profile, "w profilu " + profile))))
     for name in S.FIELD_NAMES:
         if val[name]:
             for code, msg in check_value(name, val[name]):
@@ -331,7 +334,7 @@ def validate_csv(data, profile, today=None):
     for name in S.required(profile):
         if name not in seen_cols:
             issues.append(issue(None, name, ERROR, "brak_kolumny",
-                                "Brakuje kolumny „%s” wymaganej w profilu %s. Dodaj ją do nagłówka." % (name, profile)))
+                                "Brakuje kolumny „%s”, wymaganej %s. Dodaj ją w pierwszym wierszu pliku." % (name, PROFILE_PHRASE.get(profile, "w profilu " + profile))))
     if not data_rows:
         issues.append(issue(None, None, ERROR, "brak_wierszy", "Plik nie zawiera wierszy danych pod nagłówkiem."))
 

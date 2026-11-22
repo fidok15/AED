@@ -550,7 +550,7 @@ def process_submission(db, account, records, report, filename, dry_run, demo=Fal
                           "Aktywuj urządzenie AED %s" % rec["id_aed"],
                           "Producent lub sprzedawca (%s) zgłosił do rejestru AED urządzenie %s %s, którym Państwo "
                           "zarządzają. Uzupełnij lokalizację i godziny dostępu, korzystając z linku. Link jest "
-                          "przeznaczony wyłącznie dla zarządcy urządzenia."
+                          "przeznaczony wyłącznie dla dysponenta urządzenia."
                           % (account["nazwa"], rec["producent"], rec["model"]), item["link_aktywacyjny"])
         przyjete.append(item)
     s = report["podsumowanie"]
@@ -826,13 +826,13 @@ def issue_link(req, resp, id_aed):
     data = req.get_media(default_when_empty={})
     email = str((data if isinstance(data, dict) else {}).get("email") or "").strip()
     if email and not EMAIL_RE.match(email):
-        raise ApiError(422, "zly_email", "Pole „email” musi być adresem e-mail (instytucjonalnym) zarządcy.")
+        raise ApiError(422, "zly_email", "Pole „email” musi być adresem e-mail (instytucjonalnym) dysponenta.")
     link = activation_link(id_aed, new_token(db, id_aed))
     if email:
         queue_message(db, "przejecie", id_aed, email, "Potwierdź urządzenie AED %s" % id_aed,
                       "Urządzenie AED, którym Państwo zarządzają, jest w rejestrze krajowym, ale nikt odpowiedzialny go "
                       "nie potwierdził. Podaj nazwę miejsca, położenie, godziny dostępu i kontakt, korzystając z linku. "
-                      "Link jest przeznaczony wyłącznie dla zarządcy urządzenia.", link)
+                      "Link jest przeznaczony wyłącznie dla dysponenta urządzenia.", link)
     db.commit()
     resp.status = falcon.HTTP_201
     resp.media = {"id_aed": id_aed, "link_aktywacyjny": link, "waznosc_dni": TOKEN_DAYS, "wyslano_na": email or None}
@@ -1063,13 +1063,13 @@ def export_csv(req, resp):
 HARVESTER_NS = "urn:otwarte-dane:harvester:1.13"
 FEED_DESCRIPTION = (
     "Ogólnopolski zbiór defibrylatorów AED prowadzony przez Ministerstwo Cyfryzacji. Rekordy pochodzą od producentów "
-    "i sprzedawców (konta firm), od zarządców urządzeń (potwierdzenie przez kod QR na naklejce) oraz z otwartych zbiorów "
+    "i sprzedawców (konta firm), od dysponentów urządzeń (potwierdzenie przez kod QR na naklejce) oraz z otwartych zbiorów "
     "samorządów, po ujednoliceniu do jednego standardu i deduplikacji. Jeden wiersz to jedno urządzenie; współrzędne "
     "WGS84 w kolumnach szerokosc_geograficzna i dlugosc_geograficzna. Zbiór nie zawiera danych osobowych, numerów "
     "seryjnych, urządzeń prywatnych ani rekordów znanych tylko z OpenStreetMap.")
 RESOURCE_DESCRIPTION = (
     "Plik CSV (UTF-8, separator przecinek, daty RRRR-MM-DD) z rekordami spełniającymi profil publikacji standardu AED. "
-    "Kolumna status mówi, czy zarządca potwierdził urządzenie (wartość aktywny, w interfejsie „zweryfikowany”), a kompletnosc - jak pełny jest rekord (0-100).")
+    "Kolumna status mówi, czy dysponent potwierdził urządzenie (wartość aktywny, w interfejsie „zweryfikowany”), a kompletnosc - jak pełny jest rekord (0-100).")
 
 
 def harvester_xml_bytes(db):
