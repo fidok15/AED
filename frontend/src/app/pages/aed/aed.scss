@@ -1896,6 +1896,9 @@ html:has(.aed--app) {
       white-space: normal;
       text-align: left;
     }
+  }
+}
+
 
 // Converter mapping table on a narrow screen (UI review A8): below 640 px each column of the file is one block –
 // its name, the field select and the sample values folded in <details>; nothing wider than the screen.
