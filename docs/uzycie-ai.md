@@ -4,7 +4,9 @@ Regulamin zadania (§2 ust. 7–8) dopuszcza użycie AI pod warunkiem, że rozwi
 
 ## Narzędzie
 
-Claude Code (model Claude firmy Anthropic) w roli asystenta programisty: sesja prowadząca rozdzielała zadania między agenty pomocnicze, a członkowie zespołu wydawali polecenia, podejmowali decyzje i odbierali wyniki.
+Claude Code (model Claude firmy Anthropic) w roli asystenta programisty: sesja prowadząca rozdzielała zadania między agenty podrzędne, a członkowie zespołu wydawali polecenia, podejmowali decyzje i odbierali wyniki.
+
+Codex (model innego dostawcy) – niezależny przegląd kodu napisanego z Claude Code. Znaleziska i poprawki: `docs/przeglad-codex.md`.
 
 ## Co zrobił człowiek
 
@@ -25,6 +27,9 @@ Claude Code (model Claude firmy Anthropic) w roli asystenta programisty: sesja p
 | Usługa API (`aed_service/`) | kod wygenerowany przez AI | testy automatyczne całej ścieżki; przejście w przeglądarce |
 | Moduł AED we frontendzie (`frontend/src/app/pages/aed/`) | kod wygenerowany przez AI na podstawie wytycznych zespołu co do wyglądu i przebiegu | przejście ścieżki użytkownika w przeglądarce; uwagi zespołu |
 | Konfiguracja Dockera | wygenerowana przez AI | uruchomienie i sprawdzenie odpowiedzi usług |
+| Wykaz AED w forku portalu (`backend/mcod/aed/`, `aed_standard/wykaz.py`, pole `contains_aed_list`) | analiza mechanizmu wykazu DGA w kodzie portalu i kod wygenerowany przez AI | testy logiki na prawdziwych plikach; kod Django kompilowany, w portalu jeszcze nieuruchomiony – oczekuje na weryfikację przez człowieka |
+| Wdrożenie pod domeną (`docker-compose.prod.yml`, `backend/docker-compose.aed-domain.yml`, `backend/aed-domain/`) | konfiguracja wygenerowana przez AI na podstawie kodu portalu | tylko sprawdzenie składni (`docker compose config`); nieuruchomione na serwerze |
+| Przegląd kodu | niezależny przegląd Codexem (dwie rundy) | poprawki z testami; decyzja o każdej poprawce w sesji prowadzącej; rundy potwierdzającej nie było |
 | Materiały kampanii (`kampania/`) | propozycje nazw i haseł, brief, szablon księgi znaku, pakiet zachęt | wybór i ostateczna treść należą do zespołu; AI nie tworzyło znaku graficznego |
 | Dokumentacja (`README.md`, `CLAUDE.md`, `docs/`) | redakcja na podstawie ustaleń zespołu | przegląd zespołu |
 
@@ -42,3 +47,6 @@ Claude Code (model Claude firmy Anthropic) w roli asystenta programisty: sesja p
 | 2026-11-21 | przegląd stanu aplikacji i jej uruchomienie; zamykanie połączeń SQLite w usłudze i testach (koniec `ResourceWarning`) | Jakub Zawadzki |
 | 2026-11-21 | zasilanie XML dla harvestera dane.gov.pl w usłudze (`/eksport/dane-gov-pl.xml` i `.md5`) z testem walidacji XSD 1.13; analiza kodu harvestera i walidacji CSV portalu, w tym odtworzenie wykrywania typów na wersjach bibliotek portalu; instrukcja `docs/panel-portalu-krok-po-kroku.md` (wynik w panelu portalu jeszcze niesprawdzony przez człowieka) | fidok15 |
 | 2026-11-22 | analiza mechanizmu wykazu DGA w kodzie portalu i odtworzenie go dla AED (`backend/mcod/aed/`, `aed_standard/wykaz.py`, pole `contains_aed_list`); testy czystej logiki uruchomione na prawdziwych plikach; kodu Django nie uruchomiono – do weryfikacji przez człowieka w działającym portalu; konfiguracja wdrożenia pod domeną (`docker-compose.prod.yml`) | fidok15 |
+| 2026-11-22 (noc) | niezależny przegląd PR #16 Codexem: 5 znalezisk (2 × P1, 3 × P2), wszystkie poprawione przez AI w commicie `d4eec3b` | PR #16 zmergował Adam Korwin; poprawek w działającym portalu nikt jeszcze nie sprawdził |
+| 2026-11-22 (noc) | sesja prowadząca z agentami podrzędnymi: poprawki po przeglądzie rejestru źródeł, kolejka duplikatów przy imporcie, przejęcie punktu znanego tylko z OpenStreetMap w usłudze (`838968e`); równolegle agent frontendowy (zmiany w `frontend/src/app/pages/aed/`) i agent uruchamiający portal | oczekuje na odbiór (gałąź `feat/nocna-runda`, bez PR) |
+| 2026-11-22 (noc) | agent dokumentacji: aktualizacja `CLAUDE.md` i `README.md` o wskazówkę prowadzącego (wykazy), konfiguracja pełnego forka pod domeną (`backend/docker-compose.aed-domain.yml`, `backend/aed-domain/`, `docs/wdrozenie-serwer.md`; sprawdzona tylko składnia), opis projektu, nowy konspekt prezentacji, uzupełnienie instrukcji dla jury, raport z przeglądów Codexa | oczekuje na odbiór; kierunek (wykaz w portalu, serwer pod domeną) wskazał zespół |

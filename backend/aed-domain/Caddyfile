@@ -1,0 +1,55 @@
+# One TLS entry point for the full-portal deployment (docker-compose.aed-domain.yml).
+# Caddy gets Let's Encrypt certificates for all four names; DNS of each must point at this server.
+#   <domain>        portal frontend (fork) + AED module, /api/aed -> aed-service, /api -> portal API
+#   api.<domain>    portal API (resource files under /media, GET /aed-aggregated)
+#   admin.<domain>  portal admin panel (Django)
+#   cms.<domain>    portal CMS (Wagtail)
+# Static files and media are served from the backend/ folders, as backend/docker/nginx does locally.
+
+{$AED_DOMAIN} {
+	encode gzip
+	reverse_proxy aed-web:80
+}
+
+api.{$AED_DOMAIN} {
+	encode gzip
+	handle_path /media/* {
+		root * /srv/media
+		file_server
+	}
+	handle {
+		reverse_proxy mcod-local-api:8000
+	}
+}
+
+admin.{$AED_DOMAIN} {
+	encode gzip
+	handle_path /static/* {
+		root * /srv/statics
+		file_server
+	}
+	# ponytail: media served straight from disk; the portal's X-Accel publish check for /media/resources is skipped.
+	handle_path /media/* {
+		root * /srv/media
+		file_server
+	}
+	handle {
+		reverse_proxy mcod-local-admin:8001
+	}
+}
+
+cms.{$AED_DOMAIN} {
+	encode gzip
+	redir / /admin/
+	handle_path /static/* {
+		root * /srv/statics
+		file_server
+	}
+	handle_path /media/* {
+		root * /srv/media
+		file_server
+	}
+	handle {
+		reverse_proxy mcod-local-cms:8002
+	}
+}

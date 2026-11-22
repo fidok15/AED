@@ -43,7 +43,7 @@ Minimalna zmiana dla nowego typu: stała i wybór w `organizations/models.py`, d
 
 ## Rekomendowany kształt integracji
 
-Stan na 22.11: krok 0 zrobiony (wolumen `../aed_standard` w obu kotwicach `docker-compose.local.yml`). Wykaz AED – zgłaszanie i scalanie wykazów jako zasobów portalu, wzorem wykazu DGA – jest w `mcod/aed/`; instrukcja: `docs/wykaz-aed-w-portalu.md`, analiza: `docs/wykaz-dga-analiza.md`. Kod Django nie był jeszcze uruchomiony w portalu.
+Stan na 22.11: krok 0 zrobiony (wolumen `../aed_standard` w obu kotwicach `docker-compose.local.yml`). Wykaz AED – zgłaszanie i scalanie wykazów jako zasobów portalu, wzorem wykazu DGA – jest w `mcod/aed/`; instrukcja: `docs/wykaz-aed-w-portalu.md`, analiza: `docs/wykaz-dga-analiza.md`. Kod Django nie był jeszcze uruchomiony w portalu. Uruchomienie pełnego forka na serwerze pod domeną (HTTPS, panel, API, usługa AED): `docs/wdrozenie-serwer.md`.
 
 Wszystko w nowej aplikacji `mcod/aed`, żeby zmianę dało się pokazać jako łatkę.
 
