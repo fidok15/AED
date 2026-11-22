@@ -47,6 +47,9 @@ SYNONYMS = {
     "nazwa obiektu": "nazwa", "obiekt": "nazwa", "miejsce": "nazwa", "name": "nazwa",
     "godziny": "godziny_dostepu", "godziny otwarcia": "godziny_dostepu", "opis": "opis_lokalizacji",
     "producent urzadzenia": "producent", "model urzadzenia": "model", "nr seryjny": "numer_seryjny",
+    "termin baterii": "data_waznosci_baterii", "waznosc baterii": "data_waznosci_baterii",
+    "termin elektrod": "data_waznosci_elektrod", "waznosc elektrod": "data_waznosci_elektrod",
+    "nr budynku": "nr_budynku", "numer budynku": "nr_budynku",
     # Seen in the format survey (docs/formaty-zbiorow-aed.md): ArcGIS copy of the Warsaw list, KML/GML exports.
     "object name": "nazwa", "manufacturer": "producent", "building no": "nr_budynku", "location desc": "opis_lokalizacji",
     "access desc": "godziny_dostepu_opis", "description": "opis_lokalizacji", "desc": "opis_lokalizacji", "polozenie": "opis_lokalizacji",
@@ -75,6 +78,9 @@ POSTCODE_LOOSE_RE = re.compile(r"^(\d{2})\s*-?\s*(\d{3})$")
 # Address without a postcode ("ul. Bosacka 18", "Mikołów, Gliwicka 3"), which sources.parse_address does not take.
 STREET_ONLY_RE = re.compile(r"^(?:(?P<miasto>[^,\d]+),\s*)?(?:(?P<cecha>ul|al|pl|os)\.+\s*)?(?P<ulica>[^,]*?[^\W\d][^,]*?)"
                             r"\s+(?P<nr>\d+[A-Za-z]?(?:/\d+[A-Za-z]?)?)$", re.IGNORECASE)
+# The same with the town at the end and no comma ("ul. Księdza Popiełuszki 36 Kraków").
+STREET_TOWN_RE = re.compile(r"^(?:(?P<cecha>ul|al|pl|os)\.+\s*)?(?P<ulica>[^,]*?[^\W\d][^,]*?)"
+                            r"\s+(?P<nr>\d+[A-Za-z]?(?:/\d+[A-Za-z]?)?)\s+(?P<miasto>[^\W\d][^\d,]{2,})$", re.IGNORECASE)
 LISTED = 100   # rows named in the geocoding report
 
 
@@ -648,7 +654,8 @@ def _street_only(rows, records, col, notes):
     """Fill street, number (and town) from an address column without a postcode, where parse_address found nothing."""
     done = 0
     for (_, row, _), rec in zip(rows, records):
-        m = STREET_ONLY_RE.match(_clean(_cell(row.get(col))))
+        text = _clean(_cell(row.get(col)))
+        m = STREET_ONLY_RE.match(text) or STREET_TOWN_RE.match(text)
         if m and not (rec["nazwa_ulicy"] or rec["nr_budynku"]):
             rec.update(cecha_ulicy=rec["cecha_ulicy"] or STREET_TYPES.get((m.group("cecha") or "").lower(), ""),
                        nazwa_ulicy=m.group("ulica").strip(), nr_budynku=m.group("nr"),
