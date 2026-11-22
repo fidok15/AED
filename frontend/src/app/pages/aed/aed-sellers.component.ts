@@ -60,14 +60,16 @@ export class AedSellersComponent implements OnInit, AfterViewInit, OnDestroy {
         for (const seller of sellers.dane) {
           const badge = seller.odznaka === 'tak' ? 'ma odznakę' : 'bez odznaki';
           const label = `${seller.nazwa}, ${seller.miejscowosc}, ${badge}`;
-          // The pin carries the first letter of the company; a badge adds a check mark, not only a colour.
+          // A company is a white square with its initial – unlike the navy discs and status symbols of devices;
+          // a badge adds a green check mark, not only a colour.
+          const initial = seller.nazwa.charAt(0).replace(/[<>&]/, '');
           L.marker([seller.szerokosc_geograficzna, seller.dlugosc_geograficzna], {
             title: label,
             alt: label,
             icon: L.divIcon({
-              className: `aed-cluster${seller.odznaka === 'tak' ? ' aed-cluster--badge' : ''}`,
-              html: seller.odznaka === 'tak' ? '✓' : seller.nazwa.charAt(0),
-              iconSize: [36, 36],
+              className: 'aed-firm',
+              html: initial + (seller.odznaka === 'tak' ? '<span class="aed-firm__badge">✓</span>' : ''),
+              iconSize: [34, 34],
             }),
           })
             .bindPopup(() => {
