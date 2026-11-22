@@ -1,0 +1,771 @@
+<!doctype html>
+<!--
+  Prezentacja „Opiekun AED” – HackNation 2026, Misja AED.
+  Źródło: ten plik + assets/ + zrzuty z ../frontend/aed-zrzuty/.
+  Jeden samodzielny plik do oddania: python3 prezentacja-html/build.py  ->  prezentacja-html/prezentacja.html
+  Sterowanie: strzałki / spacja / klik = dalej, R = odtwórz animację slajdu, F = pełny ekran, Home/End.
+  Liczby: wyłącznie z datasets/out/raport.json i dokumentów w repozytorium (CLAUDE.md, zasada 10).
+-->
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Opiekun AED – prezentacja</title>
+<link rel="stylesheet" href="assets/fonts/fonts.css">
+<style>
+:root {
+  --cream: #F4F1EA; --cream2: #E9E3D6; --navy: #14274E; --navy2: #0E1C3A; --navy3: #0B1530;
+  --blue: #2456E6; --sky: #A9C8FF; --amber: #F28C28; --grey: #8A94A6; --muted: #4E5A6E; --white: #fff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: #F4F1EA; overflow: hidden; }
+body { font-family: "Atkinson Hyperlegible", system-ui, sans-serif; color: var(--navy); }
+.viewport { position: fixed; inset: 0; overflow: hidden; }
+.deck { width: 1920px; height: 1080px; position: absolute; left: 50%; top: 50%; transform-origin: center; }
+.slide { position: absolute; inset: 0; background: var(--cream); overflow: hidden; visibility: hidden; }
+.slide.active { visibility: visible; }
+.bg-diag { position: absolute; inset: 0; background: var(--cream2); clip-path: polygon(58% 0, 100% 0, 100% 100%, 44% 100%); }
+.bg-diag.left { clip-path: polygon(0 0, 30% 0, 46% 100%, 0 100%); }
+.bg-band { position: absolute; left: 0; right: 0; bottom: 0; height: 300px; background: var(--cream2); }
+.art { position: absolute; inset: 0; width: 1920px; height: 1080px; pointer-events: none; overflow: visible; }
+
+/* ---------- typography ---------- */
+.text { position: absolute; left: 120px; top: 140px; width: 840px; }
+.kicker { font: 700 22px/1 "Atkinson Hyperlegible"; letter-spacing: .18em; text-transform: uppercase; color: var(--blue); display: flex; align-items: center; gap: 14px; }
+.kicker::before { content: ""; width: 36px; height: 4px; background: var(--amber); border-radius: 2px; }
+h1, h2 { font-family: "Lexend"; font-weight: 700; letter-spacing: -.03em; }
+h1 { font-size: 80px; line-height: 1.05; margin-top: 28px; }
+h1.xl { font-size: 92px; }
+h2 { font-size: 64px; line-height: 1.08; margin-top: 24px; }
+h1 span, h2 span { display: block; }
+.accent { color: var(--blue); }
+.lead { font-size: 27px; line-height: 1.45; color: var(--muted); margin-top: 30px; max-width: 780px; }
+.small { font-size: 19px; color: var(--muted); line-height: 1.4; }
+.src { position: absolute; left: 120px; bottom: 100px; font-size: 17px; color: var(--muted); }
+code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .9em; }
+
+.steps { list-style: none; margin-top: 44px; display: grid; gap: 22px; }
+.steps li { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 22px; }
+.num { width: 64px; height: 64px; border-radius: 18px; background: var(--navy); color: #fff; font: 600 28px/64px "Lexend"; text-align: center; }
+.steps b { font: 600 28px/1.2 "Lexend"; display: block; }
+.steps small { font-size: 22px; color: var(--muted); }
+
+.bullets { list-style: none; display: grid; gap: 18px; margin-top: 36px; }
+.bullets li { display: grid; grid-template-columns: 22px 1fr; gap: 16px; font-size: 25px; line-height: 1.4; }
+.bullets li::before { content: ""; width: 14px; height: 14px; border-radius: 4px; background: var(--navy); margin-top: 11px; }
+.bullets li.z::before { background: var(--blue); } .bullets li.n::before { background: var(--amber); } .bullets li.u::before { background: var(--sky); }
+.bullets b { font-weight: 700; }
+
+.card { position: absolute; background: #fff; border-radius: 28px; box-shadow: 0 14px 40px rgba(20,39,78,.12); }
+.chip { position: absolute; background: #fff; border-radius: 20px; padding: 16px 22px; display: flex; gap: 14px; align-items: center; box-shadow: 0 14px 34px rgba(20,39,78,.18); font: 600 22px "Lexend"; white-space: nowrap; }
+.chip small { display: block; font: 400 17px "Atkinson Hyperlegible"; color: var(--muted); }
+.sq { width: 20px; height: 20px; border-radius: 6px; flex: none; background: var(--navy); }
+.sq.z { background: var(--blue); } .sq.n { background: var(--amber); } .sq.u { background: var(--sky); } .sq.w { background: none; border: 3px solid var(--grey); }
+.pill { display: inline-block; padding: 6px 16px; border-radius: 999px; font: 600 20px "Lexend"; color: #fff; background: var(--navy); }
+.pill.z { background: var(--blue); } .pill.n { background: var(--amber); color: var(--navy); } .pill.u { background: var(--sky); color: var(--navy); } .pill.w { background: #fff; color: var(--muted); box-shadow: inset 0 0 0 3px var(--grey); }
+
+.stat b { display: block; font: 700 76px/1 "Lexend"; letter-spacing: -.03em; }
+.stat span { display: block; font-size: 22px; color: var(--muted); margin-top: 8px; line-height: 1.3; }
+
+/* ---------- device mocks ---------- */
+.phone { position: absolute; background: var(--navy); padding: 12px; border-radius: 54px; box-shadow: 0 40px 80px rgba(20,39,78,.28), 0 0 0 3px var(--navy2); }
+.phone img { width: 100%; height: 100%; border-radius: 42px; display: block; object-fit: cover; object-position: top; background: #fff; }
+.phone::before { content: ""; position: absolute; left: 50%; top: 22px; width: 96px; height: 24px; margin-left: -48px; background: var(--navy); border-radius: 12px; }
+.phone.sm { padding: 8px; border-radius: 34px; } .phone.sm img { border-radius: 26px; } .phone.sm::before { width: 56px; height: 14px; margin-left: -28px; top: 14px; border-radius: 7px; }
+.laptop { position: absolute; }
+.laptop .scr { background: var(--navy); padding: 16px; border-radius: 22px 22px 6px 6px; box-shadow: 0 30px 70px rgba(20,39,78,.25); }
+.laptop .scr img { width: 100%; display: block; border-radius: 8px; background: #fff; }
+.laptop .base { height: 26px; margin: 0 -60px; background: var(--navy2); border-radius: 4px 4px 26px 26px; position: relative; }
+.laptop .base::after { content: ""; position: absolute; left: 50%; top: 0; width: 140px; height: 10px; margin-left: -70px; background: var(--navy); border-radius: 0 0 10px 10px; }
+.monitor { position: absolute; }
+.monitor .scr { background: var(--navy); padding: 16px; border-radius: 20px; box-shadow: 0 30px 70px rgba(20,39,78,.25); }
+.monitor .scr img { width: 100%; display: block; border-radius: 8px; background: #fff; }
+.monitor .neck { width: 90px; height: 70px; margin: 0 auto; background: var(--navy2); }
+.monitor .foot { width: 260px; height: 18px; margin: 0 auto; background: var(--navy); border-radius: 10px; }
+.browser { position: absolute; background: #fff; border-radius: 18px; overflow: hidden; box-shadow: 0 30px 70px rgba(20,39,78,.22); border: 3px solid var(--navy); }
+.browser .bar { height: 40px; background: var(--navy); display: flex; align-items: center; gap: 9px; padding: 0 16px; }
+.browser .bar i { width: 12px; height: 12px; border-radius: 50%; background: var(--sky); }
+.browser .bar i:nth-child(2) { background: var(--amber); } .browser .bar i:nth-child(3) { background: #fff; }
+.browser .bar span { margin-left: 14px; font: 400 15px ui-monospace, Menlo, monospace; color: #C9D6F0; }
+.browser img { width: 100%; height: calc(100% - 40px); display: block; object-fit: cover; object-position: top; }
+
+/* ---------- footer ---------- */
+.foot { position: absolute; left: 120px; right: 120px; bottom: 48px; display: flex; justify-content: space-between; align-items: center; font: 600 22px "Lexend"; }
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand em { font-style: normal; color: var(--blue); }
+.page { font-size: 20px; color: var(--muted); letter-spacing: .1em; font-family: "Atkinson Hyperlegible"; font-weight: 400; }
+.progress { position: fixed; left: 0; bottom: 0; height: 5px; background: var(--amber); transition: width .4s; z-index: 5; }
+.hint { position: fixed; right: 16px; bottom: 14px; font: 13px system-ui; color: #8790a3; z-index: 5; }
+
+/* ---------- animation ---------- */
+.active .in { animation: rise .8s cubic-bezier(.2,.8,.2,1) both; }
+.active .from-right { animation: slideR 1s cubic-bezier(.2,.8,.2,1) both; }
+.active .from-left { animation: slideL 1s cubic-bezier(.2,.8,.2,1) both; }
+.active .pop { animation: pop .6s cubic-bezier(.3,1.6,.5,1) both; }
+.active .fade { animation: fade 1s ease both; }
+.active .grow { animation: grow 1.1s cubic-bezier(.2,.8,.2,1) both; transform-origin: left center; }
+.active .grow-up { animation: growUp 1s cubic-bezier(.2,.8,.2,1) both; transform-origin: center bottom; transform-box: fill-box; }
+.active .draw { stroke-dasharray: 3000; stroke-dashoffset: 3000; animation: draw 1.8s ease-out forwards; }
+.active .walk { animation: walk 5s cubic-bezier(.4,0,.4,1) both; }
+.d1{animation-delay:.15s!important}.d2{animation-delay:.35s!important}.d3{animation-delay:.6s!important}.d4{animation-delay:.9s!important}
+.d5{animation-delay:1.2s!important}.d6{animation-delay:1.5s!important}.d7{animation-delay:1.8s!important}.d8{animation-delay:2.1s!important}
+.d9{animation-delay:2.4s!important}.d10{animation-delay:2.7s!important}.d11{animation-delay:3s!important}.d12{animation-delay:3.3s!important}
+.d13{animation-delay:3.6s!important}.d14{animation-delay:3.9s!important}
+@keyframes rise { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }
+@keyframes slideR { from { opacity: 0; transform: translateX(160px); } to { opacity: 1; transform: none; } }
+@keyframes slideL { from { opacity: 0; transform: translateX(-160px); } to { opacity: 1; transform: none; } }
+@keyframes pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes grow { from { transform: scaleX(0); } to { transform: none; } }
+@keyframes growUp { from { transform: scaleY(0); } to { transform: none; } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes walk { from { transform: translateX(-1300px); } to { transform: none; } }
+.breathe { animation: breathe 4s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes breathe { 50% { transform: translateY(-4px); } }
+.drift { animation: drift 14s ease-in-out infinite alternate; }
+@keyframes drift { to { transform: translateX(60px); } }
+.sway { animation: sway 5s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes sway { 50% { transform: rotate(3deg); } }
+.blink { animation: blink 1.2s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+.spin { animation: spin 12s linear infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } .draw { stroke-dashoffset: 0 !important; } }
+
+/* ---------- print / PDF: every slide on its own page, final state ---------- */
+@media print {
+  @page { size: 1920px 1080px; margin: 0; }
+  html, body { overflow: visible; height: auto; background: none; }
+  .viewport { position: static; display: block; }
+  .deck { position: static; transform: none !important; width: auto; height: auto; }
+  .slide { position: relative; visibility: visible; width: 1920px; height: 1080px; page-break-after: always; break-after: page; }
+  *, *::before, *::after { animation: none !important; }
+  .draw { stroke-dashoffset: 0 !important; }
+  .progress, .hint { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="viewport"><div class="deck" id="deck">
+
+<!-- 01 · TYTUŁ -->
+<section class="slide" data-scene="title" aria-label="Tytuł">
+  <div class="bg-diag"></div>
+  <svg class="art"></svg>
+  <div class="text" style="top:170px">
+    <p class="kicker in d1">HackNation 2026 · Misja AED – dane na ratunek</p>
+    <h1 class="xl"><span class="in d2">Każdy AED</span><span class="in d3">ma kogoś, kto</span><span class="accent in d4">za jego dane</span><span class="accent in d4">odpowiada.</span></h1>
+    <p class="lead in d5">Proces, w którym dane wprowadza podmiot odpowiedzialny za urządzenie, a Ministerstwo publikuje jeden ogólnopolski zbiór na dane.gov.pl.</p>
+    <div class="in d6" style="display:flex;align-items:center;gap:22px;margin-top:44px">
+      <span data-mark="80"></span>
+      <span><b style="font:700 44px Lexend;letter-spacing:-.02em">Opiekun <span class="accent">AED</span></b><br><span class="small" style="font-size:22px">Dbasz o AED? Pokaż to w danych.</span></span>
+    </div>
+  </div>
+</section>
+
+<!-- 02 · PROBLEM -->
+<section class="slide" data-scene="problem" aria-label="Problem">
+  <div class="bg-diag"></div>
+  <svg class="art"></svg>
+  <div class="text" style="top:110px">
+    <p class="kicker in d1">Problem</p>
+    <h2><span class="in d2">Dane o AED są rozproszone,</span><span class="accent in d3">a nikt za nie nie odpowiada.</span></h2>
+    <div class="in d4" style="display:flex;gap:56px;margin-top:36px">
+      <div class="stat"><b data-count="18814">18 814</b><span>rekordów zebranych<br>z 6 źródeł</span></div>
+      <div class="stat"><b style="color:var(--amber)">0</b><span>potwierdzonych przez<br>odpowiedzialny podmiot</span></div>
+    </div>
+    <ul class="bullets">
+      <li class="in d6" style="font-size:23px"><span>3 marca w centrum Warszawy świadkowie szukali AED, a część urządzeń była zamknięta na klucz (treść zadania).</span></li>
+      <li class="in d7" style="font-size:23px"><span>Kompletnej mapy nie ma; jest kilka baz, mniej lub bardziej kompletnych.</span></li>
+      <li class="in d8" style="font-size:23px"><span>Organizator: dane są niezweryfikowane, „nikt nie bierze za nie odpowiedzialności”.</span></li>
+    </ul>
+  </div>
+  <p class="src fade d9">Liczby: datasets/out/raport.json – wszystkie rekordy po scaleniu mają status „niepotwierdzony”.</p>
+</section>
+
+<!-- 03 · POMIAR -->
+<section class="slide" data-scene="measure" aria-label="Pomiar pól">
+  <svg class="art"></svg>
+  <div class="text" style="width:1680px;top:110px">
+    <p class="kicker in d1">Nasz pomiar na prawdziwych plikach</p>
+    <h2 class="in d2">Pól, których szuka świadek, prawie nigdzie nie ma.</h2>
+  </div>
+  <div id="chart" style="position:absolute;left:120px;top:330px;width:1540px"></div>
+  <div class="card in d12" style="left:120px;top:850px;width:1540px;padding:22px 30px;font-size:21px;line-height:1.45">
+    <b>Przy okazji naprawiliśmy pliki źródłowe.</b> W zbiorze Marek 7 z 8 rekordów miało zamienione szerokość i długość geograficzną, a jeden punkt leżał 293 km od pozostałych – usunęliśmy jego współrzędne.
+  </div>
+  <p class="src fade d12">Udział rekordów z wypełnionym polem · datasets/out/raport.json (pokrycie_pol), stan z 21.11.2026</p>
+</section>
+
+<!-- 04 · PROCES -->
+<section class="slide" data-scene="process" aria-label="Proces">
+  <div class="bg-band"></div>
+  <svg class="art"></svg>
+  <div class="text" style="width:1680px;top:110px">
+    <p class="kicker in d1">Proces</p>
+    <h2 class="in d2">Od sprzedaży urządzenia do zbioru na dane.gov.pl</h2>
+  </div>
+  <div id="nodes"></div>
+</section>
+
+<!-- 05 · KROK 1 FIRMA -->
+<section class="slide" data-scene="company" aria-label="Krok 1: sprzedawca">
+  <div class="bg-diag"></div>
+  <svg class="art"></svg>
+  <div class="laptop in d5" style="left:960px;top:210px;width:760px">
+    <div class="scr"><img src="../frontend/aed-zrzuty/gif/firma.gif" alt="Nagranie panelu firmy: logowanie, plik z błędami, raport walidacji, wysłanie zgłoszenia, naklejka"></div>
+    <div class="base"></div>
+  </div>
+  <div class="chip pop d12" style="left:1050px;top:720px"><span class="sq z"></span><span>Status: zgłoszony<small>identyfikator AED-… i naklejka QR</small></span></div>
+  <div class="text">
+    <p class="kicker in d1">Krok 1 · sprzedawca</p>
+    <h1><span class="in d2">Zgłoś urządzenia</span><span class="accent in d3">jednym plikiem.</span></h1>
+    <p class="lead in d4">Producent lub sprzedawca ma w portalu konto firmy. Rejestruje urządzenia przy sprzedaży – plikiem CSV albo formularzem.</p>
+    <ol class="steps">
+      <li class="in d7"><span class="num">1</span><span><b>Wgraj plik CSV</b><small>producent, model, numer seryjny, daty ważności</small></span></li>
+      <li class="in d8"><span class="num">2</span><span><b>Raport walidacji po polsku</b><small>który wiersz i które pole poprawić</small></span></li>
+      <li class="in d9"><span class="num">3</span><span><b>Naklejki z kodem QR</b><small>gotowe do wydruku, po jednej na urządzenie</small></span></li>
+    </ol>
+  </div>
+</section>
+
+<!-- 06 · KROK 2 ZARZĄDCA -->
+<section class="slide" data-scene="manager" aria-label="Krok 2: zarządca">
+  <div class="bg-diag"></div>
+  <svg class="art"></svg>
+  <div class="phone in d5" style="left:1000px;top:150px;width:364px;height:780px"><img src="../frontend/aed-zrzuty/gif/zarzadca.gif" alt="Nagranie strony zarządcy: lokalizacja z telefonu, godziny dostępu, stan urządzenia, potwierdzenie danych"></div>
+  <div class="chip pop d11" style="left:1220px;top:770px"><span class="sq"></span><span>Status: aktywny<small>rekord trafia do eksportu</small></span></div>
+  <div class="text">
+    <p class="kicker in d1">Krok 2 · zarządca</p>
+    <h1><span class="in d2">Zeskanuj naklejkę.</span><span class="accent in d3">Potwierdź dane.</span></h1>
+    <p class="lead in d4">Naklejka z kodem QR przychodzi razem z urządzeniem. Zarządca potwierdza miejsce i dostęp na swoim telefonie, bez instalowania aplikacji.</p>
+    <ol class="steps">
+      <li class="in d8"><span class="num">1</span><span><b>Lokalizacja z telefonu</b><small>współrzędne jednym dotknięciem</small></span></li>
+      <li class="in d9"><span class="num">2</span><span><b>Godziny dostępu</b><small>np. całą dobę, we wszystkie dni</small></span></li>
+      <li class="in d10"><span class="num">3</span><span><b>Stan urządzenia</b><small>na miejscu i gotowe do użycia</small></span></li>
+    </ol>
+  </div>
+</section>
+
+<!-- 07 · KROK 3 SYGNAŁ -->
+<section class="slide" data-scene="signal" aria-label="Krok 3: osoba postronna">
+  <div class="bg-diag"></div>
+  <svg class="art"></svg>
+  <div class="phone in d5" style="left:1000px;top:130px;width:330px;height:714px"><img src="../frontend/aed-zrzuty/17-qr-zgloszenie-problemu-telefon.jpg" alt="Strona z naklejki bez uprawnień: formularz zgłoszenia problemu"></div>
+  <div class="card in d10" style="left:1080px;top:760px;width:720px;padding:14px 14px 10px">
+    <p class="kicker" style="font-size:15px;margin:4px 6px 10px">Skrzynka wiadomości do dysponentów</p>
+    <img src="assets/sygnal-wiadomosc.png" alt="Wiadomość w skrzynce: zgłoszenie osoby postronnej" style="width:100%;display:block;border-radius:12px">
+  </div>
+  <div class="text">
+    <p class="kicker in d1">Krok 3 · osoba postronna</p>
+    <h1><span class="in d2">Zgłoś problem.</span><span class="accent in d3">Danych nie zmienisz.</span></h1>
+    <p class="lead in d4">Skan naklejki bez uprawnień otwiera formularz zgłoszenia. To sygnał dla właściciela, nie edycja danych.</p>
+    <ol class="steps">
+      <li class="in d7"><span class="num">1</span><span><b>Skan kodu QR</b><small>każdy przechodzień, bez konta</small></span></li>
+      <li class="in d8"><span class="num">2</span><span><b>Opis problemu</b><small>np. szafka zamknięta, brak urządzenia</small></span></li>
+      <li class="in d9"><span class="num">3</span><span><b>Wiadomość do dysponenta</b><small>w prototypie: skrzynka w panelu ministerstwa</small></span></li>
+    </ol>
+  </div>
+</section>
+
+<!-- 08 · KROK 4 MINISTERSTWO -->
+<section class="slide" data-scene="ministry" aria-label="Krok 4: Ministerstwo">
+  <div class="bg-diag"></div>
+  <svg class="art"></svg>
+  <div class="monitor in d5" style="left:940px;top:170px;width:760px">
+    <div class="scr"><img src="../frontend/aed-zrzuty/gif/ministerstwo.gif" alt="Nagranie panelu ministerstwa: stan rejestru, duplikaty do przeglądu, zadania cykliczne, wiadomości"></div>
+    <div class="neck"></div><div class="foot"></div>
+  </div>
+  <div class="text">
+    <p class="kicker in d1">Krok 4 · Ministerstwo</p>
+    <h1><span class="in d2">Jeden rejestr.</span><span class="accent in d3">Jeden zbiór.</span></h1>
+    <p class="lead in d4">Panel pokazuje stan rejestru, duplikaty do przeglądu, zadania cykliczne i wiadomości do dysponentów.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:34px 40px;margin-top:48px">
+      <div class="stat in d6"><b data-count="18814">18 814</b><span>rekordów w rejestrze</span></div>
+      <div class="stat in d7"><b data-count="266">266</b><span>automatycznych połączeń</span></div>
+      <div class="stat in d8"><b data-count="214">214</b><span>par do ręcznego przeglądu</span></div>
+      <div class="stat in d9"><b class="accent" data-count="781">781</b><span>rekordów do publikacji</span></div>
+    </div>
+  </div>
+  <p class="src fade d10">Liczby: datasets/out/raport.json</p>
+</section>
+
+<!-- 09 · CYKL ŻYCIA -->
+<section class="slide" data-scene="lifecycle" aria-label="Cykl życia rekordu">
+  <div class="bg-band"></div>
+  <svg class="art"></svg>
+  <div class="text" style="width:1680px;top:110px">
+    <p class="kicker in d1">Cykl życia rekordu</p>
+    <h2 class="in d2">Dane nie starzeją się po cichu.</h2>
+    <p class="lead in d3" style="max-width:1100px">Każdy rekord ma status. Brak potwierdzenia w terminie to przypomnienie dla właściciela, a potem zmiana statusu – widoczna w zbiorze.</p>
+  </div>
+  <div id="states"></div>
+</section>
+
+<!-- 10 · STANDARD DANYCH -->
+<section class="slide" data-scene="standard" aria-label="Standard danych">
+  <div class="bg-diag"></div>
+  <svg class="art"></svg>
+  <div class="browser in d5" style="left:1010px;top:150px;width:740px;height:620px"><div class="bar"><i></i><i></i><i></i><span>/pl/aed/company · raport walidacji</span></div><img src="../frontend/aed-zrzuty/09-raport-walidacji-bledy.jpg" alt="Raport walidacji pliku z błędami: lista wierszy i pól do poprawy"></div>
+  <div id="colchips"></div>
+  <div class="text">
+    <p class="kicker in d1">Wzorcowy zakres danych</p>
+    <h1><span class="in d2">Jedna struktura</span><span class="accent in d3">dla wszystkich źródeł.</span></h1>
+    <ul class="bullets">
+      <li class="in d4"><span><b>38 pól</b>, jeden wiersz = jedno urządzenie; CSV w UTF-8, daty RRRR-MM-DD, współrzędne WGS84 w osobnych kolumnach.</span></li>
+      <li class="in d5"><span>Dwa profile wymagalności: <b>sprzedaż</b> (dane urządzenia) i <b>publikacja</b> (rekord w zbiorze otwartym).</span></li>
+      <li class="in d6"><span><b>wzorzec-aed.xlsx</b>, walidator i formularze powstają z jednego pliku <code>schema.json</code>.</span></li>
+      <li class="in d7"><span>Nazwy kolumn adresu zgodne ze zbiorem Legionowa – istniejący plik jest poprawnym podzbiorem standardu.</span></li>
+    </ul>
+  </div>
+</section>
+
+<!-- 11 · ZGODNOŚĆ Z DANE.GOV.PL -->
+<section class="slide" data-scene="portal" aria-label="Zgodność z dane.gov.pl">
+  <div class="bg-diag"></div>
+  <svg class="art"></svg>
+  <div class="browser in d5" style="left:1000px;top:130px;width:780px;height:560px"><div class="bar"><i></i><i></i><i></i><span>/pl/aed/registry · rejestr</span></div><img src="../frontend/aed-zrzuty/01-rejestr-lista.jpg" alt="Rejestr AED: lista urządzeń z filtrem statusu i kompletnością"></div>
+  <div class="browser in d7" style="left:1180px;top:520px;width:600px;height:420px;transform:rotate(2deg)"><div class="bar"><i></i><i></i><i></i><span>mapa</span></div><img src="../frontend/aed-zrzuty/03-rejestr-mapa.jpg" alt="Rejestr AED: mapa urządzeń"></div>
+  <div class="text">
+    <p class="kicker in d1">Zgodność z dane.gov.pl</p>
+    <h2><span class="in d2">Publikuje Ministerstwo.</span><span class="in d3">Firmy raportują.</span><span class="accent in d4">Obywatel sygnalizuje.</span></h2>
+    <ul class="bullets">
+      <li class="in d6"><span>Dostawcą zbioru krajowego jest <b>Ministerstwo</b>; firmy raportują przez konta firmowe.</span></li>
+      <li class="in d7"><span>Zbiór do publikacji: <b>CSV, 781 rekordów, 38 kolumn</b>; licencje źródeł (CC0 1.0, CC BY 4.0) w kolumnie <code>licencja</code>.</span></li>
+      <li class="in d8"><span>Bez numeru seryjnego i kontaktu do dysponenta; prywatne AED i rekordy z OpenStreetMap (ODbL) zostają w rejestrze.</span></li>
+      <li class="in d9"><span>Moduł AED działa w <b>forku frontendu portalu</b>: nagłówek, stopka i nawigacja dane.gov.pl.</span></li>
+    </ul>
+  </div>
+</section>
+
+<!-- 12 · ZAKRES I DEDUPLIKACJA -->
+<section class="slide" data-scene="funnel" aria-label="Zakres i deduplikacja">
+  <svg class="art"></svg>
+  <div class="text" style="width:1680px;top:110px">
+    <p class="kicker in d1">Zakres i deduplikacja</p>
+    <h2 class="in d2">Sześć źródeł, jeden rejestr, uczciwy eksport.</h2>
+  </div>
+  <div id="funnel" style="position:absolute;left:120px;top:330px;width:1000px"></div>
+  <div class="card in d8" style="left:1210px;top:320px;width:590px;padding:34px 38px">
+    <p class="kicker" style="font-size:17px">Reguły łączenia</p>
+    <ul class="bullets" style="margin-top:20px;gap:14px">
+      <li style="font-size:21px"><span>Ten sam producent i numer seryjny – to samo urządzenie.</span></li>
+      <li style="font-size:21px"><span>Różne źródła do 15 m – łączymy automatycznie; do 50 m – <b>214 par</b> do przeglądu.</span></li>
+      <li style="font-size:21px"><span>Dwóch rekordów z tego samego źródła <b>nigdy</b> nie łączymy automatycznie – w budynku bywa kilka urządzeń.</span></li>
+    </ul>
+    <p class="kicker" style="font-size:17px;margin-top:32px">Średnia kompletność (0–100)</p>
+    <div style="display:flex;gap:46px;margin-top:16px">
+      <div class="stat"><b style="font-size:56px">39,2</b><span>rejestr</span></div>
+      <div class="stat"><b class="accent" style="font-size:56px">51,4</b><span>zbiór do publikacji</span></div>
+    </div>
+  </div>
+  <p class="src fade d10">datasets/out/raport.json · powody wykluczenia mogą się nakładać</p>
+</section>
+
+<!-- 13 · KAMPANIA -->
+<section class="slide" data-scene="campaign" aria-label="Akcja i zachęty">
+  <div class="bg-diag"></div>
+  <svg class="art"></svg>
+  <div class="browser in d9" style="left:1330px;top:120px;width:470px;height:420px"><div class="bar"><i></i><i></i><i></i><span>ranking firm</span></div><img src="../frontend/aed-zrzuty/06-ranking-firm.jpg" alt="Ranking firm według kompletności danych"></div>
+  <div class="text">
+    <p class="kicker in d1">Akcja dla dostawców danych</p>
+    <h1><span class="in d2">Opiekun <span class="accent" style="display:inline">AED</span></span></h1>
+    <p class="lead in d3" style="font:500 34px Lexend;color:var(--blue);margin-top:14px">Dbasz o AED? Pokaż to w danych.</p>
+    <ul class="bullets">
+      <li class="in d4"><span><b>Jedno miejsce</b> raportowania dla producentów, sprzedawców, zarządców i gmin.</span></li>
+      <li class="in d5"><span><b>Odznaka</b> dla firmy z aktualnymi danymi: kompletność co najmniej 70 i co najmniej połowa urządzeń aktywnych.</span></li>
+      <li class="in d6"><span><b>Ranking</b> kompletności i darmowe <b>przypomnienia</b> o terminach baterii i elektrod.</span></li>
+      <li class="in d7"><span>Punkt odniesienia: AED przy Paczkomatach InPost – widoczny znak w przestrzeni publicznej.</span></li>
+    </ul>
+    <p class="small in d8" style="margin-top:26px">Nazwa i znak: koncepcja robocza, ostateczny wybór i projekt należą do zespołu.</p>
+  </div>
+</section>
+
+<!-- 14 · DOSTĘPNOŚĆ -->
+<section class="slide" data-scene="a11y" aria-label="Dostępność i responsywność">
+  <div class="bg-band"></div>
+  <svg class="art"></svg>
+  <div class="text" style="width:820px">
+    <p class="kicker in d1">Dostępność i responsywność</p>
+    <h2><span class="in d2">WCAG 2.2 AA i 320 px</span><span class="accent in d3">od pierwszego ekranu.</span></h2>
+    <div style="display:grid;gap:30px;margin-top:46px">
+      <div class="stat in d4"><b>0</b><span>naruszeń axe 4.10 w obszarze AED – 9 widoków, po poprawkach</span></div>
+      <div class="stat in d5"><b style="font-size:60px">320 px</b><span>bez przewijania w poziomie; także powiększenie 200%</span></div>
+      <div class="stat in d6"><b style="font-size:60px">Tab · Enter</b><span>cała ścieżka firma → naklejka → zarządca samą klawiaturą</span></div>
+    </div>
+  </div>
+  <div class="phone sm in d6" style="left:1000px;top:200px;width:200px;height:420px"><img src="../frontend/aed-zrzuty/320px-start.jpg" alt="Strona startowa w oknie 320 px"></div>
+  <div class="phone sm in d7" style="left:1230px;top:170px;width:200px;height:420px"><img src="../frontend/aed-zrzuty/320px-panel-firmy.jpg" alt="Panel firmy w oknie 320 px"></div>
+  <div class="phone sm in d8" style="left:1460px;top:200px;width:200px;height:420px"><img src="../frontend/aed-zrzuty/320px-qr-dysponent.jpg" alt="Strona zarządcy w oknie 320 px"></div>
+  <div class="phone sm in d9" style="left:1690px;top:170px;width:200px;height:420px"><img src="../frontend/aed-zrzuty/320px-rejestr.jpg" alt="Rejestr w oknie 320 px"></div>
+  <p class="src fade d10">frontend/aed-zrzuty/DOSTEPNOSC.md · axe-4.10.2-po-poprawkach.json</p>
+</section>
+
+<!-- 15 · OGRANICZENIA -->
+<section class="slide" data-scene="limits" aria-label="Ograniczenia">
+  <svg class="art"></svg>
+  <div class="text" style="width:1680px;top:110px">
+    <p class="kicker in d1">Ograniczenia</p>
+    <h2 class="in d2">Co działa, a co jest jeszcze planem.</h2>
+  </div>
+  <div style="position:absolute;left:120px;top:330px;width:1320px;display:grid;grid-template-columns:1fr 1fr;gap:0 60px">
+    <ul class="bullets" style="margin-top:0">
+      <li class="n in d3"><span>Prototyp działa <b>lokalnie w Dockerze</b>, bez publicznego adresu.</span></li>
+      <li class="n in d4"><span>Wiadomości trafiają do <b>skrzynki w panelu ministerstwa</b>, nie są wysyłane e-mailem.</span></li>
+      <li class="n in d5"><span>Integracja z <b>backendem portalu to plan</b> (10 kroków), nie wdrożenie.</span></li>
+      <li class="n in d6"><span>Rekordy tylko z OpenStreetMap (ODbL) są <b>poza eksportem</b>; wymaga opinii prawnika.</span></li>
+    </ul>
+    <ul class="bullets" style="margin-top:0">
+      <li class="n in d7"><span>Żaden rekord ze źródeł <b>nie jest jeszcze potwierdzony</b> przez zarządcę.</span></li>
+      <li class="n in d8"><span><b>Brak obowiązku prawnego</b> raportowania przez sprzedawców – dziś dobrowolność i zachęty.</span></li>
+      <li class="n in d9"><span>Czy numer seryjny trafi do zbioru otwartego – <b>decyzja otwarta</b>.</span></li>
+      <li class="n in d10"><span>Usługa demonstracyjna: jednowątkowa, bez limitu prób logowania.</span></li>
+    </ul>
+  </div>
+</section>
+
+<!-- 16 · PLAN ROZWOJU -->
+<section class="slide" data-scene="roadmap" aria-label="Plan rozwoju">
+  <div class="bg-band"></div>
+  <svg class="art"></svg>
+  <div class="text" style="width:1680px;top:110px">
+    <p class="kicker in d1">Plan rozwoju</p>
+    <h2 class="in d2">Od prototypu do skanu, który sam raportuje stan.</h2>
+  </div>
+  <div id="road"></div>
+</section>
+
+<!-- 17 · AI I SPRAWDŹ SAM -->
+<section class="slide" data-scene="final" aria-label="Użycie AI i uruchomienie">
+  <div class="bg-diag"></div>
+  <svg class="art"></svg>
+  <div class="text" style="width:820px">
+    <p class="kicker in d1">Użycie AI · regulamin §2 ust. 8</p>
+    <h2 class="in d2">Autorskie rozwiązanie zespołu, AI jako narzędzie.</h2>
+    <ul class="bullets">
+      <li class="in d3"><span><b>Ludzie</b>: rozmowa z komisją, kierunek, wybór źródeł, decyzje, odbiór i weryfikacja wyników.</span></li>
+      <li class="in d4"><span><b>AI (Claude Code)</b>: research, kod standardu, walidatora, mappera, usługi i modułu AED, Docker, dokumentacja, szkice kampanii i ta prezentacja.</span></li>
+      <li class="in d5"><span><b>Weryfikacja</b>: testy na prawdziwych plikach, przejście ścieżek w przeglądarce, przegląd zespołu.</span></li>
+      <li class="in d6"><span>Pełny zakres: <code>docs/uzycie-ai.md</code>.</span></li>
+    </ul>
+  </div>
+  <div class="card in d7" style="left:1000px;top:150px;width:800px;padding:40px 44px">
+    <p class="kicker">Sprawdź sam</p>
+    <pre class="mono" style="margin-top:22px;background:var(--navy);color:#fff;border-radius:16px;padding:22px 26px;font-size:24px;line-height:1.6">docker compose up --build
+open http://localhost:8080/pl/aed</pre>
+    <table style="margin-top:26px;font-size:21px;border-collapse:collapse;width:100%">
+      <tr><td style="padding:8px 0;color:var(--muted)">ministerstwo</td><td class="mono">ministerstwo@aed.example</td><td class="mono">ministerstwo-demo</td></tr>
+      <tr><td style="padding:8px 0;color:var(--muted)">sprzedawca</td><td class="mono">serwis@aed.example</td><td class="mono">serwis-demo</td></tr>
+      <tr><td style="padding:8px 0;color:var(--muted)">producent</td><td class="mono">pulsar@aed.example</td><td class="mono">pulsar-demo</td></tr>
+    </table>
+    <p class="small" style="margin-top:22px">Krok po kroku: <code>docs/instrukcja-dla-jury.md</code></p>
+  </div>
+</section>
+
+</div></div>
+<div class="progress" id="progress"></div>
+<div class="hint">← → · R · F</div>
+
+<script>
+/* ================= palette & helpers ================= */
+const NAVY = "#14274E", NAVY2 = "#0E1C3A", NAVY3 = "#0B1530", BLUE = "#2456E6", SKY = "#A9C8FF", AMBER = "#F28C28", GREY = "#8A94A6", CREAM2 = "#E9E3D6";
+const SKIN = ["#F1C6A3", "#C98E6B", "#8D5A3C"];
+const STATE = { A: NAVY, Z: BLUE, U: SKY, N: AMBER, W: GREY };
+
+/* logo D: heart of record states */
+function heart(size, states = "UA.AZAAAAN.AAW...A..") {
+  const rows = [states.slice(0, 5), states.slice(5, 10), states.slice(10, 15), states.slice(15, 20)];
+  let s = `<svg width="${size}" height="${size}" viewBox="0 0 120 120" aria-hidden="true">`;
+  rows.forEach((row, r) => [...row].forEach((st, c) => {
+    if (st === ".") return;
+    const x = 2 + c * 24, y = 14 + r * 24;
+    s += st === "W" ? `<rect x="${x + 1.5}" y="${y + 1.5}" width="17" height="17" rx="4.5" fill="none" stroke="${GREY}" stroke-width="3"/>`
+                    : `<rect x="${x}" y="${y}" width="20" height="20" rx="5" fill="${STATE[st]}"/>`;
+  }));
+  return s + "</svg>";
+}
+
+/* ---------- character ----------
+   Local frame: 220 wide, feet on y=616. x,y = left edge and ground line on the slide. */
+const ARMS = {
+  phone: { d: "M126 194 Q156 238 190 226", hand: [202, 220] },
+  point: { d: "M126 194 Q166 166 186 104", hand: [189, 92] },
+  down:  { d: "M128 196 Q142 250 138 298", hand: [138, 308] },
+  hold:  { d: "M126 196 Q146 252 172 254", hand: [181, 251] },
+  wave:  { d: "M126 194 Q178 190 188 124", hand: [190, 112] },
+};
+const PROPS = {
+  phone: ([x, y]) => `<g transform="rotate(-14 ${x + 12} ${y - 18})"><rect x="${x - 2}" y="${y - 44}" width="26" height="46" rx="6" fill="${NAVY}"/><rect x="${x + 2}" y="${y - 38}" width="18" height="34" rx="3" fill="${SKY}"/></g>`,
+  magnifier: ([x, y]) => `<line x1="${x}" y1="${y}" x2="${x + 22}" y2="${y - 26}" stroke="${NAVY}" stroke-width="9" stroke-linecap="round"/><circle cx="${x + 42}" cy="${y - 48}" r="28" fill="${SKY}" fill-opacity=".45" stroke="${NAVY}" stroke-width="7"/>`,
+  clipboard: ([x, y]) => `<rect x="${x - 34}" y="${y - 52}" width="50" height="66" rx="6" fill="#fff" stroke="${NAVY}" stroke-width="3"/><rect x="${x - 20}" y="${y - 58}" width="22" height="12" rx="3" fill="${AMBER}"/><path d="M${x - 25} ${y - 30}h32M${x - 25} ${y - 18}h32M${x - 25} ${y - 6}h20" stroke="${NAVY}" stroke-width="3"/>`,
+  box: ([x, y]) => `<rect x="${x - 50}" y="${y - 50}" width="74" height="58" rx="6" fill="${AMBER}"/><path d="M${x - 50} ${y - 34}h74" stroke="${NAVY}" stroke-width="3"/><text x="${x - 13}" y="${y - 2}" text-anchor="middle" font-family="Lexend" font-weight="700" font-size="17" fill="${NAVY}">AED</text>`,
+};
+function person({ x, y, s = 1, flip = false, hair = "bun", top = "white", pants = NAVY, skin = SKIN[0], arm = "down", prop = null, legs = "stand", lanyard = false, cls = "" }) {
+  const white = top === "white";
+  const topFill = white ? "#fff" : top;
+  const topStroke = white ? `stroke="${NAVY}" stroke-width="3" stroke-linejoin="round"` : "";
+  const sleeve = white ? "#fff" : top;
+  const a = ARMS[arm];
+  const L = legs === "walk"
+    ? { back: "M70 330 L104 330 L72 600 L40 600 Z", front: "M100 330 L134 330 L184 594 L152 602 Z", sb: [28, 600], sf: [150, 598] }
+    : { back: "M70 330 L104 330 L94 600 L62 600 Z", front: "M100 330 L134 330 L160 598 L128 602 Z", sb: [50, 600], sf: [126, 598] };
+  const hairSvg = {
+    bun: `<path d="M74 132 C68 98 92 88 114 94 C126 98 132 108 130 116 C116 110 104 116 98 124 C94 132 88 138 80 144 Z" fill="${NAVY}"/><circle cx="74" cy="102" r="15" fill="${NAVY}"/>`,
+    short: `<path d="M74 136 C66 100 92 88 116 94 C128 98 134 108 132 118 C118 110 102 112 92 120 C86 126 82 132 78 140 Z" fill="${NAVY}"/>`,
+    long: `<path d="M76 116 C64 160 66 196 80 210 L100 204 C88 180 88 150 94 128 Z" fill="${NAVY}"/><path d="M74 132 C68 98 92 88 114 94 C126 98 132 108 130 116 C116 110 104 116 98 124 C94 132 88 138 80 144 Z" fill="${NAVY}"/>`,
+  }[hair];
+  const handPos = a.hand;
+  const inner = `
+    <path d="M70 186 C56 232 54 272 60 304 L76 304 C74 272 78 234 88 194 Z" fill="${sleeve}" ${topStroke}/>
+    <circle cx="68" cy="312" r="9" fill="${skin}"/>
+    <path d="${L.back}" fill="${pants}"/><path d="${L.front}" fill="${pants === NAVY ? NAVY2 : pants}" opacity="${pants === NAVY ? 1 : .85}"/>
+    <path d="M${L.sb[0]} ${L.sb[1]} h46 v8 a8 8 0 0 1 -8 8 h-30 a12 12 0 0 1 -8 -16 Z" fill="${NAVY3}"/>
+    <path d="M${L.sf[0]} ${L.sf[1]} h40 a14 14 0 0 1 14 14 v2 h-54 Z" fill="${NAVY3}"/>
+    <path d="M64 176 C58 232 60 290 64 342 L138 342 C142 290 144 232 136 176 C120 162 80 162 64 176 Z" fill="${topFill}" ${topStroke}/>
+    ${lanyard ? `<path d="M88 168 L100 214 L112 168" fill="none" stroke="${AMBER}" stroke-width="4" stroke-linecap="round"/><rect x="91" y="212" width="18" height="24" rx="4" fill="${AMBER}"/>` : ""}
+    <rect x="91" y="146" width="18" height="24" rx="6" fill="${skin}"/>
+    <circle cx="102" cy="126" r="28" fill="${skin}"/>
+    ${hairSvg}
+    <circle cx="118" cy="126" r="2.6" fill="${NAVY}"/>
+    ${white ? `<path d="${a.d}" fill="none" stroke="${NAVY}" stroke-width="27" stroke-linecap="round"/>` : ""}
+    <path d="${a.d}" fill="none" stroke="${sleeve}" stroke-width="${white ? 21 : 24}" stroke-linecap="round"/>
+    <circle cx="${handPos[0]}" cy="${handPos[1]}" r="10" fill="${skin}"/>
+    ${prop ? PROPS[prop](handPos) : ""}`;
+  const body = flip ? `<g transform="translate(220 0) scale(-1 1)">${inner}</g>` : inner;
+  return `<g class="${cls}"><g class="breathe"><g transform="translate(${x} ${y - 616 * s}) scale(${s})">${body}</g></g></g>`;
+}
+
+/* ---------- scenery ---------- */
+const cloud = (x, y, s = 1, filled = false, cls = "drift") =>
+  `<g class="${cls}"><path transform="translate(${x} ${y}) scale(${s})" d="M0 0 h120 a26 26 0 0 0 -30 -34 a40 40 0 0 0 -70 -10 a30 30 0 0 0 -40 30 a20 20 0 0 0 20 14 Z" fill="${filled ? NAVY : "#fff"}" stroke="${NAVY}" stroke-width="${3 / s}"/></g>`;
+const plant = (x, y, s = 1, cls = "") => `<g class="${cls}" transform="translate(${x} ${y}) scale(${s})"><g class="sway">
+  <path d="M34 -102 C4 -162 12 -222 34 -262 C54 -212 54 -152 34 -102 Z" fill="${NAVY}"/>
+  <path d="M26 -92 C-16 -122 -36 -162 -34 -202 C4 -182 22 -142 26 -92 Z" fill="${BLUE}"/>
+  <path d="M42 -90 C58 -132 84 -150 104 -156 C98 -122 74 -98 42 -90 Z" fill="${SKY}"/></g>
+  <path d="M0 -96 h72 l-10 96 h-52 Z" fill="${AMBER}"/></g>`;
+const ground = (x1, x2, y = 962, cls = "fade d1") => `<line class="${cls}" x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${NAVY}" stroke-width="3"/>`;
+function qrMini(x, y, s = 1) {
+  return `<g transform="translate(${x} ${y}) scale(${s})"><rect width="106" height="92" rx="10" fill="#fff" stroke="${BLUE}" stroke-width="4"/>
+  <g fill="${NAVY}"><rect x="12" y="12" width="20" height="20" rx="3"/><rect x="44" y="12" width="8" height="8"/><rect x="56" y="24" width="8" height="8"/><rect x="12" y="44" width="8" height="8"/><rect x="28" y="56" width="8" height="8"/><rect x="12" y="68" width="20" height="14" rx="3"/><rect x="44" y="40" width="12" height="12"/><rect x="60" y="60" width="8" height="8"/></g>
+  <g transform="translate(72 14) scale(.24)">${heart(120).replace(/<\/?svg[^>]*>/g, "")}</g></g>`;
+}
+function cabinet(x, y, s = 1, { lock = false, sticker = true } = {}) {
+  return `<g transform="translate(${x} ${y}) scale(${s})">
+    <rect width="170" height="270" rx="18" fill="#fff" stroke="${NAVY}" stroke-width="4"/>
+    <path d="M0 48 v-30 a18 18 0 0 1 18 -18 h134 a18 18 0 0 1 18 18 v30 Z" fill="${NAVY}"/>
+    <text x="85" y="34" text-anchor="middle" font-family="Lexend" font-weight="700" font-size="26" fill="#fff" letter-spacing="2">AED</text>
+    <rect x="22" y="64" width="126" height="84" rx="10" fill="${SKY}" opacity=".55"/>
+    <rect x="62" y="96" width="46" height="46" rx="10" fill="${AMBER}"/><rect x="74" y="108" width="22" height="22" rx="5" fill="#fff"/>
+    ${sticker ? qrMini(32, 162) : ""}
+    ${lock ? `<g transform="translate(150 120)"><path d="M-14 0 v-14 a14 14 0 0 1 28 0 v14" fill="none" stroke="${NAVY}" stroke-width="7"/><rect x="-22" y="-2" width="44" height="36" rx="7" fill="${AMBER}" stroke="${NAVY}" stroke-width="3"/><circle cx="0" cy="14" r="5" fill="${NAVY}"/></g>` : ""}
+  </g>`;
+}
+const doc = (x, y, r = 0, cls = "") => `<g class="${cls}"><g transform="translate(${x} ${y}) rotate(${r})"><rect width="90" height="116" rx="8" fill="#fff" stroke="${NAVY}" stroke-width="3"/><path d="M16 26h58M16 44h58M16 62h40M16 80h52" stroke="${SKY}" stroke-width="6" stroke-linecap="round"/><rect x="16" y="92" width="22" height="12" rx="3" fill="${AMBER}"/></g></g>`;
+const qmark = (x, y, size = 64, cls = "") => `<text class="${cls}" x="${x}" y="${y}" font-family="Lexend" font-weight="700" font-size="${size}" fill="${BLUE}">?</text>`;
+function gear(x, y, r, color = NAVY, cls = "") {
+  let teeth = "";
+  for (let i = 0; i < 8; i++) teeth += `<rect x="${-r * .18}" y="${-r * 1.22}" width="${r * .36}" height="${r * .5}" rx="${r * .06}" transform="rotate(${i * 45})"/>`;
+  return `<g class="${cls}" transform="translate(${x} ${y})"><g class="spin" fill="${color}">${teeth}<circle r="${r}"/><circle r="${r * .42}" fill="#F4F1EA"/></g></g>`;
+}
+const pin = (x, y, s = 1, color = NAVY) => `<g transform="translate(${x} ${y}) scale(${s})"><path d="M0 0 C-22 -30 -34 -46 -34 -66 a34 34 0 0 1 68 0 C34 -46 22 -30 0 0 Z" fill="${color}"/><circle cy="-66" r="13" fill="#fff"/></g>`;
+
+/* ================= scenes ================= */
+const SCENES = {
+  title: () => `${cloud(1240, 170, 1)}${cloud(1680, 120, .8, true)}
+    ${ground(960, 1880)}
+    <g class="in d3">${cabinet(1600, 330, 1.25)}</g>
+    ${plant(1820, 962, 1, "in d4")}
+    ${person({ x: 1050, y: 962, s: .95, hair: "short", top: NAVY, pants: BLUE, skin: SKIN[2], arm: "hold", prop: "box", cls: "from-right d5" })}
+    ${person({ x: 1330, y: 962, s: 1, hair: "bun", arm: "phone", prop: "phone", lanyard: true, cls: "from-right d6" })}
+    <path class="blink pop d8" d="M1546 530 L1640 562 L1640 640 L1546 548 Z" fill="${AMBER}" opacity=".3"/>`,
+
+  problem: () => `${cloud(1400, 150, .9)}${cloud(1720, 210, .7, true)}
+    ${ground(960, 1880)}
+    <g class="in d3">${cabinet(1600, 360, 1.15, { lock: true, sticker: false })}</g>
+    ${doc(1080, 230, -12, "pop d6")}${doc(1230, 160, 8, "pop d7")}${doc(1130, 420, 4, "pop d8")}
+    ${qmark(1370, 300, 80, "pop d9")}${qmark(1500, 240, 56, "pop d10")}
+    ${person({ x: 1300, y: 962, s: 1, hair: "long", top: AMBER, pants: NAVY, skin: SKIN[1], arm: "phone", prop: "magnifier", cls: "from-right d4" })}
+    ${plant(1060, 962, .8, "in d5")}`,
+
+  measure: () => person({ x: 1700, y: 870, s: .55, hair: "short", top: "white", arm: "point", cls: "from-right d11" }),
+
+  process: () => "",
+  company: () => `${cloud(1500, 120, .8)}${ground(900, 1880)}
+    ${plant(940, 962, .75, "in d4")}
+    ${person({ x: 1640, y: 962, s: .95, flip: true, hair: "short", top: NAVY, pants: BLUE, skin: SKIN[0], arm: "hold", prop: "box", cls: "from-right d6" })}`,
+
+  manager: () => `${cloud(1460, 120, 1)}${cloud(1700, 200, .75, true)}
+    ${ground(930, 1880)}
+    <g class="in d3">${cabinet(1668, 372, 1)}</g>
+    ${plant(1846, 962, 1, "in d4")}
+    <defs><mask id="arcMask"><path class="draw d6" d="M1618 520 C1560 300 1460 170 1372 214" fill="none" stroke="#fff" stroke-width="14"/></mask></defs>
+    <path d="M1618 520 C1560 300 1460 170 1372 214" fill="none" stroke="${AMBER}" stroke-width="5" stroke-dasharray="4 14" stroke-linecap="round" mask="url(#arcMask)"/>
+    <circle cx="1372" cy="214" r="9" fill="${AMBER}" class="pop d7"/>
+    ${person({ x: 1440, y: 958, s: 1, hair: "bun", arm: "phone", prop: "phone", lanyard: true, cls: "from-right d4" })}
+    <path class="blink pop d6" d="M1664 532 L1700 560 L1700 600 L1664 548 Z" fill="${AMBER}" opacity=".3"/>`,
+
+  signal: () => `${cloud(1450, 110, .8)}${ground(930, 1880)}
+    <g class="in d3">${cabinet(1690, 380, .9)}</g>
+    ${person({ x: 1430, y: 962, s: .95, hair: "long", top: AMBER, pants: NAVY, skin: SKIN[1], arm: "phone", prop: "phone", legs: "walk", cls: "from-right d4" })}`,
+
+  ministry: () => `${cloud(1620, 110, .8, true)}${ground(900, 1880)}
+    ${person({ x: 1640, y: 962, s: .95, flip: true, hair: "bun", top: BLUE, pants: NAVY, skin: SKIN[2], arm: "point", cls: "from-right d6" })}
+    ${gear(1760, 250, 34, NAVY, "pop d7")}${gear(1830, 320, 22, BLUE, "pop d8")}`,
+
+  lifecycle: () => "",
+  standard: () => `${ground(960, 1880)}
+    ${person({ x: 1700, y: 962, s: .8, flip: true, hair: "long", top: "white", pants: BLUE, skin: SKIN[0], arm: "hold", prop: "clipboard", cls: "from-right d8" })}`,
+
+  portal: () => `${ground(960, 1880, 1000)}${pin(1820, 160, 1, AMBER)}${pin(1880, 230, .6, BLUE)}`,
+  funnel: () => "",
+  campaign: () => `${ground(960, 1880)}
+    <g class="pop d6">${cabinet(1000, 560, 1)}</g>
+    ${person({ x: 1170, y: 962, s: .8, hair: "short", top: BLUE, pants: NAVY, skin: SKIN[1], arm: "wave", cls: "from-right d7" })}`,
+
+  a11y: () => person({ x: 1700, y: 1030, s: .5, hair: "bun", top: "white", arm: "point", cls: "from-right d10" }),
+
+  limits: () => `${ground(1450, 1860)}
+    ${person({ x: 1560, y: 962, s: .95, flip: true, hair: "short", top: "white", pants: NAVY, skin: SKIN[2], arm: "hold", prop: "clipboard", cls: "from-right d4" })}
+    <g class="pop d6" transform="translate(1500 962)"><path d="M-36 0 L-14 -110 h28 L36 0 Z" fill="${AMBER}"/><path d="M-24 -50 h48 M-18 -80 h36" stroke="#fff" stroke-width="12"/><rect x="-50" y="-8" width="100" height="10" rx="4" fill="${NAVY}"/></g>`,
+
+  roadmap: () => "",
+  final: () => `${plant(1820, 1010, .7, "in d8")}`,
+};
+
+/* ---------- data-driven builders ---------- */
+function buildChart() {
+  const groups = [["4 zbiory samorządów", "74 rekordy"], ["API Warszawy", "708 rekordów"], ["OpenStreetMap", "18 298 rekordów"]];
+  const rows = [["godziny dostępu", [0, 14.1, 37]], ["dostęp: publiczny / ograniczony", [0, 100, 92.4]], ["producent", [0, 98, 1.9]], ["numer seryjny", [0, 0, 0]], ["data ważności baterii", [0, 0, 0]]];
+  const W = 330, X0 = 420, GAP = 60;
+  let h = `<div style="display:grid;grid-template-columns:${X0 - 20}px repeat(3, ${W}px);column-gap:${GAP}px;row-gap:28px;align-items:center">`;
+  h += `<div></div>` + groups.map(([g, n], i) => `<div class="in d${3 + i}"><b style="font:600 24px Lexend">${g}</b><br><span class="small">${n}</span></div>`).join("");
+  rows.forEach(([label, vals], r) => {
+    h += `<div class="in d${5 + r}" style="font:600 25px Lexend">${label}</div>`;
+    vals.forEach((v, i) => {
+      const color = v === 0 ? AMBER : NAVY;
+      h += `<div style="position:relative;height:56px;background:${CREAM2};border-radius:12px;overflow:hidden" class="in d${5 + r}">
+        <div class="grow d${6 + r}" style="position:absolute;inset:0;width:${Math.max(v, 0)}%;background:${NAVY};border-radius:12px"></div>
+        <span style="position:absolute;left:${v > 70 ? 16 : Math.max(v, 0) * W / 100 + 14}px;top:13px;font:700 24px Lexend;color:${v > 70 ? "#fff" : color}">${v.toLocaleString("pl-PL")}%</span></div>`;
+    });
+  });
+  document.getElementById("chart").innerHTML = h + "</div>";
+}
+function buildNodes() {
+  const icon = {
+    seller: `<svg viewBox="0 0 120 120" width="120"><rect x="18" y="40" width="84" height="62" rx="8" fill="${AMBER}"/><path d="M18 58h84" stroke="${NAVY}" stroke-width="4"/><text x="60" y="92" text-anchor="middle" font-family="Lexend" font-weight="700" font-size="20" fill="${NAVY}">AED</text><rect x="44" y="16" width="32" height="30" rx="4" fill="#fff" stroke="${NAVY}" stroke-width="3"/><path d="M50 26h20M50 34h14" stroke="${BLUE}" stroke-width="3"/></svg>`,
+    sticker: `<svg viewBox="0 0 120 120" width="120">${qrMini(7, 14, 1)}</svg>`,
+    phone: `<svg viewBox="0 0 120 120" width="120"><rect x="34" y="8" width="52" height="104" rx="12" fill="${NAVY}"/><rect x="40" y="18" width="40" height="84" rx="6" fill="#fff"/><path d="M48 52 l8 8 l16 -18" fill="none" stroke="${BLUE}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    registry: `<svg viewBox="0 0 120 120" width="120"><g fill="${NAVY}"><rect x="20" y="16" width="80" height="24" rx="6"/><rect x="20" y="48" width="80" height="24" rx="6"/><rect x="20" y="80" width="80" height="24" rx="6"/></g><circle cx="34" cy="28" r="4" fill="${SKY}"/><circle cx="34" cy="60" r="4" fill="${AMBER}"/><circle cx="34" cy="92" r="4" fill="${SKY}"/></svg>`,
+    portal: `<svg viewBox="0 0 120 120" width="120"><rect x="10" y="18" width="100" height="80" rx="10" fill="#fff" stroke="${NAVY}" stroke-width="4"/><path d="M10 38h100" stroke="${NAVY}" stroke-width="4"/><circle cx="22" cy="28" r="3.5" fill="${AMBER}"/><circle cx="33" cy="28" r="3.5" fill="${SKY}"/><path d="M24 54h40M24 66h60M24 78h30" stroke="${SKY}" stroke-width="6" stroke-linecap="round"/><text x="60" y="114" text-anchor="middle" font-family="Lexend" font-weight="700" font-size="15" fill="${NAVY}">dane.gov.pl</text></svg>`,
+  };
+  const N = [["seller", "Sprzedawca", "zgłasza urządzenia plikiem CSV lub formularzem"], ["sticker", "Naklejka QR", "trafia z urządzeniem do zarządcy"], ["phone", "Zarządca", "potwierdza miejsce, godziny i stan"], ["registry", "Ministerstwo", "rejestr, deduplikacja, przypomnienia"], ["portal", "dane.gov.pl", "jeden otwarty zbiór; dostawca: Ministerstwo"]];
+  const cx = i => 230 + i * 365;
+  let h = "";
+  N.forEach(([k, t, d], i) => {
+    h += `<div class="card pop d${3 + i * 2}" style="left:${cx(i) - 110}px;top:340px;width:220px;height:220px;display:grid;place-items:center">${icon[k]}</div>
+      <div class="in d${4 + i * 2}" style="position:absolute;left:${cx(i) - 150}px;top:590px;width:300px;text-align:center"><b style="font:600 30px Lexend">${t}</b><p class="small" style="font-size:21px;margin-top:8px">${d}</p></div>`;
+  });
+  h += `<div class="chip pop d13" style="left:${cx(3) - 230}px;top:860px"><span class="sq u"></span><span>Mapper źródeł, cyklicznie<small>zbiory samorządów, API Warszawy, OpenStreetMap</small></span></div>`;
+  document.getElementById("nodes").innerHTML = h;
+  const svg = document.querySelector('[data-scene="process"] .art');
+  let lines = "";
+  for (let i = 0; i < 4; i++) lines += `<path class="draw d${4 + i * 2}" d="M${cx(i) + 118} 450 L${cx(i + 1) - 118} 450" stroke="${NAVY}" stroke-width="5" stroke-dasharray="3000" fill="none"/><path class="pop d${5 + i * 2}" d="M${cx(i + 1) - 132} 440 l12 10 l-12 10" fill="none" stroke="${NAVY}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>`;
+  lines += `<path class="draw d12" d="M${cx(3)} 700 C${cx(3)} 800 ${cx(2)} 800 ${cx(2)} 700" fill="none" stroke="${AMBER}" stroke-width="5" stroke-dasharray="3000"/>
+    <text class="fade d12" x="${(cx(2) + cx(3)) / 2}" y="830" text-anchor="middle" font-family="Atkinson Hyperlegible" font-size="21" fill="${NAVY}">prośba o potwierdzenie po 183 dniach</text>
+    <path class="draw d13" d="M${cx(3)} 860 L${cx(3)} 740" stroke="${GREY}" stroke-width="4" stroke-dasharray="3000" fill="none"/>`;
+  svg.innerHTML = lines;
+}
+function buildStates() {
+  const S = [["Z", "zgłoszony", "sprzedawca podał dane urządzenia"], ["A", "aktywny", "zarządca potwierdził miejsce i dostęp"], ["N", "nieaktualny", "brak potwierdzenia przez 365 dni"], ["W", "wycofany", "urządzenie wycofane z użycia"]];
+  const cx = i => 300 + i * 420, Y = 520;
+  let h = "", svg = "";
+  S.forEach(([k, name, d], i) => {
+    const box = k === "W" ? `background:#fff;box-shadow:inset 0 0 0 8px ${GREY}` : `background:${STATE[k]}`;
+    h += `<div class="pop d${3 + i * 2}" style="position:absolute;left:${cx(i) - 70}px;top:${Y - 70}px;width:140px;height:140px;border-radius:34px;${box}"></div>
+      <div class="in d${4 + i * 2}" style="position:absolute;left:${cx(i) - 160}px;top:${Y + 96}px;width:320px;text-align:center"><b style="font:600 32px Lexend">${name}</b><p class="small" style="font-size:21px;margin-top:6px">${d}</p></div>`;
+    if (i < 3) svg += `<path class="draw d${4 + i * 2}" d="M${cx(i) + 86} ${Y} L${cx(i + 1) - 86} ${Y}" stroke="${NAVY}" stroke-width="5" fill="none" stroke-dasharray="3000"/><path class="pop d${5 + i * 2}" d="M${cx(i + 1) - 100} ${Y - 10} l12 10 l-12 10" fill="none" stroke="${NAVY}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>`;
+  });
+  // reminder at 183 days, re-confirmation loop, mapper branch
+  svg += `<g class="pop d10"><circle cx="${(cx(1) + cx(2)) / 2}" cy="${Y}" r="16" fill="${AMBER}"/></g>
+    <text class="fade d10" x="${(cx(1) + cx(2)) / 2}" y="${Y + 48}" text-anchor="middle" font-family="Lexend" font-weight="600" font-size="20" fill="${NAVY}"><tspan>183 dni:</tspan><tspan x="${(cx(1) + cx(2)) / 2}" dy="24">prośba o potwierdzenie</tspan></text>
+    <path class="draw d11" d="M${cx(2)} ${Y - 80} C${cx(2)} ${Y - 200} ${cx(1)} ${Y - 200} ${cx(1)} ${Y - 80}" fill="none" stroke="${BLUE}" stroke-width="5" stroke-dasharray="3000"/>
+    <text class="fade d11" x="${(cx(1) + cx(2)) / 2}" y="${Y - 190}" text-anchor="middle" font-family="Atkinson Hyperlegible" font-size="21" fill="${BLUE}">zarządca potwierdza ponownie</text>`;
+  h += `<div class="chip pop d12" style="left:${cx(0) - 130}px;top:840px"><span class="sq u"></span><span>niepotwierdzony<small>rekord z mappera, nikt go nie potwierdził – poza eksportem</small></span></div>`;
+  svg += `<path class="draw d12" d="M${cx(0) + 380} 880 C${cx(1)} 880 ${cx(1)} 760 ${cx(1)} 730" fill="none" stroke="${GREY}" stroke-width="4" stroke-dasharray="3000"/>
+    <text class="fade d13" x="${cx(1) + 30}" y="830" font-family="Atkinson Hyperlegible" font-size="20" fill="${NAVY}">właściciel potwierdza</text>`;
+  h += `<div class="in d13" style="position:absolute;right:120px;top:780px;display:flex;align-items:center;gap:18px"><span>${heart(110)}</span><span class="small" style="width:250px">Znak akcji to te same stany: każda komórka serca to rekord.</span></div>`;
+  document.getElementById("states").innerHTML = h;
+  document.querySelector('[data-scene="lifecycle"] .art').innerHTML = svg;
+}
+function buildColChips() {
+  const cols = ["id_aed", "producent", "numer_seryjny", "data_waznosci_baterii", "szerokosc_geograficzna", "godziny_dostepu", "status", "licencja"];
+  document.getElementById("colchips").innerHTML =
+    `<div style="position:absolute;left:960px;top:800px;width:760px;display:flex;flex-wrap:wrap;gap:12px">` +
+    cols.map((c, i) => `<span class="pop d${7 + i}" style="font:500 20px ui-monospace,Menlo,monospace;background:#fff;border-radius:12px;padding:10px 14px;box-shadow:0 8px 20px rgba(20,39,78,.12)">${c}</span>`).join("") + `</div>`;
+}
+function buildFunnel() {
+  const F = [["19 080", "rekordów w 6 źródłach", 19080, SKY, NAVY], ["18 814", "w rejestrze po 266 połączeniach", 18814, NAVY, "#fff"], ["781", "w zbiorze do publikacji na dane.gov.pl", 781, BLUE, "#fff"]];
+  let h = "";
+  F.forEach(([n, t, v, bg, fg], i) => {
+    const w = Math.max(v / 19080 * 1000, 70);
+    h += `<div class="in d${3 + i * 2}" style="margin-bottom:26px"><div class="grow d${4 + i * 2}" style="width:${w}px;height:84px;border-radius:18px;background:${bg};display:flex;align-items:center;padding:0 26px;color:${fg};font:700 40px Lexend">${i === 2 ? "" : n}</div>
+      <p style="font-size:23px;margin-top:10px">${i === 2 ? `<b style="font:700 40px Lexend;color:${BLUE};margin-right:12px">${n}</b>` : ""}${t}</p></div>`;
+  });
+  h += `<div class="in d9 small" style="font-size:21px;margin-top:10px;max-width:960px">Poza eksportem: 18 032 rekordy z licencją ODbL (OpenStreetMap), 3 048 z dostępem prywatnym, braki wymaganych pól (miejscowość, nazwa). Zostają w rejestrze.</div>`;
+  document.getElementById("funnel").innerHTML = h;
+}
+function buildRoad() {
+  const R = [["Dziś", "prototyp lokalnie: proces, rejestr z 6 źródeł, eksport CSV", NAVY], ["0–3 mies.", "pilotaż z producentem i gminą; e-mail zamiast skrzynki; integracja w backendzie portalu", BLUE], ["3–12 mies.", "kolejne gminy jednym wpisem w sources.json; opinia prawna ODbL; rekomendacja obowiązku raportowania", BLUE], ["12+ mies.", "skan naklejki sam zgłasza miejsce i stan urządzenia", AMBER]];
+  const cx = i => 300 + i * 440, Y = 560;
+  let h = "", svg = `<path class="draw d3" d="M140 ${Y} L1800 ${Y}" stroke="${NAVY}" stroke-width="5" fill="none" stroke-dasharray="3000"/>`;
+  R.forEach(([t, d, c], i) => {
+    svg += `<circle class="pop d${4 + i * 2}" cx="${cx(i)}" cy="${Y}" r="22" fill="${c}"/>`;
+    h += `<div class="in d${5 + i * 2}" style="position:absolute;left:${cx(i) - 170}px;top:${Y + 50}px;width:340px"><b style="font:700 36px Lexend;color:${c === AMBER ? "#B35F0F" : NAVY}">${t}</b><p style="font-size:22px;line-height:1.4;margin-top:10px;color:var(--muted)">${d}</p></div>`;
+  });
+  svg += `<g class="walk d4">${person({ x: 1660, y: Y - 6, s: .4, hair: "bun", top: "white", arm: "phone", prop: "phone", legs: "walk" })}</g>`;
+  document.getElementById("road").innerHTML = h;
+  document.querySelector('[data-scene="roadmap"] .art').innerHTML = svg;
+}
+
+/* ================= engine ================= */
+const deck = document.getElementById("deck");
+const slides = [...document.querySelectorAll(".slide")];
+slides.forEach((sl, i) => {
+  const art = sl.querySelector(".art");
+  if (art) { art.setAttribute("viewBox", "0 0 1920 1080"); art.setAttribute("aria-hidden", "true"); const f = SCENES[sl.dataset.scene]; if (f) art.innerHTML = f(); }
+  if (i > 0) sl.insertAdjacentHTML("beforeend", `<footer class="foot fade d1"><span class="brand">${heart(40)} Opiekun <em>AED</em></span><span class="page">${String(i + 1).padStart(2, "0")} / ${slides.length}</span></footer>`);
+});
+document.querySelectorAll("[data-mark]").forEach(e => e.innerHTML = heart(+e.dataset.mark));
+buildChart(); buildNodes(); buildStates(); buildColChips(); buildFunnel(); buildRoad();
+
+function countUp(sl) {
+  sl.querySelectorAll("[data-count]").forEach(el => {
+    const end = +el.dataset.count, t0 = performance.now(), dur = 1400;
+    const tick = t => { const p = Math.min((t - t0) / dur, 1); el.textContent = Math.round(end * (1 - Math.pow(1 - p, 3))).toLocaleString("pl-PL"); if (p < 1) requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  });
+}
+let cur = 0;
+function show(i) {
+  cur = Math.max(0, Math.min(slides.length - 1, i));
+  slides.forEach(s => s.classList.remove("active"));
+  void deck.offsetWidth;
+  slides[cur].classList.add("active");
+  if (!matchMedia("(prefers-reduced-motion: reduce)").matches) countUp(slides[cur]);
+  document.getElementById("progress").style.width = `${(cur + 1) / slides.length * 100}%`;
+  history.replaceState(null, "", "#" + (cur + 1));
+}
+const fit = () => deck.style.transform = `translate(-50%, -50%) scale(${Math.min(innerWidth / 1920, innerHeight / 1080)})`;
+addEventListener("resize", fit); fit();
+addEventListener("keydown", e => {
+  if (["ArrowRight", "ArrowDown", "PageDown", " ", "Enter"].includes(e.key)) { e.preventDefault(); show(cur + 1); }
+  else if (["ArrowLeft", "ArrowUp", "PageUp", "Backspace"].includes(e.key)) { e.preventDefault(); show(cur - 1); }
+  else if (e.key === "Home") show(0); else if (e.key === "End") show(slides.length - 1);
+  else if (e.key === "r" || e.key === "R") show(cur);
+  else if (e.key === "f" || e.key === "F") document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+});
+addEventListener("click", e => show(cur + (e.clientX < innerWidth / 4 ? -1 : 1)));
+show((parseInt(location.hash.slice(1)) || 1) - 1);
+</script>
+</body>
+</html>

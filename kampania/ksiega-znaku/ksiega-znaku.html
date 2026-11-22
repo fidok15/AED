@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Opiekun AED – księga znaku</title>
+<link rel="stylesheet" href="../../prezentacja-html/assets/fonts/fonts.css">
+<style>
+  @page { size: 297mm 210mm; margin: 0; }
+  :root {
+    --navy: #14274E; --blue: #2456E6; --sky: #A9C8FF; --amber: #F28C28; --grey: #8A94A6;
+    --graphite: #0D1B1E; --cream: #F4F1EA; --line: #D9D4C7; --muted: #4A5568;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #fff; color: var(--navy); }
+  body { font-family: 'Atkinson Hyperlegible', sans-serif; font-size: 10.5pt; line-height: 1.45; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { width: 297mm; height: 210mm; position: relative; overflow: hidden; padding: 16mm 18mm 14mm; page-break-after: always; break-after: page; }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+  .run { position: absolute; left: 18mm; right: 18mm; bottom: 8mm; display: flex; justify-content: space-between; font-size: 8pt; color: var(--muted); letter-spacing: .04em; }
+  .run b { color: var(--navy); font-family: 'Lexend'; font-weight: 600; }
+  .kicker { font-family: 'Lexend'; font-weight: 600; font-size: 9pt; letter-spacing: .16em; text-transform: uppercase; color: var(--blue); margin: 0 0 3mm; }
+  h1 { font-family: 'Lexend'; font-weight: 700; font-size: 30pt; line-height: 1.05; margin: 0 0 6mm; letter-spacing: -.01em; }
+  h2 { font-family: 'Lexend'; font-weight: 600; font-size: 12pt; margin: 0 0 2mm; }
+  p { margin: 0 0 3mm; }
+  .muted { color: var(--muted); }
+  .small { font-size: 8.5pt; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12mm; }
+  .card { border: 1px solid var(--line); border-radius: 3mm; padding: 6mm; }
+  .note { font-size: 8.5pt; color: var(--muted); border-left: 2px solid var(--amber); padding-left: 3mm; }
+  table { border-collapse: collapse; width: 100%; font-size: 9pt; }
+  th, td { text-align: left; padding: 1.8mm 2.5mm; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-family: 'Lexend'; font-weight: 600; font-size: 8pt; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 8.5pt; }
+  img { display: block; }
+
+  /* cover */
+  .cover { background: var(--cream); display: flex; flex-direction: column; justify-content: space-between; }
+  .cover .logo { width: 190mm; margin-top: 18mm; }
+  .cover h1 { font-size: 40pt; margin-top: 10mm; }
+  .cover .sub { font-size: 13pt; max-width: 180mm; }
+  .cover .meta { font-size: 9pt; color: var(--muted); }
+
+  /* concept */
+  .concept { font-size: 12.5pt; line-height: 1.55; }
+  .concept .slogan { font-family: 'Lexend'; font-weight: 600; color: var(--blue); font-size: 15pt; margin-top: 6mm; }
+  .legend { list-style: none; padding: 0; margin: 6mm 0 0; display: grid; gap: 2.2mm; }
+  .legend li { display: grid; grid-template-columns: 6mm 34mm 1fr; align-items: center; font-size: 9.5pt; }
+  .legend b { font-family: 'Lexend'; font-weight: 600; }
+  .sw { width: 4.5mm; height: 4.5mm; border-radius: 1.1mm; }
+
+  /* clear space */
+  .cs { position: relative; outline: 1.2px dashed var(--blue); outline-offset: 0; }
+  .cs .inner { position: absolute; border: 1px solid rgba(36,86,230,.35); }
+  .cs .x { position: absolute; font-family: 'Lexend'; font-weight: 600; font-size: 8pt; color: var(--blue); }
+
+  /* colors */
+  .swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4mm; }
+  .chip { border-radius: 2.5mm; overflow: hidden; border: 1px solid var(--line); font-size: 8pt; }
+  .chip .c { height: 22mm; }
+  .chip .t { padding: 2.5mm; }
+  .chip .t b { font-family: 'Lexend'; font-weight: 600; font-size: 9pt; display: block; }
+  .bar { display: flex; height: 7mm; border-radius: 1.5mm; overflow: hidden; margin-top: 2mm; }
+
+  /* variants & misuse */
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5mm; }
+  .tile { border-radius: 2.5mm; height: 40mm; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); position: relative; overflow: hidden; }
+  .cap { font-size: 8.5pt; margin-top: 1.8mm; }
+  .cap b { font-family: 'Lexend'; font-weight: 600; }
+  .bad::after { content: ""; position: absolute; right: 2.5mm; top: 2.5mm; width: 6mm; height: 6mm; border-radius: 50%; background: #B3261E url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M3 3l4 4M7 3l-4 4' stroke='white' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E") center/100% no-repeat; }
+
+  /* type */
+  .specimen { font-family: 'Lexend'; font-weight: 700; font-size: 44pt; line-height: 1; margin: 2mm 0 3mm; }
+  .specimen2 { font-family: 'Atkinson Hyperlegible'; font-size: 26pt; line-height: 1.1; margin: 2mm 0 3mm; }
+
+  /* applications */
+  .sticker { width: 60mm; height: 40mm; border: 1.2mm solid var(--navy); border-radius: 3mm; padding: 2.5mm 3mm; display: grid; grid-template-columns: 26mm 1fr; gap: 3mm; align-items: center; background: #fff; }
+  .badge { display: flex; max-width: 100%; align-items: center; gap: 3mm; border: 1px solid var(--line); border-radius: 20mm; padding: 2.5mm 5mm 2.5mm 3mm; background: #fff; }
+  .badge .st { font-size: 8pt; display: flex; align-items: center; gap: 1.5mm; }
+  .icon { width: 26mm; height: 26mm; border-radius: 6mm; display: flex; align-items: center; justify-content: center; }
+  .partner { display: flex; align-items: center; gap: 0; border: 1px solid var(--line); border-radius: 2mm; padding: 4mm 3mm; }
+  .partner > * { flex-shrink: 0; }
+  .partner .ph { width: 21mm; height: 12mm; border: 1px dashed var(--grey); border-radius: 1.5mm; display: flex; align-items: center; justify-content: center; font-size: 7.5pt; color: var(--muted); text-align: center; }
+  .partner .gap { width: 6mm; position: relative; height: 12mm; }
+  .partner .gap::after { content: "2X"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 7pt; color: var(--blue); font-family: 'Lexend'; }
+</style>
+</head>
+<body>
+
+<!-- 1. Okładka -->
+<section class="page cover">
+  <div>
+    <img class="logo" src="../logo/svg/opiekun-aed-lockup-kolor.svg" alt="Opiekun AED">
+    <h1>Księga znaku</h1>
+    <p class="sub">Akcja zachęcająca dostawców do udostępniania danych o defibrylatorach AED w portalu dane.gov.pl.</p>
+  </div>
+  <div class="meta">Wersja 1.0 · 22.11.2026 · HackNation 2026, zadanie Ministerstwa Cyfryzacji „Misja AED – dane na ratunek”</div>
+</section>
+
+<!-- 2. Koncepcja -->
+<section class="page">
+  <p class="kicker">01 · Koncepcja</p>
+  <h1>Serce z danych</h1>
+  <div class="grid2" style="grid-template-columns: 1.25fr 1fr; align-items: start;">
+    <div class="concept">
+      <p>Opiekun AED zachęca firmy sprzedające defibrylatory, zarządców obiektów i samorządy do pokazania swoich urządzeń w jednym otwartym zbiorze na dane.gov.pl. Znak to serce złożone z 13 komórek tabeli danych, a kolor każdej komórki oznacza jeden stan rekordu AED. Granat przeważa, bo celem akcji są dane potwierdzone przez opiekuna urządzenia, a bursztyn i pusty obrys przypominają, że dane trzeba odnawiać. Prosta siatka kwadratów działa w rozmiarze ikony, na naklejce z kodem QR i na odznace dostawcy. Hasło akcji zamienia odpowiedzialność za urządzenie w coś, co można pokazać publicznie.</p>
+      <p class="slogan">„Dbasz o AED? Pokaż to w danych.”</p>
+    </div>
+    <div>
+      <div id="concept-mark" style="width: 92mm; margin: 0 auto;"></div>
+      <ul class="legend">
+        <li><span class="sw" style="background:var(--navy)"></span><b>aktywny</b><span>zarządca potwierdził miejsce i dostęp</span></li>
+        <li><span class="sw" style="background:var(--blue)"></span><b>zgłoszony</b><span>sprzedawca podał dane urządzenia</span></li>
+        <li><span class="sw" style="background:var(--sky)"></span><b>niepotwierdzony</b><span>rekord z otwartych źródeł, bez potwierdzenia</span></li>
+        <li><span class="sw" style="background:var(--amber)"></span><b>nieaktualny</b><span>minął termin potwierdzenia</span></li>
+        <li><span class="sw" style="border:1.5px solid var(--grey)"></span><b>wycofany</b><span>urządzenie wycofane z użycia</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="run"><b>Opiekun AED · Księga znaku</b><span>2</span></div>
+</section>
+
+<!-- 3. Elementy -->
+<section class="page">
+  <p class="kicker">02 · Elementy znaku</p>
+  <h1>Sygnet, logotyp, hasło</h1>
+  <div class="card" style="padding: 10mm 8mm 6mm; position: relative;">
+    <img src="../logo/svg/opiekun-aed-lockup-kolor.svg" alt="" style="width: 200mm; margin: 0 auto;">
+    <div style="position:relative; width: 200mm; height: 8mm; margin: 2mm auto 0; font-size: 8.5pt;" class="muted">
+      <span style="position:absolute; left: 6.5mm; width: 37.9mm; text-align:center; border-top: 1px solid var(--grey); padding-top: 1.5mm;">sygnet: serce stanów</span>
+      <span style="position:absolute; left: 54.7mm; width: 138.7mm; text-align:center; border-top: 1px solid var(--grey); padding-top: 1.5mm;">logotyp: Lexend Bold, „AED” w kolorze niebieskim</span>
+    </div>
+  </div>
+  <div class="grid2" style="grid-template-columns: 1.3fr 1fr; margin-top: 8mm; align-items: start;">
+    <div>
+      <h2>Lockup z hasłem</h2>
+      <div class="card" style="padding: 5mm 6mm;">
+        <img src="../logo/svg/opiekun-aed-lockup-kolor.svg" alt="" style="width: 100mm;">
+        <div style="margin: -1mm 0 0 27.3mm; font-family:'Lexend'; font-weight:600; font-size: 11pt; color: var(--navy);">Dbasz o AED? Pokaż to w danych.</div>
+      </div>
+      <p class="small muted" style="margin-top:2mm">Hasło stoi pod logotypem, wyrównane do jego lewej krawędzi, krojem Lexend SemiBold. Wersja z hasłem: plakaty, banery, slajdy kampanii.</p>
+    </div>
+    <div>
+      <h2>Kiedy który element</h2>
+      <table>
+        <tr><td><b>Lockup poziomy</b></td><td>domyślnie: strony WWW, pisma, banery</td></tr>
+        <tr><td><b>Lockup z hasłem</b></td><td>materiały promocyjne akcji</td></tr>
+        <tr><td><b>Sygnet</b></td><td>ikona aplikacji, favicona, pinezka, odznaka, naklejka QR</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="run"><b>Opiekun AED · Księga znaku</b><span>3</span></div>
+</section>
+
+<!-- 4. Konstrukcja -->
+<section class="page">
+  <p class="kicker">03 · Konstrukcja</p>
+  <h1>Moduł X = bok jednej komórki</h1>
+  <div class="grid2" style="grid-template-columns: 1fr 1.1fr; align-items: center;">
+    <div id="construct" style="width: 118mm;"></div>
+    <div>
+      <table>
+        <tr><th>Element</th><th>Wymiar</th></tr>
+        <tr><td>Komórka (kwadrat)</td><td>1X × 1X</td></tr>
+        <tr><td>Odstęp między komórkami</td><td>0,2X</td></tr>
+        <tr><td>Promień zaokrąglenia rogu</td><td>0,25X</td></tr>
+        <tr><td>Obrys komórki „wycofany”</td><td>0,14X, wewnątrz pola komórki</td></tr>
+        <tr><td>Sygnet: szerokość × wysokość</td><td>5,8X × 4,6X (siatka 5 × 4)</td></tr>
+        <tr><td>Odstęp sygnet – logotyp</td><td>1,55X</td></tr>
+        <tr><td>Wysokość wersalików „AED”</td><td>2,35X</td></tr>
+        <tr><td>Wersaliki logotypu</td><td>od górnej krawędzi 2. rzędu do odstępu między 3. a 4. rzędem komórek</td></tr>
+      </table>
+      <p class="note" style="margin-top: 5mm;">Układ komórek i ich kolory są stałe. Znak nie jest wykresem prawdziwych danych; animacje „znak żyje z danymi” są ilustracją i opisuje się je jako ilustrację.</p>
+    </div>
+  </div>
+  <div class="run"><b>Opiekun AED · Księga znaku</b><span>4</span></div>
+</section>
+
+<!-- 5. Pole ochronne -->
+<section class="page">
+  <p class="kicker">04 · Pole ochronne</p>
+  <h1>1X wolnej przestrzeni z każdej strony</h1>
+  <div style="display:flex; gap: 14mm; align-items: center;">
+    <div class="cs" style="width: 170mm; height: calc(170mm * 220 / 1020);">
+      <img src="../logo/svg/opiekun-aed-lockup-kolor.svg" alt="" style="width:100%; height:100%;">
+      <div class="inner" style="left: 3.27%; right: 3.27%; top: 15.15%; bottom: 15.15%;"></div>
+      <span class="x" style="left: .6%; top: 42%;">X</span><span class="x" style="left: 47%; top: 1.5%;">X</span>
+    </div>
+    <div class="cs" style="width: 42mm; height: calc(42mm * 132 / 156);">
+      <img src="../logo/svg/opiekun-aed-sygnet-kolor.svg" alt="" style="width:100%; height:100%;">
+      <div class="inner" style="left: 12.82%; right: 12.82%; top: 15.15%; bottom: 15.15%;"></div>
+      <span class="x" style="left: 3%; top: 42%;">X</span>
+    </div>
+  </div>
+  <div class="grid2" style="margin-top: 10mm;">
+    <p>Wokół znaku zachowujemy wolne pole o szerokości 1X (bok jednej komórki serca) ze wszystkich stron. W polu ochronnym nie umieszczamy tekstu, grafiki ani krawędzi strony. Pliki znaku w folderze <code>kampania/logo/</code> mają pole ochronne wliczone w obszar obrazu.</p>
+    <p>Obok znaków Ministerstwa Cyfryzacji i dane.gov.pl zachowujemy odstęp co najmniej 2X. Na naklejce z kodem QR pierwszeństwo ma strefa ciszy kodu (min. 4 moduły kodu); pole ochronne znaku jej nie zmniejsza.</p>
+  </div>
+  <div class="run"><b>Opiekun AED · Księga znaku</b><span>5</span></div>
+</section>
+
+<!-- 6. Minimalna wielkość -->
+<section class="page">
+  <p class="kicker">05 · Minimalna wielkość</p>
+  <h1>Czytelny także w małym rozmiarze</h1>
+  <div class="grid2" style="grid-template-columns: 1.1fr 1fr; align-items: start;">
+    <table>
+      <tr><th>Wariant</th><th>Druk (szerokość znaku)</th><th>Ekran (szerokość)</th></tr>
+      <tr><td><b>Lockup poziomy</b></td><td>35 mm</td><td>160 px</td></tr>
+      <tr><td><b>Lockup z hasłem</b></td><td>60 mm</td><td>280 px</td></tr>
+      <tr><td><b>Sygnet</b></td><td>8 mm</td><td>16 px (favicona), zalecane od 24 px</td></tr>
+    </table>
+    <div>
+      <p class="small muted" style="margin-bottom:2mm">Rzeczywista wielkość w druku (100%):</p>
+      <div style="display:flex; align-items:flex-end; gap: 8mm;">
+        <img src="../logo/svg/opiekun-aed-lockup-kolor.svg" alt="" style="width: 35mm;">
+        <img src="../logo/svg/opiekun-aed-sygnet-kolor.svg" alt="" style="width: 8mm;">
+        <img src="../logo/svg/opiekun-aed-sygnet-kolor.svg" alt="" style="width: 12mm;">
+      </div>
+      <p class="small muted" style="margin: 6mm 0 2mm">Ekran, 1 px = 1 px CSS:</p>
+      <div style="display:flex; align-items:flex-end; gap: 6mm;">
+        <img src="../logo/svg/opiekun-aed-lockup-kolor.svg" alt="" style="width: 160px;">
+        <img src="../logo/svg/opiekun-aed-sygnet-kolor.svg" alt="" style="width: 16px;">
+        <img src="../logo/svg/opiekun-aed-sygnet-kolor.svg" alt="" style="width: 24px;">
+        <img src="../logo/svg/opiekun-aed-sygnet-kolor.svg" alt="" style="width: 32px;">
+      </div>
+    </div>
+  </div>
+  <p class="note" style="margin-top: 10mm; max-width: 200mm;">Wymiary dotyczą obszaru znaku bez pola ochronnego. Poniżej minimum lockupu stosujemy sam sygnet. Wartości przyjęto na podstawie podglądu ekranowego; przed drukiem naklejek potwierdzamy je wydrukiem próbnym.</p>
+  <div class="run"><b>Opiekun AED · Księga znaku</b><span>6</span></div>
+</section>
+
+<!-- 7. Kolorystyka -->
+<section class="page">
+  <p class="kicker">06 · Kolorystyka</p>
+  <h1>Pięć stanów, pięć kolorów</h1>
+  <div class="swatches" id="swatches"></div>
+  <div class="grid2" style="margin-top: 7mm; grid-template-columns: 1.2fr 1fr;">
+    <div>
+      <h2>Kontrast (WCAG 2.2)</h2>
+      <table class="small">
+        <tr><td>Granat na bieli</td><td>14,69 : 1</td><td>tekst, znak</td></tr>
+        <tr><td>Niebieski na bieli</td><td>5,92 : 1</td><td>tekst, „AED” w logotypie</td></tr>
+        <tr><td>Biel na granacie</td><td>14,69 : 1</td><td>negatyw</td></tr>
+        <tr><td>Bursztyn na granacie</td><td>5,98 : 1</td><td>akcent na ciemnym tle</td></tr>
+        <tr><td>Bursztyn na bieli</td><td>2,45 : 1</td><td>tylko powierzchnia, nigdy tekst</td></tr>
+        <tr><td>Jasnoniebieski na bieli</td><td>1,69 : 1</td><td>tylko komórka sygnetu</td></tr>
+        <tr><td>Szary na bieli</td><td>3,06 : 1</td><td>obrys, grafika (min. 3 : 1)</td></tr>
+      </table>
+    </div>
+    <div>
+      <h2>Proporcje użycia</h2>
+      <div class="bar"><span style="flex:60;background:var(--cream)"></span><span style="flex:25;background:var(--navy)"></span><span style="flex:10;background:var(--blue)"></span><span style="flex:5;background:var(--amber)"></span></div>
+      <p class="small muted" style="margin-top:1.5mm">60% biel i krem · 25% granat · 10% niebieski · 5% bursztyn i jasnoniebieski</p>
+      <h2 style="margin-top: 5mm;">Negatyw (na granacie)</h2>
+      <div style="display:flex; gap: 2mm;" id="neg"></div>
+      <p class="note" style="margin-top: 4mm;">CMYK to przeliczenie matematyczne z RGB. Przed drukiem dobieramy wartości w profilu drukarni i potwierdzamy wydrukiem próbnym; wtedy dopisujemy też odpowiedniki Pantone.</p>
+    </div>
+  </div>
+  <div class="run"><b>Opiekun AED · Księga znaku</b><span>7</span></div>
+</section>
+
+<!-- 8. Warianty -->
+<section class="page">
+  <p class="kicker">07 · Warianty</p>
+  <h1>Dobór wariantu do tła</h1>
+  <div class="tiles">
+    <div><div class="tile" style="background:#fff"><img src="../logo/svg/opiekun-aed-lockup-kolor.svg" alt="" style="width: 85%"></div><p class="cap"><b>Kolor</b> · domyślny, białe tło</p></div>
+    <div><div class="tile" style="background:var(--cream)"><img src="../logo/svg/opiekun-aed-lockup-kolor.svg" alt="" style="width: 85%"></div><p class="cap"><b>Kolor</b> · jasne tło kremowe</p></div>
+    <div><div class="tile" style="background:var(--navy); border-color: var(--navy)"><img src="../logo/svg/opiekun-aed-lockup-negatyw.svg" alt="" style="width: 85%"></div><p class="cap"><b>Negatyw</b> · granat, ciemne zdjęcia</p></div>
+    <div><div class="tile" style="background:#fff"><img src="../logo/svg/opiekun-aed-lockup-mono.svg" alt="" style="width: 85%"></div><p class="cap"><b>Jednobarwny</b> · druk 1 kolor, pieczątka</p></div>
+    <div><div class="tile" style="background:#fff"><img src="../logo/svg/opiekun-aed-sygnet-kolor.svg" alt="" style="height: 70%"></div><p class="cap"><b>Sygnet kolor</b></p></div>
+    <div><div class="tile" style="background:var(--navy); border-color: var(--navy)"><img src="../logo/svg/opiekun-aed-sygnet-negatyw.svg" alt="" style="height: 70%"></div><p class="cap"><b>Sygnet negatyw</b></p></div>
+    <div><div class="tile" style="background:#fff"><img src="../logo/svg/opiekun-aed-sygnet-mono.svg" alt="" style="height: 70%"></div><p class="cap"><b>Sygnet jednobarwny</b></p></div>
+    <div class="small muted" style="padding-top: 2mm;">W wersji jednobarwnej jasne stany (niepotwierdzony, wycofany) są pustym obrysem, więc znak zachowuje sens bez koloru. Na zdjęciu stosujemy negatyw na granatowej plakietce, jeśli tło nie daje kontrastu co najmniej 4,5 : 1.</div>
+  </div>
+  <div class="run"><b>Opiekun AED · Księga znaku</b><span>8</span></div>
+</section>
+
+<!-- 9. Typografia -->
+<section class="page">
+  <p class="kicker">08 · Typografia</p>
+  <h1>Dwa otwarte kroje</h1>
+  <div class="grid2">
+    <div class="card">
+      <h2>Lexend · logotyp i nagłówki</h2>
+      <div class="specimen">Opiekun AED</div>
+      <p style="font-family:'Lexend'; font-weight:600; font-size: 13pt;">ĄĆĘŁŃÓŚŹŻ ąćęłńóśźż 0123456789</p>
+      <p class="small muted">Bold (700) w logotypie, SemiBold (600) w hasłach i nagłówkach. Licencja SIL Open Font License 1.1. W plikach znaku napis jest zamieniony na krzywe.</p>
+    </div>
+    <div class="card">
+      <h2>Atkinson Hyperlegible · tekst</h2>
+      <div class="specimen2">Zeskanuj i potwierdź dane AED.</div>
+      <p style="font-size: 13pt;">ĄĆĘŁŃÓŚŹŻ ąćęłńóśźż 0123456789</p>
+      <p class="small muted">Krój zaprojektowany z myślą o czytelności dla osób słabowidzących. Regular (400) i Bold (700). Licencja SIL Open Font License 1.1. Tekst ciągły od 10 pt w druku i od 16 px na ekranie.</p>
+    </div>
+  </div>
+  <div class="run"><b>Opiekun AED · Księga znaku</b><span>9</span></div>
+</section>
+
+<!-- 10. Niedozwolone -->
+<section class="page">
+  <p class="kicker">09 · Niedozwolone użycia</p>
+  <h1>Czego nie robimy ze znakiem</h1>
+  <div class="tiles" style="gap: 4mm 5mm;">
+    <div><div class="tile bad" style="height: 30mm"><img src="../logo/svg/opiekun-aed-lockup-kolor.svg" alt="" style="width: 80%; transform: scale(1.18, .72)"></div><p class="cap">Nie rozciągamy ani nie ściskamy.</p></div>
+    <div><div class="tile bad" style="height: 30mm"><img src="../logo/svg/opiekun-aed-lockup-kolor.svg" alt="" style="width: 80%; filter: hue-rotate(130deg) saturate(1.6)"></div><p class="cap">Nie zmieniamy kolorów spoza palety.</p></div>
+    <div><div class="tile bad" style="height: 30mm"><img src="../logo/svg/opiekun-aed-lockup-kolor.svg" alt="" style="width: 80%; filter: drop-shadow(1.2mm 1.2mm .8mm rgba(0,0,0,.55))"></div><p class="cap">Nie dodajemy cieni, obrysów ani efektów 3D.</p></div>
+    <div><div class="tile bad" style="height: 30mm; background: var(--blue)"><img src="../logo/svg/opiekun-aed-lockup-kolor.svg" alt="" style="width: 80%"></div><p class="cap">Nie stawiamy na tle o niskim kontraście.</p></div>
+    <div><div class="tile bad" style="height: 30mm"><img src="../logo/svg/opiekun-aed-lockup-kolor.svg" alt="" style="width: 72%; transform: rotate(-14deg)"></div><p class="cap">Nie obracamy znaku.</p></div>
+    <div><div class="tile bad" style="height: 30mm"><img src="../logo/svg/opiekun-aed-lockup-kolor.svg" alt="" style="width: 80%"><span style="position:absolute; left: 30%; top: 62%; font-weight:700; font-size: 9pt; background: var(--amber); padding: .5mm 2mm; border-radius: 1mm;">PROMOCJA!</span></div><p class="cap">Nie naruszamy pola ochronnego.</p></div>
+    <div><div class="tile bad" style="height: 30mm; gap: 2mm"><span id="mis-font" style="width: 11mm"></span><span style="font-family: Georgia, serif; font-size: 15pt; font-style: italic;">Opiekun AED</span></div><p class="cap">Nie zmieniamy kroju ani proporcji napisu.</p></div>
+    <div><div class="tile bad" style="height: 30mm"><span id="mis-cells" style="width: 22mm"></span></div><p class="cap">Nie przestawiamy komórek i nie zmieniamy ich kolorów.</p></div>
+  </div>
+  <p class="small" style="margin-top: 5mm; columns: 2; column-gap: 10mm;">
+    Nie skalujemy poniżej minimalnej wielkości (s. 6). Nie łączymy znaku z godłem, flagą ani znakami państwowymi w jednym lockupie; znaki partnerów stoją obok, w odstępie 2X. Nie przerabiamy znaku ISO 7010 E010 i nie używamy go jako części logo akcji. Nie używamy znaku ani odznaki, by sugerować, że dane urządzenia są potwierdzone, jeśli rekord nie ma statusu „aktywny”. Nie umieszczamy przy znaku obietnic medycznych ani statystyk uratowanych osób.
+  </p>
+  <div class="run"><b>Opiekun AED · Księga znaku</b><span>10</span></div>
+</section>
+
+<!-- 11. Zastosowania -->
+<section class="page">
+  <p class="kicker">10 · Zastosowania</p>
+  <h1>Naklejka, ikona, odznaka</h1>
+  <div style="display:grid; grid-template-columns: 70mm minmax(0,1.15fr) minmax(0,.85fr); gap: 10mm; align-items: start;">
+    <div>
+      <h2>Naklejka z kodem QR</h2>
+      <div class="sticker">
+        <div id="qr" style="width: 26mm; height: 26mm;"></div>
+        <div>
+          <img src="../logo/svg/opiekun-aed-sygnet-kolor.svg" alt="" style="width: 10mm; margin-left: -1.2mm;">
+          <div style="font-family:'Lexend'; font-weight:700; font-size: 9.5pt; line-height:1.1;">Opiekun <span style="color:var(--blue)">AED</span></div>
+          <div style="font-size: 6.5pt; line-height: 1.25; margin-top: 1mm;">Zeskanuj i potwierdź miejsce oraz godziny dostępu</div>
+          <div style="font-family: ui-monospace, Menlo, monospace; font-size: 5.5pt; margin-top: 1mm;">AED-X6EC4YCAHWEH</div>
+        </div>
+      </div>
+      <p class="small muted" style="margin-top: 2mm;">Skala 1 : 1, 60 × 40 mm. Kod QR dominuje (min. 20 mm), ciemny kod na białym tle. Na naklejce nie ma kodów do szafek ani danych osobowych. Kod na makiecie jest poglądowy.</p>
+    </div>
+    <div>
+      <h2>Ikona aplikacji</h2>
+      <div style="display:flex; gap: 5mm;">
+        <div class="icon" style="background:#EEF3FF"><img src="../logo/svg/opiekun-aed-sygnet-kolor.svg" alt="" style="width: 20mm"></div>
+        <div class="icon" style="background:var(--navy)"><img src="../logo/svg/opiekun-aed-sygnet-negatyw.svg" alt="" style="width: 20mm"></div>
+      </div>
+      <p class="small muted" style="margin-top: 2mm;">Sygnet na jasnym lub granatowym kwadracie z zaokrągleniem według wytycznych platformy. Pole ochronne wewnątrz ikony: 1X.</p>
+      <h2 style="margin-top: 6mm;">Pasek partnerski</h2>
+      <div class="partner">
+        <div class="ph">znak Ministerstwa Cyfryzacji</div><div class="gap"></div>
+        <div class="ph">znak dane.gov.pl</div><div class="gap"></div>
+        <img src="../logo/svg/opiekun-aed-lockup-kolor.svg" alt="" style="width: 32mm">
+      </div>
+      <p class="small muted" style="margin-top: 2mm;">Miejsca na znaki partnerów; pliki znaków pozyskujemy od właścicieli.</p>
+    </div>
+    <div>
+      <h2>Odznaka dostawcy</h2>
+      <div class="badge">
+        <img src="../logo/svg/opiekun-aed-sygnet-kolor.svg" alt="" style="width: 12mm">
+        <div>
+          <div style="font-family:'Lexend'; font-weight:600; font-size: 9.5pt;">Opiekun AED · Hala Sportowa Demonstracyjna</div>
+          <div class="st"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><rect width="10" height="10" rx="2.5" fill="#14274E"/><path d="M2.5 5.2l1.7 1.7 3.4-3.6" stroke="#fff" stroke-width="1.3" fill="none"/></svg> Dane potwierdzone 2026-11</div>
+        </div>
+      </div>
+      <div class="badge" style="margin-top: 3mm;">
+        <img src="../logo/svg/opiekun-aed-sygnet-kolor.svg" alt="" style="width: 12mm">
+        <div>
+          <div style="font-family:'Lexend'; font-weight:600; font-size: 9.5pt;">Opiekun AED · Przykładowa Firma Serwisowa</div>
+          <div class="st"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><rect width="10" height="10" rx="2.5" fill="#F28C28"/><path d="M5 2.3v3.4M5 7.2v.4" stroke="#14274E" stroke-width="1.4" stroke-linecap="round"/></svg> Do potwierdzenia</div>
+        </div>
+      </div>
+      <p class="small muted" style="margin-top: 2mm;">Stan odznaki zawsze ma nazwę i ikonę, nie tylko kolor (WCAG 1.4.1). Odznaka „Dane potwierdzone” tylko dla rekordów o statusie „aktywny”. Nazwy podmiotów na makiecie są przykładowe.</p>
+    </div>
+  </div>
+  <div class="run"><b>Opiekun AED · Księga znaku</b><span>11</span></div>
+</section>
+
+<!-- 12. Pliki i prawa -->
+<section class="page">
+  <p class="kicker">11 · Pliki, prawa, użycie AI</p>
+  <h1>Pliki znaku</h1>
+  <div class="grid2" style="grid-template-columns: 1.2fr 1fr; align-items: start;">
+    <table>
+      <tr><th>Format</th><th>Folder</th><th>Do czego</th></tr>
+      <tr><td><b>SVG</b> (format otwarty)</td><td><code>kampania/logo/svg/</code></td><td>WWW, aplikacje, źródło dla pozostałych formatów</td></tr>
+      <tr><td><b>PDF</b> (wektor)</td><td><code>kampania/logo/pdf/</code></td><td>druk, naklejki</td></tr>
+      <tr><td><b>PNG</b> (przezroczyste tło)</td><td><code>kampania/logo/png/</code></td><td>dokumenty, prezentacje</td></tr>
+      <tr><td><b>JPG</b></td><td><code>kampania/logo/jpg/</code></td><td>tam, gdzie PNG nie jest obsługiwany</td></tr>
+    </table>
+    <div>
+      <p class="small">Każdy format ma 6 plików: <code>lockup</code> i <code>sygnet</code> w wariantach <code>kolor</code>, <code>negatyw</code>, <code>mono</code>. Pliki mają wliczone pole ochronne 1X. Negatyw w JPG i PDF ma tło granatowe, w PNG i SVG przezroczyste.</p>
+      <h2 style="margin-top: 5mm;">Prawa</h2>
+      <p class="small">Autorskie prawa majątkowe do rozwiązania, w tym do znaku i księgi, przechodzą na Ministra Cyfryzacji na warunkach umowy przeniesienia praw (§4 regulaminu zadania). Kroje Lexend i Atkinson Hyperlegible: SIL Open Font License 1.1.</p>
+      <h2 style="margin-top: 5mm;">Użycie AI</h2>
+      <p class="small">Warianty znaku i makiety przygotowano w Figmie z pomocą asystenta AI (Claude) na polecenie zespołu. Kierunek (rezygnacja z zieleni, serce ze stanów rekordu) i wybór wariantu należą do zespołu. Pełny opis: <code>docs/uzycie-ai.md</code>.</p>
+    </div>
+  </div>
+  <div class="run"><b>Opiekun AED · Księga znaku</b><span>12</span></div>
+</section>
+
+<script>
+  const GRID = ["UA.AZ", "AAAAN", ".AAW.", "..A.."];
+  const COLORS = { U: "#A9C8FF", A: "#14274E", Z: "#2456E6", N: "#F28C28" };
+  function mark(grid = GRID, colors = COLORS, opts = {}) {
+    const rows = grid.length, cols = grid[0].length, w = cols * 24 - 4, h = rows * 24 - 4, pad = opts.pad || 0;
+    let s = `<svg viewBox="${-pad} ${-pad} ${w + 2 * pad} ${h + 2 * pad}" width="100%" xmlns="http://www.w3.org/2000/svg">`;
+    if (opts.guides) {
+      for (let c = 0; c <= cols; c++) for (const x of [c * 24, c * 24 - 4]) if (x >= 0 && x <= w) s += `<line x1="${x}" y1="${-pad}" x2="${x}" y2="${h + pad}" stroke="#2456E6" stroke-width=".25" stroke-dasharray="1.2 1.2"/>`;
+      for (let r = 0; r <= rows; r++) for (const y of [r * 24, r * 24 - 4]) if (y >= 0 && y <= h) s += `<line x1="${-pad}" y1="${y}" x2="${w + pad}" y2="${y}" stroke="#2456E6" stroke-width=".25" stroke-dasharray="1.2 1.2"/>`;
+    }
+    grid.forEach((row, r) => [...row].forEach((k, c) => {
+      const x = c * 24, y = r * 24;
+      if (k === "W") s += `<rect x="${x + 1.4}" y="${y + 1.4}" width="17.2" height="17.2" rx="3.6" fill="none" stroke="#8A94A6" stroke-width="2.8"/>`;
+      else if (k !== ".") s += `<rect x="${x}" y="${y}" width="20" height="20" rx="5" fill="${colors[k]}"/>`;
+    }));
+    if (opts.guides) {
+      const t = (x, y, txt, a = "middle") => `<text x="${x}" y="${y}" font-family="Lexend" font-weight="600" font-size="4.2" fill="#2456E6" text-anchor="${a}">${txt}</text>`;
+      s += `<path d="M0 ${-6} h20 M0 ${-7.5} v3 M20 ${-7.5} v3" stroke="#2456E6" stroke-width=".5"/>` + t(10, -8.5, "X");
+      s += `<path d="M20 ${-3} h4" stroke="#2456E6" stroke-width=".5"/>` + t(22, -8.5, "");
+      s += t(22, h + 9, "0,2X");
+      s += `<path d="M20 ${h + 4} v-2 M24 ${h + 4} v-2 M20 ${h + 3} h4" stroke="#2456E6" stroke-width=".5" transform="translate(0 0)"/>`;
+      s += `<path d="M${w + 6} 0 v${h} M${w + 4.5} 0 h3 M${w + 4.5} ${h} h3" stroke="#2456E6" stroke-width=".5"/>` + t(w + 9, h / 2, "4,6X", "start");
+      s += `<path d="M0 ${h + 14} h${w} M0 ${h + 12.5} v3 M${w} ${h + 12.5} v3" stroke="#2456E6" stroke-width=".5"/>` + t(w / 2, h + 20, "5,8X");
+    }
+    return s + "</svg>";
+  }
+  document.getElementById("concept-mark").innerHTML = mark();
+  document.getElementById("construct").innerHTML = mark(GRID, COLORS, { guides: true, pad: 22 });
+  document.getElementById("mis-font").innerHTML = mark();
+  document.getElementById("mis-cells").innerHTML = mark(["AZ.UA", "NAAAA", ".WAA.", "..A.."], { U: "#A9C8FF", A: "#C62828", Z: "#2456E6", N: "#F28C28" });
+
+  const SW = [
+    ["Granat", "#14274E", "aktywny · logotyp · tekst"],
+    ["Niebieski", "#2456E6", "zgłoszony · „AED”"],
+    ["Jasnoniebieski", "#A9C8FF", "niepotwierdzony"],
+    ["Bursztyn", "#F28C28", "nieaktualny · akcent"],
+    ["Szary", "#8A94A6", "wycofany (obrys)"],
+    ["Grafit", "#0D1B1E", "wersja jednobarwna"],
+  ];
+  const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const cmyk = h => { const [r, g, b] = rgb(h).map(v => v / 255), k = 1 - Math.max(r, g, b); return [r, g, b].map(v => k === 1 ? 0 : Math.round((1 - v - k) / (1 - k) * 100)).concat(Math.round(k * 100)); };
+  document.getElementById("swatches").innerHTML = SW.map(([n, h, role]) => `<div class="chip"><div class="c" style="background:${h}"></div><div class="t"><b>${n}</b>${role}<br><code>${h}</code><br>RGB ${rgb(h).join(", ")}<br>CMYK ${cmyk(h).join(", ")}</div></div>`).join("");
+  document.getElementById("neg").innerHTML = [["#FFFFFF", "aktywny"], ["#6E97FF", "zgłoszony"], ["#3E5C99", "niepotw."], ["#F28C28", "nieaktualny"], ["#8FA0C2", "wycofany"]]
+    .map(([h, n]) => `<div style="flex:1; background:#14274E; color:#fff; border-radius:1.5mm; padding:2mm; font-size:7pt;"><div style="height:6mm; border-radius:1mm; background:${n === "wycofany" ? "transparent" : h}; border:${n === "wycofany" ? "1.5px solid " + h : "0"}"></div>${n}<br><code style="font-size:6.5pt">${h}</code></div>`).join("");
+
+  // Placeholder QR pattern (not a real code): finder squares + deterministic noise.
+  (() => {
+    const n = 25; let s = `<svg viewBox="-2 -2 ${n + 4} ${n + 4}" width="100%" height="100%" shape-rendering="crispEdges"><rect x="-2" y="-2" width="${n + 4}" height="${n + 4}" fill="#fff"/>`;
+    let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    const finder = (x, y) => `<rect x="${x}" y="${y}" width="7" height="7" fill="#0D1B1E"/><rect x="${x + 1}" y="${y + 1}" width="5" height="5" fill="#fff"/><rect x="${x + 2}" y="${y + 2}" width="3" height="3" fill="#0D1B1E"/>`;
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      const inF = (x < 8 && y < 8) || (x > n - 9 && y < 8) || (x < 8 && y > n - 9);
+      if (!inF && rnd() > .52) s += `<rect x="${x}" y="${y}" width="1" height="1" fill="#0D1B1E"/>`;
+    }
+    document.getElementById("qr").innerHTML = s + finder(0, 0) + finder(n - 7, 0) + finder(0, n - 7) + "</svg>";
+  })();
+</script>
+</body>
+</html>
