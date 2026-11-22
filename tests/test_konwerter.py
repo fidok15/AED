@@ -36,6 +36,13 @@ def auto(path):
 
 
 class ConverterTest(unittest.TestCase):
+    def test_the_demo_file_for_the_converter_becomes_a_valid_list(self):
+        """wzorzec/przyklad-konwerter-gmina.csv is shown on stage: semicolons, decimal commas, dd.mm.yyyy, one address column."""
+        a, (text, rep) = auto(os.path.join(ROOT, "wzorzec", "przyklad-konwerter-gmina.csv"))
+        self.assertEqual((rep["status"], rep["poprawne"], rep["odrzucone"]), ("przyjety", 6, 0))
+        self.assertEqual(len(rep["normalizacje"]), 4)  # two coordinate columns, two date columns
+        self.assertIn("Fikcyjnowo,ulica,Demonstracyjna,1", text)
+
     def test_an_error_after_many_warnings_stays_in_the_cut_report(self):
         """The portal form decides from the first MAX_PROBLEMS problems whether a list can be saved."""
         _, (text, _) = auto(KROSNO)
